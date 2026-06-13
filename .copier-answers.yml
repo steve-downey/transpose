@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: 732f8ac
+_commit: 090639b
 _src_path: /home/sdowney/src/example/main/
 include_prefix: smd
 library_name: transpose
@@ -9,3 +9,4 @@ namespace: transpose
 project_slug: transpose
 project_title: Transpose Contexts
 sample_value: Steve
+test_framework: catch2

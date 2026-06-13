@@ -7,15 +7,15 @@ target_sources(
 )
 
 ## Tests
-if(TRANSPOSE_ENABLE_TESTING AND NOT GTest_FOUND)
-    find_package(GTest QUIET)
-    if(GTest_FOUND)
-        include(GoogleTest)
+if(TRANSPOSE_ENABLE_TESTING AND NOT Catch2_FOUND)
+    find_package(Catch2 3 QUIET)
+    if(Catch2_FOUND)
+        include(Catch)
     else()
         message(
             WARNING
             "
-No provider for GTest. Unable to build tests.
+No provider for Catch2. Unable to build tests.
 Consider using CMAKE_PROJECT_TOP_LEVEL_INCLUDES=./cmake/use-fetch-content.cmake as documented in the README.md
 "
         )
@@ -28,9 +28,8 @@ if(TRANSPOSE_ENABLE_TESTING)
     target_sources(transpose_test PRIVATE transpose.test.cpp)
 
     target_link_libraries(transpose_test transpose.transpose)
-    target_link_libraries(transpose_test GTest::gtest)
-    target_link_libraries(transpose_test GTest::gtest_main)
+    target_link_libraries(transpose_test Catch2::Catch2WithMain)
 
-    include(GoogleTest)
-    gtest_discover_tests(transpose_test)
+    include(Catch)
+    catch_discover_tests(transpose_test)
 endif()
