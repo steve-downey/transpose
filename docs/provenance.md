@@ -54,10 +54,18 @@ rewritten:
   leaned on `beman::optional` and on tree types that are out of scope here.
   Fresh, namespace-correct tests were written, including an explicit
   three-domain proof in `tests/beman/transpose/transpose.test.cpp`.
-- **`.copier-answers.yml` left untouched.** It records the original `example`
-  template stamping (`include_prefix: smd`) and is marked "NEVER EDIT
-  MANUALLY". It is stale relative to the Beman layout adopted here and is
-  retained only for historical reference.
+- **`.copier-answers.yml` re-pointed to the Beman copier exemplar.** The repo
+  was originally stamped from a different (cookiecutter-style) `example`
+  template. The answers file was rewritten in Copier's format to track the
+  Beman exemplar copier template
+  (`https://github.com/steve-downey/exemplar.git`, `_commit
+  v2.4.1-35-g2313d70`), with answers matching this repo (`project_name:
+  transpose`, `minimum_cpp_build_version: '23'`, `unit_test_library: catch2`,
+  `paper: P3200`). The template currently lives on the `copier` branch (PR not
+  yet merged upstream), so updates use `copier update --trust --vcs-ref copier`.
+  Only the answers file was re-pointed; template-managed files (CMake, presets,
+  CI) were not regenerated, to preserve this repo's hand-built layout and
+  custom Makefile workflow.
 
 ## Synchronization policy
 
