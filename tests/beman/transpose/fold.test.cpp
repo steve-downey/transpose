@@ -23,10 +23,9 @@ TEST_CASE("fold: fold_left and fold_right accumulate") {
     const auto &f = bt::foldable_typeclass<bt::test::Sequence<int>>;
     bt::test::Sequence<int> seq{{1, 2, 3, 4}};
     REQUIRE(f.fold_left(seq, 0, [](int acc, int x) { return acc + x; }) == 10);
-    REQUIRE(f.fold_right(seq, std::string{},
-                         [](int x, std::string acc) {
-                             return acc + std::to_string(x);
-                         }) == "4321");
+    REQUIRE(f.fold_right(seq, std::string{}, [](int x, std::string acc) {
+        return acc + std::to_string(x);
+    }) == "4321");
 }
 
 TEST_CASE("fold: any_of, all_of, find_first") {

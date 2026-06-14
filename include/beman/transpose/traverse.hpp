@@ -28,12 +28,12 @@ namespace beman::transpose {
  */
 template <class Impl>
 struct Traversable : protected Impl {
-    static_assert(
-        !std::is_same_v<Impl, std::false_type>,
-        "No traversable_typeclass<T> specialization found. "
-        "Specialize beman::transpose::traversable_typeclass<T> for your type T, "
-        "provide traverse(applicative, F, T), and declare 'using "
-        "element_type = T;'.");
+    static_assert(!std::is_same_v<Impl, std::false_type>,
+                  "No traversable_typeclass<T> specialization found. "
+                  "Specialize beman::transpose::traversable_typeclass<T> for "
+                  "your type T, "
+                  "provide traverse(applicative, F, T), and declare 'using "
+                  "element_type = T;'.");
     static_assert(
         requires { typename Impl::element_type; },
         "Traversable Impl must declare 'using element_type = T;' "
