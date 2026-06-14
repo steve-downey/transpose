@@ -15,9 +15,8 @@ namespace bt = beman::transpose;
 
 int main() {
     // Domain 1 — fallible value: vector<optional<T>> -> optional<vector<T>>.
-    std::vector<std::optional<int>> maybe{std::optional<int>{1},
-                                          std::optional<int>{2},
-                                          std::optional<int>{3}};
+    std::vector<std::optional<int>> maybe{
+        std::optional<int>{1}, std::optional<int>{2}, std::optional<int>{3}};
     if (auto all = bt::transpose(maybe)) {
         std::cout << "optional: got " << all->size() << " values\n";
     }

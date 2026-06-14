@@ -63,7 +63,8 @@ struct SenderApplicativeImpl {
     template <class F, class A>
     auto apply(this auto &&, const sender<F> &functions,
                const sender<A> &arguments) {
-        using Result = decltype(std::invoke(std::declval<F>(), std::declval<A>()));
+        using Result =
+            decltype(std::invoke(std::declval<F>(), std::declval<A>()));
         using U = remove_cvref_t<Result>;
         return sender<U>{[functions, arguments]() -> U {
             return std::invoke(functions.get(), arguments.get());

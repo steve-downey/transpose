@@ -25,8 +25,8 @@ TEST_CASE("sender: applicative defers work until get") {
         }};
     };
 
-    auto combined = app.invoke([](int a, int b) { return a + b; }, make(3),
-                               make(4));
+    auto combined =
+        app.invoke([](int a, int b) { return a + b; }, make(3), make(4));
     REQUIRE(*runs == 0);
     REQUIRE(combined.get() == 7);
     REQUIRE(*runs == 2);
