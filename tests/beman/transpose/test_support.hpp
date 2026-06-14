@@ -67,7 +67,8 @@ template <class VALUE_TYPE>
 struct TestIdentityApplicativeImpl {
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value) {
-        return test::Identity<remove_cvref_t<VALUE>>{std::forward<VALUE>(value)};
+        return test::Identity<remove_cvref_t<VALUE>>{
+            std::forward<VALUE>(value)};
     }
 
     template <class FUNCTION_IN_CONTEXT, class ARGUMENT_IN_CONTEXT>
@@ -112,7 +113,8 @@ struct TestSequenceFoldableImpl {
 };
 
 template <class VALUE_TYPE>
-struct TestSequenceFoldableMap : Foldable<TestSequenceFoldableImpl<VALUE_TYPE>> {
+struct TestSequenceFoldableMap
+    : Foldable<TestSequenceFoldableImpl<VALUE_TYPE>> {
     using TestSequenceFoldableImpl<VALUE_TYPE>::fold_map;
 };
 

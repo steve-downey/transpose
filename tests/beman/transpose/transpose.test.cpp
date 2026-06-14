@@ -16,16 +16,14 @@
 
 namespace bt = beman::transpose;
 
-TEST_CASE("transpose: optional domain (vector<optional<T>> -> optional<vector<T>>)") {
-    std::vector<std::optional<int>> all{std::optional<int>{1},
-                                        std::optional<int>{2},
-                                        std::optional<int>{3}};
-    REQUIRE(bt::transpose(all) ==
-            std::optional<std::vector<int>>{{1, 2, 3}});
+TEST_CASE(
+    "transpose: optional domain (vector<optional<T>> -> optional<vector<T>>)") {
+    std::vector<std::optional<int>> all{
+        std::optional<int>{1}, std::optional<int>{2}, std::optional<int>{3}};
+    REQUIRE(bt::transpose(all) == std::optional<std::vector<int>>{{1, 2, 3}});
 
-    std::vector<std::optional<int>> gapped{std::optional<int>{1},
-                                           std::optional<int>{},
-                                           std::optional<int>{3}};
+    std::vector<std::optional<int>> gapped{
+        std::optional<int>{1}, std::optional<int>{}, std::optional<int>{3}};
     REQUIRE(bt::transpose(gapped) == std::optional<std::vector<int>>{});
 }
 
@@ -49,7 +47,8 @@ TEST_CASE("transpose: sender domain (vector<sender<T>> -> sender<vector<T>>)") {
     REQUIRE(*runs == 3);
 }
 
-TEST_CASE("transpose: zip/SIMD domain (vector<zip_list<T>> -> zip_list<vector<T>>)") {
+TEST_CASE(
+    "transpose: zip/SIMD domain (vector<zip_list<T>> -> zip_list<vector<T>>)") {
     // Three structure positions, each a 2-lane computation.
     std::vector<bt::zip_list<int>> lanes{
         bt::zip_list<int>{{1, 2}},

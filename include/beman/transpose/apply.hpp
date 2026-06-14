@@ -94,10 +94,11 @@ auto make_terminating_partial(FUNCTION &&function) {
  */
 template <class Impl>
 struct Applicative : protected Impl {
-    static_assert(!std::is_same_v<Impl, std::false_type>,
-                  "No applicative_typeclass<T> specialization found. "
-                  "Specialize beman::transpose::applicative_typeclass<T> for "
-                  "your type T and provide pure(...) and apply(...) operations.");
+    static_assert(
+        !std::is_same_v<Impl, std::false_type>,
+        "No applicative_typeclass<T> specialization found. "
+        "Specialize beman::transpose::applicative_typeclass<T> for "
+        "your type T and provide pure(...) and apply(...) operations.");
     // Alternate-core: pure + apply are the primitives; invoke and all others
     // derive from them.
     using Impl::apply;

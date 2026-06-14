@@ -17,9 +17,8 @@ int main() {
     std::vector<int> xs{1, 2, 3, 4, 5};
 
     std::cout << "length: " << f.length(xs) << '\n';
-    std::cout << "sum: " << f.fold_left(xs, 0, [](int a, int x) {
-        return a + x;
-    }) << '\n';
+    std::cout << "sum: "
+              << f.fold_left(xs, 0, [](int a, int x) { return a + x; }) << '\n';
     std::cout << "any > 4: "
               << (f.any_of(xs, [](int x) { return x > 4; }) ? "yes" : "no")
               << '\n';

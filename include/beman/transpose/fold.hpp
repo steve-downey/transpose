@@ -204,11 +204,12 @@ struct Monoid<detail::First<VALUE_TYPE>> {
  */
 template <class Impl>
 struct Foldable : protected Impl {
-    static_assert(!std::is_same_v<Impl, std::false_type>,
-                  "No foldable_typeclass<T> specialization found. "
-                  "Specialize beman::transpose::foldable_typeclass<T> for your "
-                  "type T and provide fold_map(F, T) or fold_right(T, STATE, F) "
-                  "+ element_type.");
+    static_assert(
+        !std::is_same_v<Impl, std::false_type>,
+        "No foldable_typeclass<T> specialization found. "
+        "Specialize beman::transpose::foldable_typeclass<T> for your "
+        "type T and provide fold_map(F, T) or fold_right(T, STATE, F) "
+        "+ element_type.");
     // Alternate-core: Impl provides either fold_map or fold_right as primitive.
     // The Map class's using-declaration selects which; the base derives the
     // other. Haskell equivalent: {-# MINIMAL foldMap | foldr #-}
@@ -234,8 +235,8 @@ struct Foldable : protected Impl {
     /** Returns the number of elements in the foldable container. */
     template <class T>
     auto length(this auto &&self, T &&value) -> std::size_t {
-        const auto count = self.fold_map(
-            [](const auto &) { return Count{1}; }, std::forward<T>(value));
+        const auto count = self.fold_map([](const auto &) { return Count{1}; },
+                                         std::forward<T>(value));
         return count.d_value;
     }
 
