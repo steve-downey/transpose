@@ -1,10 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Standard answers and internal state managed by Copier
-# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY.
-# This project tracks the Beman exemplar copier template. Because the template
-# currently lives on the `copier` branch of the fork (PR not yet merged),
-# update with:
-#     copier update --trust --vcs-ref copier
-_commit: caf4bdbc51a1aae7c38114dba36c762ebfe1c100
+_commit: v2.4.1-14-g66b1f43
 _src_path: ~/src/steve-downey/exemplar/copier
 description: Shape-preserving traversal and transposition for contextual computations
 maintainer: steve-downey

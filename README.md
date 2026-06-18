@@ -2,10 +2,13 @@
 
 <!-- SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception -->
 
-`beman.transpose` is a C++ library implementing the traversal and transposition
-facility of **Paper A** (the anchor of the P3200 coordinated proposal set),
-following [The Beman Standard](https://github.com/bemanproject/beman/blob/main/docs/beman_standard.md)
-project layout.
+<!-- markdownlint-disable line-length -->
+[![Library Status](https://raw.githubusercontent.com/bemanproject/beman/refs/heads/main/images/badges/beman_badge-beman_library_under_development.svg)](https://github.com/bemanproject/beman/blob/main/docs/beman_library_maturity_model.md#the-beman-library-maturity-model)
+[![Continuous Integration Tests](https://github.com/bemanproject/transpose/actions/workflows/ci_tests.yml/badge.svg)](https://github.com/bemanproject/transpose/actions/workflows/ci_tests.yml)
+[![Lint Check (pre-commit)](https://github.com/bemanproject/transpose/actions/workflows/pre-commit-check.yml/badge.svg)](https://github.com/bemanproject/transpose/actions/workflows/pre-commit-check.yml)
+[![Coverage](https://coveralls.io/repos/github/bemanproject/transpose/badge.svg?branch=main)](https://coveralls.io/github/bemanproject/transpose?branch=main)
+![Standard Target](https://github.com/bemanproject/beman/blob/main/images/badges/cpp29.svg)
+<!-- markdownlint-restore -->
 
 **Implements**: shape-preserving `traverse` / `transpose` plus a bundled
 customization (typeclass-object) mechanism, proposed in *Shape-Preserving
@@ -19,6 +22,12 @@ C++ has many vocabulary types and computational contexts that are individually
 well understood, but no uniform way to traverse a structure while producing
 contextual results and then *transpose* the result into a single outer context:
 
+### Build
+
+You can build transpose using a CMake workflow preset:
+
+```bash
+cmake --workflow --preset gcc-release
 ```
 structure<context<T>>  ->  context<structure<T>>
 ```
