@@ -4,8 +4,8 @@
 # currently lives on the `copier` branch of the fork (PR not yet merged),
 # update with:
 #     copier update --trust --vcs-ref copier
-_commit: v2.4.1-35-g2313d70
-_src_path: https://github.com/steve-downey/exemplar.git
+_commit: caf4bdbc51a1aae7c38114dba36c762ebfe1c100
+_src_path: ~/src/steve-downey/exemplar/copier
 description: Shape-preserving traversal and transposition for contextual computations
 maintainer: steve-downey
 minimum_cpp_build_version: '23'
