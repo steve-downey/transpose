@@ -8,6 +8,7 @@ target_sources(
             FILES
                 config.hpp
                 apply.hpp
+                array.hpp
                 dual_monoid.hpp
                 fold.hpp
                 functor.hpp

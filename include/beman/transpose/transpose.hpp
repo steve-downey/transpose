@@ -16,6 +16,7 @@
 #include <beman/transpose/config.hpp>
 
 #include <beman/transpose/apply.hpp>
+#include <beman/transpose/array.hpp>
 #include <beman/transpose/dual_monoid.hpp>
 #include <beman/transpose/fold.hpp>
 #include <beman/transpose/functor.hpp>
