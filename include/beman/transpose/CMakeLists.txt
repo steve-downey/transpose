@@ -18,6 +18,7 @@ target_sources(
                 transpose.hpp
                 traverse.hpp
                 zip_list.hpp
+                simd_lanes.hpp
                 detail/typeclass_base.hpp
                 "${PROJECT_BINARY_DIR}/include/beman/transpose/config_generated.hpp"
 )

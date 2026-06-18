@@ -26,6 +26,10 @@
 #include <beman/transpose/traverse.hpp>
 #include <beman/transpose/zip_list.hpp>
 
+#if __has_include(<simd>)
+#include <beman/transpose/simd_lanes.hpp>
+#endif
+
 #include <utility>
 
 namespace beman::transpose {

@@ -3,6 +3,12 @@
 
 set(ALL_EXAMPLES transpose_example traverse_example apply_example fold_example)
 
+include(CheckIncludeFileCXX)
+check_include_file_cxx(simd BEMAN_TRANSPOSE_HAS_SIMD)
+if(BEMAN_TRANSPOSE_HAS_SIMD)
+    list(APPEND ALL_EXAMPLES simd_example)
+endif()
+
 foreach(example ${ALL_EXAMPLES})
     add_executable(beman.transpose.examples.${example})
     target_sources(beman.transpose.examples.${example} PRIVATE ${example}.cpp)
