@@ -16,6 +16,7 @@
 #include <beman/transpose/config.hpp>
 
 #include <beman/transpose/apply.hpp>
+#include <beman/transpose/array.hpp>
 #include <beman/transpose/dual_monoid.hpp>
 #include <beman/transpose/fold.hpp>
 #include <beman/transpose/functor.hpp>
@@ -25,6 +26,10 @@
 #include <beman/transpose/sequence.hpp>
 #include <beman/transpose/traverse.hpp>
 #include <beman/transpose/zip_list.hpp>
+
+#if __has_include(<simd>)
+#include <beman/transpose/simd_lanes.hpp>
+#endif
 
 #include <utility>
 
