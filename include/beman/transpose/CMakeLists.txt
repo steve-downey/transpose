@@ -8,6 +8,7 @@ target_sources(
             FILES
                 config.hpp
                 apply.hpp
+                array.hpp
                 dual_monoid.hpp
                 fold.hpp
                 functor.hpp
@@ -18,6 +19,7 @@ target_sources(
                 transpose.hpp
                 traverse.hpp
                 zip_list.hpp
+                simd_lanes.hpp
                 detail/typeclass_base.hpp
                 "${PROJECT_BINARY_DIR}/include/beman/transpose/config_generated.hpp"
 )
