@@ -158,6 +158,9 @@
   (setq org-re-reveal-root "file:////home/sdowney/bld/reveal.js"))
 
 
+(use-package ox-gfm
+  :after (org))
+
 (use-package org-transclusion
   :after org
   :bind (:map
@@ -171,3 +174,5 @@
 (use-package with-editor)
 
 (use-package citeproc :ensure t :after org)
+
+(setq org-export-allow-bind-keywords t)
