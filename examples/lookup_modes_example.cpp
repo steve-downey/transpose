@@ -12,9 +12,10 @@
 
 namespace bt = beman::transpose;
 
-// NTTP pinning: the typeclass object is captured at template instantiation time.
-template <class CONTEXT, const auto& FUNCTOR = bt::functor_typeclass<CONTEXT>>
-auto fmap_plus_one(const CONTEXT& value) {
+// NTTP pinning: the typeclass object is captured at template instantiation
+// time.
+template <class CONTEXT, const auto &FUNCTOR = bt::functor_typeclass<CONTEXT>>
+auto fmap_plus_one(const CONTEXT &value) {
     return FUNCTOR.fmap([](int x) { return x + 1; }, value);
 }
 
@@ -23,17 +24,16 @@ int main() {
 
     // Mode 1: Implicit lookup — retrieve the typeclass object via the
     // functor_typeclass variable template and call fmap on it.
-    const auto& functor = bt::functor_typeclass<std::optional<int>>;
+    const auto &functor = bt::functor_typeclass<std::optional<int>>;
     auto result1 = functor.fmap([](int x) { return x + 1; }, value);
     std::cout << "implicit lookup:  " << result1.value_or(-1) << "\n";
 
     // Mode 2: Explicit object argument — pass the typeclass object explicitly
     // to a function that uses it by const ref.
-    auto fmap_with = [](const auto& tc, const auto& val) {
+    auto fmap_with = [](const auto &tc, const auto &val) {
         return tc.fmap([](int x) { return x + 1; }, val);
     };
-    auto result2 =
-        fmap_with(bt::functor_typeclass<std::optional<int>>, value);
+    auto result2 = fmap_with(bt::functor_typeclass<std::optional<int>>, value);
     std::cout << "explicit object:  " << result2.value_or(-1) << "\n";
 
     // Mode 3: NTTP pinning — the typeclass object is fixed at the

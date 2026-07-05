@@ -38,21 +38,22 @@ struct simd_lanes {
         return result;
     }
 
-    friend auto operator==(const simd_lanes&, const simd_lanes&) -> bool = default;
+    friend auto operator==(const simd_lanes &, const simd_lanes &)
+        -> bool = default;
 };
 
 template <class T, int N>
 struct SimdLanesApplicativeImpl {
     template <class VALUE>
-    auto pure(this auto&&, VALUE&& value) {
+    auto pure(this auto &&, VALUE &&value) {
         using U = remove_cvref_t<VALUE>;
         return simd_lanes<U, N>::repeat(U(std::forward<VALUE>(value)));
     }
 
     template <class F, class A>
-    auto apply(this auto&&, const simd_lanes<F, N>& functions,
-               const simd_lanes<A, N>& arguments) {
-        using Result = std::invoke_result_t<const F&, const A&>;
+    auto apply(this auto &&, const simd_lanes<F, N> &functions,
+               const simd_lanes<A, N> &arguments) {
+        using Result = std::invoke_result_t<const F &, const A &>;
         using U = remove_cvref_t<Result>;
 
         simd_lanes<U, N> result;
@@ -63,11 +64,11 @@ struct SimdLanesApplicativeImpl {
     }
 
     template <class FUNCTION, class FIRST, class... REST>
-    auto invoke(this auto&&, FUNCTION&& function, const FIRST& first,
-                const REST&... rest) {
+    auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
+                const REST &...rest) {
         using Result =
-            std::invoke_result_t<FUNCTION, const typename FIRST::value_type&,
-                                 const typename REST::value_type&...>;
+            std::invoke_result_t<FUNCTION, const typename FIRST::value_type &,
+                                 const typename REST::value_type &...>;
         using U = remove_cvref_t<Result>;
 
         simd_lanes<U, N> result;
@@ -80,8 +81,7 @@ struct SimdLanesApplicativeImpl {
 };
 
 template <class T, int N>
-struct SimdLanesApplicativeMap
-    : Applicative<SimdLanesApplicativeImpl<T, N>> {
+struct SimdLanesApplicativeMap : Applicative<SimdLanesApplicativeImpl<T, N>> {
     using SimdLanesApplicativeImpl<T, N>::apply;
     using SimdLanesApplicativeImpl<T, N>::pure;
 };

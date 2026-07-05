@@ -9,6 +9,8 @@
 //   Each structure position holds an N-wide SIMD computation; transposition
 //   yields N complete structures, one per hardware lane.
 
+#if __has_include(<simd>) && __cplusplus > 202302L
+
 #include <beman/transpose/transpose.hpp>
 
 #include <simd>
@@ -28,9 +30,9 @@ int main() {
     // Think: three data-parallel computations (one per structure position),
     // each producing W results simultaneously.
 
-    vec4 sa([](int i) { return i + 1; });          // {1, 2, 3, 4}
-    vec4 sb([](int i) { return (i + 1) * 10; });   // {10, 20, 30, 40}
-    vec4 sc([](int i) { return (i + 1) * 100; });  // {100, 200, 300, 400}
+    vec4 sa([](int i) { return i + 1; });         // {1, 2, 3, 4}
+    vec4 sb([](int i) { return (i + 1) * 10; });  // {10, 20, 30, 40}
+    vec4 sc([](int i) { return (i + 1) * 100; }); // {100, 200, 300, 400}
 
     // Transfer from hardware SIMD registers into the applicative context.
     bt::simd_lanes<int, W> lane_a, lane_b, lane_c;
@@ -86,3 +88,15 @@ int main() {
 
     return 0;
 }
+
+#else // std::simd (P1928, C++26) unavailable in this configuration
+
+#include <iostream>
+
+int main() {
+    std::cout << "std::simd (P1928, C++26) is unavailable in this "
+                 "configuration; simd_example skipped.\n";
+    return 0;
+}
+
+#endif

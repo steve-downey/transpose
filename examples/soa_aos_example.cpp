@@ -35,7 +35,7 @@ int main() {
     std::cout << "tuple<array<int,4>, array<double,4>, array<char,4>>\n"
               << "  -> array<tuple<int, double, char>, 4>\n\n";
     for (std::size_t i = 0; i < aos.size(); ++i) {
-        auto& [id, value, tag] = aos[i];
+        auto &[id, value, tag] = aos[i];
         std::cout << "  record " << i << ": {" << id << ", " << value << ", '"
                   << tag << "'}\n";
     }
@@ -47,14 +47,15 @@ int main() {
     };
     auto dup_aos = bt::transpose_tuple(dup);
 
-    std::cout << "\ntuple<array<int,3>, array<int,3>> -> array<tuple<int,int>, 3>\n";
+    std::cout
+        << "\ntuple<array<int,3>, array<int,3>> -> array<tuple<int,int>, 3>\n";
     for (std::size_t i = 0; i < dup_aos.size(); ++i) {
-        auto& [a, b] = dup_aos[i];
+        auto &[a, b] = dup_aos[i];
         std::cout << "  [" << i << "] = {" << a << ", " << b << "}\n";
     }
 
     // --- The array applicative also works standalone for lanewise computation.
-    const auto& app = bt::applicative_typeclass<std::array<int, 4>>;
+    const auto &app = bt::applicative_typeclass<std::array<int, 4>>;
     std::array<int, 4> xs{1, 2, 3, 4};
     std::array<int, 4> ys{10, 20, 30, 40};
     auto sums = app.invoke([](int x, int y) { return x + y; }, xs, ys);
