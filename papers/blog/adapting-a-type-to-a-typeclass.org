@@ -187,6 +187,18 @@ Write one or two functions.
 Get a full API.
 That is the trade, and it is the whole reason adapting a type is cheap enough to actually do.
 
+* The technique is optional; the contract is not
+
+The three layers --- Impl, base, Map --- are a /convenience/, not a requirement.
+They exist so the common case costs one or two functions instead of a dozen.
+But a typeclass instance is, in the end, just the looked-up /dictionary/: a value that carries the concept's operations under their agreed names.
+The only contract it must honour is that the names are all /there/ and that they /behave lawfully/ --- that ~fold_map~ really folds, that ~pure~ and ~apply~ satisfy the applicative laws, that ~traverse~ preserves shape.
+
+/How/ you produce a dictionary that meets that contract is entirely your business.
+Derive it from a small core with the CRTP base, as here; or hand-write every operation; or generate it; or wrap an existing library.
+Two instances of the same typeclass can be built by completely different means and remain interchangeable to every algorithm, because the algorithm sees only the dictionary and trusts only its laws --- never how the dictionary was made.
+That is the freedom ~std::numeric_limits~ has always had: nothing dictates /how/ a specialization computes ~max()~, only that it is present and correct.
+
 * You write the primitive you /can/ write
 
 Read the Foldable row again: ~fold_map~ *or* ~fold_right~.
