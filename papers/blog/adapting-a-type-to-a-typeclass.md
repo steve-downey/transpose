@@ -1,14 +1,14 @@
-<div class="abstract" id="org7628b53">
+<div class="abstract" id="orgc634592">
 <p>
 Part one ended on a puzzle: <code>optional</code>, a <code>std::execution</code> sender, and a lanewise SIMD value share no base class, no common header, no member named <code>transpose</code> &#x2014; yet each plugs into the same front door.
 This is how, from the side that matters most to you if you own a type: what does it cost to make <i>your</i> type join in?
 The answer is about three lines, and you never reopen a class you don't own.
-This is part two of four.
+This is part three of five.
 </p>
 
 </div>
 
-*This is part two of a short series.* *Part one,* [Transposing Structure and Context](transposing-structure-and-context.md), *named the problem: one `transpose` verb that flips `structure<context<T>>` into `context<structure<T>>`, and asked what lets three unrelated contexts plug into one front door with no shared base class and no registry.* *This post answers that from the* type adapter's *chair. Part three,* [Writing Algorithms with Typeclass Objects](writing-algorithms-with-typeclass-objects.md), *answers it from the* algorithm author's.
+*This is part three of a short series.* *Part one,* [Transposing Structure and Context](transposing-structure-and-context.md), *named the problem; part two,* [Context is Applicative, Structure is Traversable](how-traverse-and-transpose-work.md), *opened the machinery &#x2014; `traverse` and `transpose` built from a Traversable structure and an Applicative context.* *This post takes the* type adapter's *chair: what it takes to make `optional`, a sender, or your own type into one of those instances. Part four,* [Writing Algorithms with Typeclass Objects](writing-algorithms-with-typeclass-objects.md), *takes the* algorithm author's.
 
 
 # You already know this pattern
@@ -61,6 +61,13 @@ inline constexpr auto functor_typeclass<std::optional<VALUE_TYPE>> =
 ```
 
 There is no monkey-patching here and no central registry that every adapter must edit. Two types adapted by two different people in two different headers never collide, because a variable-template specialization is just a definition keyed on a type.
+
+
+# An instance, not the typeclass &#x2014; and not necessarily for everyone
+
+Notice what you did *not* do. You did not define Foldable. Foldable &#x2014; the concept, the `fold_map` primitive, the ten derived operations, the base that produces them &#x2014; is part of the proposal, written once, for everyone. What you wrote is an *instance*: the single fact that *your* type is Foldable, and how. That division of labour is the whole reason three lines is enough &#x2014; the typeclass and every algorithm written against it already exist, waiting only for an instance to connect your type to them.
+
+And the instance is a *value*, which makes registering it globally a choice rather than an obligation. The specialization above is a *global* declaration: for the whole program, `BinaryTree<T>` is Foldable *this* way. For a `BinaryTree` that is exactly right &#x2014; there is one obvious way it folds. But when the type is a third party's, or a `std` vocabulary type, a global instance quietly commits *everyone* to your choice of the canonical mapping, and that may not be yours to make. You are not forced into it. Because the instance is an ordinary object, you can leave it unregistered and hand it to an algorithm directly &#x2014; the generic algorithms accept an explicit instance, or take it as a pinned template parameter, precisely so an adaptation can be local to the code that needs it instead of a fact imposed on the whole program. Part four walks through those lookup modes; the point here is only that *writing an instance* and *declaring it for everyone* are separate steps, and you may stop after the first.
 
 
 # You write a little; you get a lot
@@ -172,13 +179,13 @@ So which primitive does the *library* actually build on? `apply`. The Applicativ
 
 There is a real question lurking, worth naming and leaving open: could a context be an applicative on `invoke` *alone*, with no `apply` underneath? You would give up partial application &#x2014; there is no in-context function to hand arguments to one at a time. But every applicative chain can be refactored into a single `invoke` that starts from `pure(f)` and takes all its arguments at once &#x2014; which is exactly what `invoke` does &#x2014; so perhaps not much is lost. That is a thread for another day; `std::simd` is the reason it is worth pulling.
 
-The adapter's takeaway is smaller and concrete. Because the operations are *bundled* and the base derives the many from the few, you write one or two primitives and inherit a full surface &#x2014; and, as Foldable shows, the bundle can even accept *either* of two cores and fill in the other. A pile of independent one-CPO-per-operation hooks cannot make that trade: each operation stands alone, with nowhere to say "derive this one from that one," or "either of these will do." That coherence &#x2014; primitive and derived kept together &#x2014; is what a standard vocabulary for this should provide, and it is the through-line of part three.
+The adapter's takeaway is smaller and concrete. Because the operations are *bundled* and the base derives the many from the few, you write one or two primitives and inherit a full surface &#x2014; and, as Foldable shows, the bundle can even accept *either* of two cores and fill in the other. A pile of independent one-CPO-per-operation hooks cannot make that trade: each operation stands alone, with nowhere to say "derive this one from that one," or "either of these will do." That coherence &#x2014; primitive and derived kept together &#x2014; is what a standard vocabulary for this should provide, and it is the through-line of part four.
 
 
 # What it cost you, and what you got
 
 Tally the adapter's bill. You wrote one primitive operation &#x2014; or two, for Applicative &#x2014; in a small `Impl` struct. You wrote a Map that names which primitive that was. You wrote a three-line variable-template specialization to register it. You did not derive from anything, reopen anything, edit a registry, or coordinate with any other adapter. You did not touch the data type, which may not even be yours to touch.
 
-In return your type gained the full derived surface in the table above, and &#x2014; this is the part that pays off in part three &#x2014; it now flows through every generic algorithm written against these typeclasses, unchanged, with static dispatch and no virtual calls. The optional you just adapted, the tree someone else adapted, the `simd_lanes` carrying a hardware SIMD result: the same algorithm runs over all of them.
+In return your type gained the full derived surface in the table above, and &#x2014; this is the part that pays off in part four &#x2014; it now flows through every generic algorithm written against these typeclasses, unchanged, with static dispatch and no virtual calls. The optional you just adapted, the tree someone else adapted, the `simd_lanes` carrying a hardware SIMD result: the same algorithm runs over all of them.
 
-That is the other half of the story, and the reason the cheap opt-in is worth anything at all. Part three, [Writing Algorithms with Typeclass Objects](writing-algorithms-with-typeclass-objects.md), takes the algorithm author's chair: how you *consume* these machines, why the names compose, and why traits, CPOs, and concepts-alone cannot hold an applicative family together the way a bundled typeclass object can.
+That is the other half of the story, and the reason the cheap opt-in is worth anything at all. Part four, [Writing Algorithms with Typeclass Objects](writing-algorithms-with-typeclass-objects.md), takes the algorithm author's chair: how you *consume* these machines, why the names compose, and why traits, CPOs, and concepts-alone cannot hold an applicative family together the way a bundled typeclass object can.
