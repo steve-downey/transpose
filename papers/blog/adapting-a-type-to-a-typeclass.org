@@ -22,14 +22,14 @@
 Part one ended on a puzzle: ~optional~, a ~std::execution~ sender, and a lanewise SIMD value share no base class, no common header, no member named ~transpose~ --- yet each plugs into the same front door.
 This is how, from the side that matters most to you if you own a type: what does it cost to make /your/ type join in?
 The answer is about three lines, and you never reopen a class you don't own.
-This is part two of four.
+This is part three of five.
 #+end_abstract
 
 {{{TEASER_END}}}
 
-/This is part two of a short series./
-/Part one,/ [[file:transposing-structure-and-context.org][Transposing Structure and Context]], /named the problem: one ~transpose~ verb that flips ~structure<context<T>>~ into ~context<structure<T>>~, and asked what lets three unrelated contexts plug into one front door with no shared base class and no registry./
-/This post answers that from the/ type adapter's /chair. Part three,/ [[file:writing-algorithms-with-typeclass-objects.org][Writing Algorithms with Typeclass Objects]], /answers it from the/ algorithm author's.
+/This is part three of a short series./
+/Part one,/ [[file:transposing-structure-and-context.org][Transposing Structure and Context]], /named the problem; part two,/ [[file:how-traverse-and-transpose-work.org][Context is Applicative, Structure is Traversable]], /opened the machinery --- ~traverse~ and ~transpose~ built from a Traversable structure and an Applicative context./
+/This post takes the/ type adapter's /chair: what it takes to make ~optional~, a sender, or your own type into one of those instances. Part four,/ [[file:writing-algorithms-with-typeclass-objects.org][Writing Algorithms with Typeclass Objects]], /takes the/ algorithm author's.
 
 * You already know this pattern
 
@@ -93,6 +93,22 @@ inline constexpr auto functor_typeclass<std::optional<VALUE_TYPE>> =
 
 There is no monkey-patching here and no central registry that every adapter must edit.
 Two types adapted by two different people in two different headers never collide, because a variable-template specialization is just a definition keyed on a type.
+
+* An instance, not the typeclass --- and not necessarily for everyone
+
+Notice what you did /not/ do.
+You did not define Foldable.
+Foldable --- the concept, the ~fold_map~ primitive, the ten derived operations, the base that produces them --- is part of the proposal, written once, for everyone.
+What you wrote is an /instance/: the single fact that /your/ type is Foldable, and how.
+That division of labour is the whole reason three lines is enough --- the typeclass and every algorithm written against it already exist, waiting only for an instance to connect your type to them.
+
+And the instance is a /value/, which makes registering it globally a choice rather than an obligation.
+The specialization above is a /global/ declaration: for the whole program, ~BinaryTree<T>~ is Foldable /this/ way.
+For a ~BinaryTree~ that is exactly right --- there is one obvious way it folds.
+But when the type is a third party's, or a ~std~ vocabulary type, a global instance quietly commits /everyone/ to your choice of the canonical mapping, and that may not be yours to make.
+You are not forced into it.
+Because the instance is an ordinary object, you can leave it unregistered and hand it to an algorithm directly --- the generic algorithms accept an explicit instance, or take it as a pinned template parameter, precisely so an adaptation can be local to the code that needs it instead of a fact imposed on the whole program.
+Part four walks through those lookup modes; the point here is only that /writing an instance/ and /declaring it for everyone/ are separate steps, and you may stop after the first.
 
 * You write a little; you get a lot
 
@@ -232,7 +248,7 @@ That is a thread for another day; ~std::simd~ is the reason it is worth pulling.
 The adapter's takeaway is smaller and concrete.
 Because the operations are /bundled/ and the base derives the many from the few, you write one or two primitives and inherit a full surface --- and, as Foldable shows, the bundle can even accept /either/ of two cores and fill in the other.
 A pile of independent one-CPO-per-operation hooks cannot make that trade: each operation stands alone, with nowhere to say "derive this one from that one," or "either of these will do."
-That coherence --- primitive and derived kept together --- is what a standard vocabulary for this should provide, and it is the through-line of part three.
+That coherence --- primitive and derived kept together --- is what a standard vocabulary for this should provide, and it is the through-line of part four.
 
 * What it cost you, and what you got
 
@@ -243,10 +259,10 @@ You wrote a three-line variable-template specialization to register it.
 You did not derive from anything, reopen anything, edit a registry, or coordinate with any other adapter.
 You did not touch the data type, which may not even be yours to touch.
 
-In return your type gained the full derived surface in the table above, and --- this is the part that pays off in part three --- it now flows through every generic algorithm written against these typeclasses, unchanged, with static dispatch and no virtual calls.
+In return your type gained the full derived surface in the table above, and --- this is the part that pays off in part four --- it now flows through every generic algorithm written against these typeclasses, unchanged, with static dispatch and no virtual calls.
 The optional you just adapted, the tree someone else adapted, the ~simd_lanes~ carrying a hardware SIMD result: the same algorithm runs over all of them.
 
 That is the other half of the story, and the reason the cheap opt-in is worth anything at all.
-Part three, [[file:writing-algorithms-with-typeclass-objects.org][Writing Algorithms with Typeclass Objects]], takes the algorithm author's chair: how you /consume/ these machines, why the names compose, and why traits, CPOs, and concepts-alone cannot hold an applicative family together the way a bundled typeclass object can.
+Part four, [[file:writing-algorithms-with-typeclass-objects.org][Writing Algorithms with Typeclass Objects]], takes the algorithm author's chair: how you /consume/ these machines, why the names compose, and why traits, CPOs, and concepts-alone cannot hold an applicative family together the way a bundled typeclass object can.
 
 #+print_bibliography:

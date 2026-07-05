@@ -22,13 +22,13 @@
 The variable-template concept map from parts two and three was not invented in a vacuum.
 Bringing functional and typeclass-style programming to C++ is a decades-old sport, and every serious attempt makes a real trade.
 This closing part places the pattern among its neighbours --- an ancestor from before C++ had lambdas, a whole category-theory hierarchy, a library that extends the standard vocabulary types, and a safe-iteration model on an entirely different axis --- and asks what it is that keeps getting reinvented.
-This is part four of four.
+This is part five of five.
 #+end_abstract
 
 {{{TEASER_END}}}
 
-/This is the final part of a four-part series./
-/Part one,/ [[file:transposing-structure-and-context.org][Transposing Structure and Context]], /posed the problem; part two,/ [[file:adapting-a-type-to-a-typeclass.org][Adapting a Type to a Typeclass]], /and part three,/ [[file:writing-algorithms-with-typeclass-objects.org][Writing Algorithms with Typeclass Objects]], /made the case for one mechanism. This part places that mechanism among the real attempts that came before it./
+/This is the final part of a five-part series./
+/Part one,/ [[file:transposing-structure-and-context.org][Transposing Structure and Context]], /posed the problem; part two,/ [[file:how-traverse-and-transpose-work.org][Context is Applicative, Structure is Traversable]], /explained how it works; and parts three,/ [[file:adapting-a-type-to-a-typeclass.org][Adapting a Type to a Typeclass]], /and four,/ [[file:writing-algorithms-with-typeclass-objects.org][Writing Algorithms with Typeclass Objects]], /made the case for one mechanism. This part places that mechanism among the real attempts that came before it./
 
 * Not invented in a vacuum
 
