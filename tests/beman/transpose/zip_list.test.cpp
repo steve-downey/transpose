@@ -3,6 +3,8 @@
 
 #include <beman/transpose/zip_list.hpp>
 
+#include "test_support.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vector>
@@ -29,4 +31,39 @@ TEST_CASE("zip_list: pure operand acts as identity for truncation") {
         app.invoke([](int a, int b) { return a * b; },
                    bt::zip_list<int>{{1, 2, 3}}, bt::zip_list<int>::repeat(10));
     REQUIRE(result.data == std::vector<int>{10, 20, 30});
+}
+
+TEST_CASE("zip_list: applicative laws hold") {
+    using bt::test::check_applicative_homomorphism_law;
+    using bt::test::check_applicative_identity_law;
+    using bt::test::check_applicative_interchange_law;
+    using bt::test::check_functor_composition_law;
+
+    REQUIRE(check_applicative_identity_law(bt::zip_list<int>{{1, 2, 3}}));
+    REQUIRE(check_applicative_homomorphism_law<bt::zip_list<int>>(
+        [](int a, int b) { return a + b; }, 4, 5));
+
+    auto double_it = [](int x) { return x * 2; };
+    auto negate_it = [](int x) { return -x; };
+    bt::zip_list<decltype(double_it)> functions;
+    functions.data = {double_it, double_it};
+    REQUIRE(check_applicative_interchange_law(functions, 21));
+    REQUIRE(check_functor_composition_law(double_it, negate_it,
+                                          bt::zip_list<int>{{3, 4, 5}}));
+}
+
+TEST_CASE("zip_list: dual cores cohere (GHC: both defined => must agree)") {
+    using bt::test::check_apply_invoke_coherence;
+    using bt::test::check_invoke_ap_chain_coherence;
+
+    auto add_ten = [](int x) { return x + 10; };
+    bt::zip_list<decltype(add_ten)> functions;
+    functions.data = {add_ten, add_ten, add_ten};
+    // Native apply == invoke(eval, fs, xs), the apply-from-invoke formula.
+    REQUIRE(check_apply_invoke_coherence(functions,
+                                         bt::zip_list<int>{{1, 2, 3, 4}}));
+    // Native invoke == the classic pure(curried) `ap` x1 `ap` x2 derivation.
+    REQUIRE(check_invoke_ap_chain_coherence([](int a, int b) { return a * b; },
+                                            bt::zip_list<int>{{2, 3}},
+                                            bt::zip_list<int>{{10, 20, 30}}));
 }

@@ -102,13 +102,15 @@ auto zip_list_result_size(const FIRST &first, const REST &...rest)
 } // namespace detail
 
 /** Applicative typeclass instance for zip_list<T> with positional (zip)
- * semantics.
+ * semantics. Dual-core: both invoke and apply are provided natively.
  *
  * pure(x) = infinite repetition of x (zip_list::repeat(x)).
- * apply(fs, xs) zips functions and arguments positionally, truncating to the
- * length of the shortest finite operand. If all operands are infinite the
- * result is also infinite (repeating f(x) for the first positions).
- * @tparam T element type of the zip_list holding function values
+ * invoke(f, xs...) zips the argument lists positionally under the plain
+ * function f, truncating to the length of the shortest finite operand. If
+ * all operands are infinite the result is also infinite.
+ * apply(fs, xs) is the classic spelling: a zip_list of callables zipped
+ * against a zip_list of arguments.
+ * @tparam T element type of the zip_list
  */
 template <class T>
 struct ZipListApplicativeImpl {
@@ -190,10 +192,12 @@ struct ZipListApplicativeImpl {
     }
 };
 
-/** Applicative map exposing pure, apply, and invoke for zip_list<T>. */
+/** Applicative map for zip_list<T>: dual-core, exposing the native n-ary
+ * invoke core alongside the classic apply spelling. */
 template <class T>
 struct ZipListApplicativeMap : Applicative<ZipListApplicativeImpl<T>> {
     using ZipListApplicativeImpl<T>::apply;
+    using ZipListApplicativeImpl<T>::invoke;
     using ZipListApplicativeImpl<T>::pure;
 };
 

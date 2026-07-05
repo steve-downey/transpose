@@ -46,11 +46,15 @@ struct sender {
     }
 };
 
-/** Applicative typeclass instance for sender<T> with deferred semantics.
+/** Invoke-native Applicative instance for sender<T> with deferred semantics.
  *
- * pure(x) yields a ready sender of x. apply(sf, sa) yields a new sender that,
- * when run, runs both operands and applies the resulting function to the
- * resulting argument. No work happens until the composed sender is run.
+ * pure(x) yields a ready sender of x. invoke(f, s1, ..., sn) yields a single
+ * new sender that, when run, runs every operand and applies the plain
+ * function f to the results -- one deferred call capturing everything,
+ * rather than n-1 nested apply closures. No work happens until the composed
+ * sender is run. `apply` is not written here; the base derives it as
+ * invoke(applicative_eval, sf, sa), which preserves the deferred semantics
+ * (sender<std::function<...>> remains a perfectly good sender).
  */
 template <class T>
 struct SenderApplicativeImpl {
@@ -60,22 +64,26 @@ struct SenderApplicativeImpl {
         return sender<U>::ready(U(std::forward<VALUE>(value)));
     }
 
-    template <class F, class A>
-    auto apply(this auto &&, const sender<F> &functions,
-               const sender<A> &arguments) {
-        using Result =
-            decltype(std::invoke(std::declval<F>(), std::declval<A>()));
-        using U = remove_cvref_t<Result>;
-        return sender<U>{[functions, arguments]() -> U {
-            return std::invoke(functions.get(), arguments.get());
+    /** N-ary deferred core; SFINAE-friendly via the trailing return type. */
+    template <class FUNCTION, class FIRST, class... REST>
+    auto invoke(this auto &&, FUNCTION &&function, const sender<FIRST> &first,
+                const sender<REST> &...rest)
+        -> sender<remove_cvref_t<std::invoke_result_t<
+            const remove_cvref_t<FUNCTION> &, FIRST, REST...>>> {
+        using U = remove_cvref_t<std::invoke_result_t<
+            const remove_cvref_t<FUNCTION> &, FIRST, REST...>>;
+        return sender<U>{[function = remove_cvref_t<FUNCTION>(
+                              std::forward<FUNCTION>(function)),
+                          first, rest...]() -> U {
+            return std::invoke(function, first.get(), rest.get()...);
         }};
     }
 };
 
-/** Applicative map exposing pure and apply for sender<T>. */
+/** Applicative map exposing pure and the n-ary invoke core for sender<T>. */
 template <class T>
 struct SenderApplicativeMap : Applicative<SenderApplicativeImpl<T>> {
-    using SenderApplicativeImpl<T>::apply;
+    using SenderApplicativeImpl<T>::invoke;
     using SenderApplicativeImpl<T>::pure;
 };
 
