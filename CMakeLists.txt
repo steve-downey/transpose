@@ -1,61 +1,73 @@
-# example/CMakeLists.txt                                            -*-cmake-*-
+# CMakeLists.txt                                                     -*-cmake-*-
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required(VERSION 4.0..4.2)
+cmake_minimum_required(VERSION 3.30...4.3)
 
-project(transpose VERSION 0.0.0 LANGUAGES CXX)
-
-# Instrumentation query
-# find_package(Python COMPONENTS Interpreter)
-cmake_instrumentation(
-  API_VERSION 1
-  DATA_VERSION 1
-  HOOKS postGenerate preBuild postBuild preCMakeBuild postCMakeBuild postCMakeInstall postCTest
-  OPTIONS trace
-  CALLBACK ${CMAKE_SOURCE_DIR}/scripts/instrument.sh
+project(
+    beman.transpose
+    DESCRIPTION
+        "Shape-preserving traversal and transposition for contextual computations (Paper A / P3200)"
+    LANGUAGES CXX
+    VERSION 0.0.0
 )
 
-# Includes
 include(CTest)
-include(FetchContent)
 
 option(
-    TRANSPOSE_ENABLE_TESTING
-    "Enable building tests and test infrastructure"
+    BEMAN_TRANSPOSE_BUILD_TESTS
+    "Enable building tests and test infrastructure. Default: ${PROJECT_IS_TOP_LEVEL}. Values: { ON, OFF }."
     ${PROJECT_IS_TOP_LEVEL}
 )
 
-set(CMAKE_VERIFY_INTERFACE_HEADER_SETS ON)
-
-# Create the library target and named header set for beman.optional
-add_library(transpose.transpose STATIC "")
-
-target_sources(
-    transpose.transpose
-    PUBLIC FILE_SET transpose_transpose_headers TYPE HEADERS BASE_DIRS src
+option(
+    BEMAN_TRANSPOSE_BUILD_EXAMPLES
+    "Enable building examples. Default: ${PROJECT_IS_TOP_LEVEL}. Values: { ON, OFF }."
+    ${PROJECT_IS_TOP_LEVEL}
 )
 
-if(TRANSPOSE_ENABLE_TESTING)
-    find_package(Catch2 3 QUIET)
-    if(Catch2_FOUND)
-        include(Catch)
-    else()
-        message(
-            WARNING
-            "
-No provider for Catch2. Unable to build tests.
-Consider using CMAKE_PROJECT_TOP_LEVEL_INCLUDES=./cmake/use-fetch-content.cmake as documented in the README.md
-"
-        )
-    endif()
-endif()
+configure_file(
+    "${PROJECT_SOURCE_DIR}/include/beman/transpose/config_generated.hpp.in"
+    "${PROJECT_BINARY_DIR}/include/beman/transpose/config_generated.hpp"
+    @ONLY
+)
 
-add_subdirectory(src)
+# beman.transpose is a header-only library.
+add_library(beman.transpose INTERFACE)
+add_library(beman::transpose ALIAS beman.transpose)
+
+target_compile_features(beman.transpose INTERFACE cxx_std_23)
+
+target_sources(
+    beman.transpose
+    INTERFACE
+        FILE_SET HEADERS
+            BASE_DIRS
+                "${PROJECT_SOURCE_DIR}/include"
+                "${PROJECT_BINARY_DIR}/include"
+)
+
+set_target_properties(
+    beman.transpose
+    PROPERTIES VERIFY_INTERFACE_HEADER_SETS ${PROJECT_IS_TOP_LEVEL}
+)
+
+add_subdirectory(include/beman/transpose)
 
 include(infra/cmake/beman-install-library.cmake)
-beman_install_library(transpose.transpose TARGETS transpose.transpose NAMESPACE smd::)
+beman_install_library(beman.transpose TARGETS beman.transpose)
 
-# Coverage
+if(BEMAN_TRANSPOSE_BUILD_TESTS)
+    find_package(Catch2 3 REQUIRED)
+    include(Catch)
+    enable_testing()
+    add_subdirectory(tests/beman/transpose)
+endif()
+
+if(BEMAN_TRANSPOSE_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
+
+# Coverage helper retained for the Makefile Gcov configuration.
 configure_file("cmake/gcovr.cfg.in" gcovr.cfg @ONLY)
 
 add_custom_target(
