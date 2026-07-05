@@ -1,4 +1,4 @@
-<div class="abstract" id="orga83ea06">
+<div class="abstract" id="org815ecf1">
 <p>
 You have a <code>vector&lt;optional&lt;T&gt;&gt;</code> and you want an <code>optional&lt;vector&lt;T&gt;&gt;</code>.
 You have written the loop. So has everyone.
@@ -85,7 +85,7 @@ dp::vec<float, 4> hyp([&](auto lane) { return std::hypot(xs[lane], ys[lane]); })
 // hyp's four lanes fill a bt::simd_lanes<float, 4> --- which transposes.
 ```
 
-There is one honest caveat, and it is the revealing one. `std::simd::vec` holds only scalars, so `vec<vector<T>>` is not a type: a bare register of lanes is not something you can `transpose` directly. That is exactly why the front door runs on `simd_lanes` (an array, which *can* hold a vector), with `std::simd::vec` as the hardware that fills the lanes &#x2014; a *partial* example that carries the same lanewise *independence* without being transposable itself. The precise point where the real register stops typechecking is the precise point where the abstraction earns its keep.
+There is one honest caveat, and it is the revealing one. `std::simd::vec` holds only scalars, so `vec<vector<T>>` is not a type: a bare register of lanes is not something you can `transpose` directly. That is exactly why the front door runs on `simd_lanes` for transposition (an array, which *can* hold a vector), with `std::simd::vec` as the hardware that fills the lanes. The register is not left outside, though: `std::simd::vec` is a registered applicative context in its own right &#x2014; `map` and `zip_with` run lane by lane through the same front door as `optional` and senders &#x2014; it just is not a *structure* that can be walked and rebuilt. Part two makes that distinction precise, and the precise point where the real register stops typechecking is the precise point where the abstraction earns its keep.
 
 The third context is the interesting one for modern C++: a **deferred** computation, a `std::execution` sender. A vector of senders transposes into one sender of a vector &#x2014; "run these and gather the results" &#x2014; with nothing executed until the composed sender is run:
 

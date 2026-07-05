@@ -1,4 +1,4 @@
-<div class="abstract" id="org22e2213">
+<div class="abstract" id="orge60574c">
 <p>
 Part one flipped <code>structure&lt;context&lt;T&gt;&gt;</code> into <code>context&lt;structure&lt;T&gt;&gt;</code> with one verb, <code>transpose</code>, across three contexts that share nothing &#x2014; and left the machinery unopened.
 This part opens it, and there is less inside than the names suggest.
@@ -40,39 +40,39 @@ pure : T -> C<T>
 For `optional`, `pure(x)` is `Some(x)`. For a sender, it is a sender that immediately yields `x`. For `simd_lanes`, it is `x` broadcast to every lane. Nothing interesting happens; that is what makes it the *identity* for building bigger things.
 
 
-## `apply`: combine two things already in context
+## `invoke`: combine independent things in context
 
-`apply` is the one with content. Given a function *already inside the context* and an argument *inside the context*, it produces the result *inside the context*.
+`invoke` is the one with content. Given a *plain* function and arguments that each sit *inside the context*, it produces the result *inside the context*.
 
 ```text
-apply : C<(T -> U)>, C<T> -> C<U>
+invoke : (T... -> U), C<T>... -> C<U>
 ```
 
-Read it as: the context knows how to bring a wrapped function together with a wrapped argument. Concretely, three ways:
+Read it as: the context knows how to bring several wrapped values together under one ordinary function. Concretely, three ways:
 
--   `optional`: if both the function and the argument are present, apply and wrap; if either is absent, the result is absent.
--   sender: run both, then apply &#x2014; the result is a sender that completes when both do.
--   `simd_lanes`: apply lane by lane, producing a lane array of results.
+-   `optional`: if every argument is present, call the function and wrap; if any is absent, the result is absent.
+-   sender: a new sender that, when run, runs all the operands and then calls the function.
+-   `simd_lanes`: call the function lane by lane, producing a lane array of results.
 
-That is the entire obligation. Give a context `pure` and `apply` and it is an Applicative.
+That is the entire obligation. Give a context `pure` and `invoke` and it is an Applicative.
 
 
 ## The everyday verbs are derived
 
-You rarely reach for `apply` directly, because a friendlier set falls out of `pure` + `apply`:
+You get a friendlier surface for free, because everything else falls out of `pure` + `invoke`:
 
--   `map(f, cx)` &#x2014; a *plain* function `f` applied to one in-context value &#x2014; is just `apply(pure(f), cx)`.
--   `invoke(f, cx, cy, ...)` &#x2014; a plain function over *several* in-context arguments &#x2014; is `map` generalized to more than one argument.
--   `zip_with(f, cx, cy)` is `invoke` for two.
+-   `map(f, cx)` is just `invoke` with one argument.
+-   `zip_with(f, cx, cy)` is `invoke` with two.
+-   `apply(cf, cx)` &#x2014; the textbook primitive, a function *already inside the context* applied to an argument inside the context, `C<(T -> U)>, C<T> -> C<U>` &#x2014; is `invoke` of "evaluate": `invoke([](f, x){ return f(x); }, cf, cx)`.
 
-`invoke` is the one you actually write in day-to-day code: a normal function, several arguments that each live in the context, one result in the context. It is worth remembering that `invoke` is the more *general shape* &#x2014; a plain function needs no wrapping &#x2014; while `apply` is the primitive the library builds on. Some contexts can express `invoke` but not `apply`; that thread belongs to part three.
+That last line deserves a pause, because the classic literature runs it the other way around &#x2014; `apply` as the primitive, everything derived from it. Both presentations are equivalent when the context can hold a function, and a type may supply whichever core is natural (part three shows the machinery). But `invoke` is the more *general* shape: it never needs a function to sit inside the context at all. Some contexts &#x2014; a hardware SIMD register is the concrete one &#x2014; can hold numbers but not callables, so `apply` for them cannot even be spelled, while `invoke` is perfectly well-defined. That is why `invoke` is the core here, and `apply` the derived convenience that exists where it can.
 
 
 # Independence is the whole point
 
 Here is the property that makes it **Applicative** and not something stronger.
 
-In `apply` &#x2014; and so in `invoke`, `map`, `zip_with` &#x2014; the arguments are *independent*. Combining two in-context values never lets one value *steer* the other's computation. An `optional`'s presence does not depend on another `optional`'s contents. One sender does not wait to see another's result before starting. One SIMD lane does not consult its neighbour.
+In `invoke` &#x2014; and so in `map`, `zip_with`, and the classic `apply` &#x2014; the arguments are *independent*. Combining two in-context values never lets one value *steer* the other's computation. An `optional`'s presence does not depend on another `optional`'s contents. One sender does not wait to see another's result before starting. One SIMD lane does not consult its neighbour.
 
 That independence is not a limitation to apologize for; it is the source of the power. Because the pieces do not depend on each other, their *shape* is fixed in advance and their *effects* simply combine, left to right. That is exactly what lets an operation preserve structure and merge contexts in one pass.
 
@@ -90,7 +90,7 @@ traverse : (T -> C<U>), structure<T> -> C<structure<U>>
 
 Give `traverse` a function `f : T -> C<U>` and a `structure<T>`, and it produces a `C<structure<U>>`: the same shape, one context on the outside.
 
-Mechanically it is a fold that threads `pure` and `apply`:
+Mechanically it is a fold that threads `pure` and `invoke`:
 
 -   start from `pure(empty)` &#x2014; the empty rebuilt shape, already in the context;
 -   for each element, `invoke` a "grow the structure by one" step over *two* in-context values: the structure accumulated so far, and `f` applied to this element;
@@ -115,13 +115,22 @@ transpose(structure<context<T>>)  =  traverse(identity, structure<context<T>>)
 Everything true of `traverse` is true of `transpose`: it needs the structure Traversable and the context Applicative, it preserves shape, it combines effects left to right, and it rests on independence. This is precisely why part one's single `transpose` verb worked, unchanged, over `vector<optional>`, `vector<sender>`, and `vector<simd_lanes>`: each inner type is an Applicative context, `vector` is Traversable, and `transpose` is `traverse` of the identity.
 
 
+# Two capabilities, genuinely two
+
+It is fair to ask whether Traversable and Applicative are really different things, since the familiar examples &#x2014; `vector`, `optional`, `zip_list` &#x2014; tend to have both. They are, and the reference implementation carries the proof.
+
+`std::simd::vec` (C++26, real since GCC 16) is a registered Applicative in this library: `pure` broadcasts a scalar to every lane of a hardware register, `invoke` applies a plain function lane by lane. But it is *not* Traversable, and cannot be: a SIMD register holds vectorizable scalars only, so `vec<vector<T>>` is not a type &#x2014; there is no "vec of structures" to rebuild into, and nothing for `transpose` to produce. It combines like a context; it cannot be walked and reassembled like a structure. (The same restriction is why it is the invoke-only applicative: `vec<callable>` is not a type either.)
+
+This is the same situation as Functor and Foldable: every Foldable worth the name is a Functor, but not every Functor is Foldable &#x2014; a function `R -> T`, read as a context of `T` s indexed by `R`, maps perfectly well and cannot be folded. Overlap is common; identity is false. The lanewise context that *does* go through `transpose` is `simd_lanes` &#x2014; an ordinary array of lanes, Applicative and Traversable both &#x2014; with `std::simd::vec` doing the hardware arithmetic that fills it.
+
+
 # The whole map, in one place
 
 ```text
 structure< context<T> >   -- transpose -->   context< structure<T> >
 
 structure   = the OUTER type   = Traversable   ( traverse: walk + rebuild )
-context     = the INNER type   = Applicative   ( pure + apply: combine, independently )
+context     = the INNER type   = Applicative   ( pure + invoke: combine, independently )
 
 traverse   : (T -> C<U>), structure<T> -> C<structure<U>>   -- needs one of each
 transpose  : structure<C<T>> -> C<structure<T>>             -- = traverse identity

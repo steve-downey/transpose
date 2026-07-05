@@ -1,4 +1,4 @@
-<div class="abstract" id="org75170a3">
+<div class="abstract" id="orgcfd0cf6">
 <p>
 Part two showed how cheap it is to make a type an instance of a typeclass.
 This is the other side of the trade: you are writing the algorithm, and you want it to run over <i>every</i> instance &#x2014; the optional, the tree, the SIMD lanes &#x2014; with the operation names reading as if they belong to your code, dispatched statically, with no ADL and no central registry.
@@ -130,9 +130,9 @@ struct transform_if_large_impl
 `length` comes from Foldable, `for_each` from Traversable, and both read as members of the algorithm. Where a name is unique you write plain `this->for_each`; where two bases could both answer you disambiguate with `this->foldable_base::length`. That is the entire cost of composing two abstractions.
 
 
-## Hiding all of it behind a niebloid
+## Hiding all of it behind a function object
 
-The implementation struct is plumbing. What the caller sees is one `inline constexpr` object with a deducing `operator()` &#x2014; a niebloid &#x2014; that constructs the impl, deduces the type, and gets out of the way:
+The implementation struct is plumbing. What the caller sees is one `inline constexpr` function object with a deducing `operator()` that constructs the impl, deduces the type, and gets out of the way:
 
 ```cpp
 struct validate_fn {
@@ -182,7 +182,7 @@ The nearest standard analogy. Both are per-type specialized structs of named ope
 
 ## CPOs &#x2014; ADL, and one operation at a time
 
-A customization point object like `std::ranges::begin` is a single operation that finds its implementation by ADL. There is no grouping, no derivation, no object that bundles a concept's operations together. And this is the one that fails hardest on the applicative family from part two. Those operations are not independent: `invoke`, `map`, and `zip_with` all derive from `apply`, and a bundle can even accept *either* of two cores the way Foldable takes `fold_map` or `fold_right`. A pile of one-CPO-per-operation hooks has nowhere to put that &#x2014; no shared place to derive one operation from another, or to say "either of these primitives will do." That is the coherence a bundle keeps and à la carte CPOs throw away &#x2014; and `std::simd::vec`, which expresses `invoke` but not `apply`, is the reminder that these operations are not interchangeable atoms to be scattered across independent hooks.
+A customization point object like `std::ranges::begin` is a single operation that finds its implementation by ADL. There is no grouping, no derivation, no object that bundles a concept's operations together. And this is the one that fails hardest on the applicative family from part two. Those operations are not independent: `map`, `zip_with`, and `apply` all derive from the `pure` + `invoke` core, and the bundle literally accepts *either* of two cores &#x2014; `invoke` or the classic `apply` &#x2014; the way Foldable takes `fold_map` or `fold_right`, deriving whichever you did not supply. A pile of one-CPO-per-operation hooks has nowhere to put that &#x2014; no shared place to derive one operation from another, or to say "either of these primitives will do." That is the coherence a bundle keeps and à la carte CPOs throw away. `std::simd::vec` is the registered proof: it supplies `pure` and `invoke`, `apply` cannot be derived for it (no `vec<callable>` exists to hold a function), and every derived operation still works. Under a lone global `apply` CPO that type is simply locked out; under the bundle it participates.
 
 
 ## Concepts &#x2014; constraints, not dispatch
@@ -208,9 +208,9 @@ Those belong to separate papers on purpose: this one standardizes the traversal/
 
 The type definitions do not know about the typeclasses. The typeclasses do not know about each other. The call site does not change when the representation changes. Independent extension points that compose &#x2014; no reopening classes, no monkey-patching, no registry.
 
-Which is the real argument of this series. Part one showed that `transpose` is one operation the standard library has no spelling for, appearing today over `optional`, over `std::execution` senders, over lanewise SIMD. Part two showed that adapting a type to feed that operation costs about three lines and never reopens a class. Part three shows that consuming it &#x2014; writing the algorithms &#x2014; is where a *bundle* beats every à la carte alternative, because the applicative family only holds together when its operations derive from a small coherent core rather than being scattered across independent hooks.
+Which is the real argument of this series. Part one showed that `transpose` is one operation the standard library has no spelling for, appearing today over `optional`, over `std::execution` senders, over lanewise SIMD. Part two opened the machinery: a Traversable structure, an Applicative context built on `pure` + `invoke`, and `transpose` as `traverse` of the identity. Part three showed that adapting a type to feed that operation costs about three lines and never reopens a class. Part four shows that consuming it &#x2014; writing the algorithms &#x2014; is where a *bundle* beats every à la carte alternative, because the applicative family only holds together when its operations derive from a small coherent core rather than being scattered across independent hooks.
 
-Standardizing `transpose` and `traverse` without standardizing something like this substrate would push the customization story back toward trait-only or `tag_invoke`-heavy designs &#x2014; exactly the designs that fracture the family, scattering `pure`, `apply`, `invoke`, `map`, and `zip_with` across independent hooks with no shared place to derive one from another. The verbs need a mechanism strong enough to keep their primitive and derived operations coherent across unrelated types. That is what a typeclass object is.
+Standardizing `transpose` and `traverse` without standardizing something like this substrate would push the customization story back toward trait-only or `tag_invoke`-heavy designs &#x2014; exactly the designs that fracture the family, scattering `pure`, `invoke`, `apply`, `map`, and `zip_with` across independent hooks with no shared place to derive one from another. The verbs need a mechanism strong enough to keep their primitive and derived operations coherent across unrelated types. That is what a typeclass object is.
 
 And it degrades gracefully. If C++ later grows richer generic facilities &#x2014; pattern matching, a real return of concept maps &#x2014; this API should get *simpler*. It should not need to be replaced. That is the mark of proposing the right shape rather than a workaround: the workaround gets thrown away when the language catches up; the right shape just gets better plumbing underneath.
 
