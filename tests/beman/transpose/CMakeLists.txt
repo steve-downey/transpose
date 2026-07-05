@@ -12,8 +12,17 @@ set(transpose_tests
     transpose
     sequence
     sender
+    simd_lanes
     zip_list
 )
+
+# The simd test self-gates on C++26 + <simd>; only build it when the header
+# exists at all (mirrors examples/CMakeLists.txt).
+include(CheckIncludeFileCXX)
+check_include_file_cxx(simd BEMAN_TRANSPOSE_TESTS_HAS_SIMD)
+if(BEMAN_TRANSPOSE_TESTS_HAS_SIMD)
+    list(APPEND transpose_tests simd)
+endif()
 
 foreach(test ${transpose_tests})
     add_executable(beman.transpose.tests.${test})

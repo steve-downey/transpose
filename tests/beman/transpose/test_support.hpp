@@ -14,25 +14,131 @@
 
 namespace beman::transpose::test {
 
-/** Verify the Applicative identity law: `pure(id) <*> v == v`. */
+// Law helpers are spelled invoke-first: the n-ary invoke core is available
+// on every applicative, while ap/apply exist only for contexts that can hold
+// callables. Availability probes below are NAMED CONCEPTS on purpose: a bare
+// requires-expression at block scope hard-errors on an invalid expression
+// instead of yielding false ([expr.prim.req]).
+
+/** True when contextual application is available for these operand types --
+ * i.e. the context can hold a callable and `ap`/`apply` exist. */
+template <class MAP, class FUNCTIONS_IN_CONTEXT, class ARGUMENTS_IN_CONTEXT>
+concept can_ap = requires(const MAP &map, const FUNCTIONS_IN_CONTEXT &cf,
+                          const ARGUMENTS_IN_CONTEXT &cx) { map.ap(cf, cx); };
+
+/** Companion probe for the primitive spelling. */
+template <class MAP, class FUNCTIONS_IN_CONTEXT, class ARGUMENTS_IN_CONTEXT>
+concept can_apply =
+    requires(const MAP &map, const FUNCTIONS_IN_CONTEXT &cf,
+             const ARGUMENTS_IN_CONTEXT &cx) { map.apply(cf, cx); };
+
+/** Verify the Applicative identity law, invoke form: `map(id, v) == v`.
+ * Holds for every context, including those that cannot hold callables. */
 template <class CONTEXT>
 auto check_applicative_identity_law(const CONTEXT &value) -> bool {
     const auto &applicative = applicative_typeclass<remove_cvref_t<CONTEXT>>;
-    auto result = applicative.ap(
-        applicative.pure([](const auto &x) { return x; }), value);
+    auto result = applicative.map([](const auto &x) { return x; }, value);
     return result == value;
 }
 
-/** Verify the Applicative homomorphism law: `pure(f) <*> pure(x) == pure(f x)`.
- */
-template <class CONTEXT, class FUNCTION, class VALUE>
+/** Verify the Applicative homomorphism law, generalized to the n-ary core:
+ * `invoke(f, pure(x1), ..., pure(xn)) == pure(f(x1, ..., xn))`. */
+template <class CONTEXT, class FUNCTION, class... VALUES>
 auto check_applicative_homomorphism_law(const FUNCTION &function,
-                                        const VALUE &value) -> bool {
+                                        const VALUES &...values) -> bool {
     const auto &applicative = applicative_typeclass<remove_cvref_t<CONTEXT>>;
-    auto left =
-        applicative.ap(applicative.pure(function), applicative.pure(value));
-    auto right = applicative.pure(std::invoke(function, value));
+    auto left = applicative.invoke(function, applicative.pure(values)...);
+    auto right = applicative.pure(std::invoke(function, values...));
     return left == right;
+}
+
+/** Verify the Applicative interchange law: `u <*> pure(y) == pure($ y) <*> u`
+ * (right side expressed via map). Callable-holding contexts only. */
+template <class FUNCTIONS_IN_CONTEXT, class VALUE>
+auto check_applicative_interchange_law(const FUNCTIONS_IN_CONTEXT &functions,
+                                       const VALUE &value) -> bool
+    requires requires(const FUNCTIONS_IN_CONTEXT &fs) {
+        applicative_typeclass<remove_cvref_t<FUNCTIONS_IN_CONTEXT>>.ap(
+            fs,
+            applicative_typeclass<remove_cvref_t<FUNCTIONS_IN_CONTEXT>>.pure(
+                value));
+    }
+{
+    const auto &applicative =
+        applicative_typeclass<remove_cvref_t<FUNCTIONS_IN_CONTEXT>>;
+    auto left = applicative.ap(functions, applicative.pure(value));
+    auto right = applicative.map(
+        [&value](const auto &f) { return std::invoke(f, value); }, functions);
+    return left == right;
+}
+
+/** Verify the functor composition law: `map(f . g, v) == map(f, map(g, v))`
+ * -- the composition analog expressible for every applicative context. */
+template <class CONTEXT, class F, class G>
+auto check_functor_composition_law(const F &outer, const G &inner,
+                                   const CONTEXT &value) -> bool {
+    const auto &applicative = applicative_typeclass<remove_cvref_t<CONTEXT>>;
+    auto left = applicative.map(
+        [&](const auto &x) {
+            return std::invoke(outer, std::invoke(inner, x));
+        },
+        value);
+    auto right = applicative.map(outer, applicative.map(inner, value));
+    return left == right;
+}
+
+/** Dual-core coherence (GHC: if both cores are defined, they must agree):
+ * native `apply(fs, xs)` equals the derivation `invoke(eval, fs, xs)`. */
+template <class FUNCTIONS_IN_CONTEXT, class ARGUMENTS_IN_CONTEXT>
+auto check_apply_invoke_coherence(const FUNCTIONS_IN_CONTEXT &functions,
+                                  const ARGUMENTS_IN_CONTEXT &arguments)
+    -> bool {
+    const auto &applicative =
+        applicative_typeclass<remove_cvref_t<FUNCTIONS_IN_CONTEXT>>;
+    auto via_apply = applicative.apply(functions, arguments);
+    auto via_invoke = applicative.invoke(
+        [](const auto &f, const auto &x) { return std::invoke(f, x); },
+        functions, arguments);
+    return via_apply == via_invoke;
+}
+
+/** Assignable curried steps for the ap-chain coherence check. Contexts like
+ * simd_lanes store elements in std::array and require default-construction
+ * and copy assignment, which lambda closures do not provide. */
+template <class FUNCTION, class FIRST>
+struct curried_second_step {
+    const FUNCTION *function = nullptr;
+    FIRST first{};
+
+    template <class SECOND>
+    auto operator()(const SECOND &second) const {
+        return std::invoke(*function, first, second);
+    }
+};
+
+template <class FUNCTION>
+struct curried_first_step {
+    const FUNCTION *function = nullptr;
+
+    template <class FIRST>
+    auto operator()(const FIRST &first) const {
+        return curried_second_step<FUNCTION, FIRST>{function, first};
+    }
+};
+
+/** Dual-core coherence, other direction: native `invoke` equals the classic
+ * curried derivation `pure(curried f)` ap x1 ap x2. */
+template <class CONTEXT, class FUNCTION>
+auto check_invoke_ap_chain_coherence(const FUNCTION &function,
+                                     const CONTEXT &first,
+                                     const CONTEXT &second) -> bool {
+    const auto &applicative = applicative_typeclass<remove_cvref_t<CONTEXT>>;
+    auto direct = applicative.invoke(function, first, second);
+    auto chained = applicative.ap(
+        applicative.ap(
+            applicative.pure(curried_first_step<FUNCTION>{&function}), first),
+        second);
+    return direct == chained;
 }
 
 /** Minimal single-element applicative context used in law tests. */
@@ -61,8 +167,9 @@ struct Sequence {
 
 namespace beman::transpose {
 
-/** Applicative implementation for Identity<V>: pure wraps, apply unwraps and
- * invokes. */
+/** Invoke-native Applicative implementation for Identity<V>: pure wraps,
+ * invoke unwraps every operand and calls the plain function once. apply is
+ * base-derived (invoke(applicative_eval, cf, cx)). */
 template <class VALUE_TYPE>
 struct TestIdentityApplicativeImpl {
     template <class VALUE>
@@ -71,22 +178,23 @@ struct TestIdentityApplicativeImpl {
             std::forward<VALUE>(value)};
     }
 
-    template <class FUNCTION_IN_CONTEXT, class ARGUMENT_IN_CONTEXT>
-    auto apply(this auto &&, const FUNCTION_IN_CONTEXT &function,
-               const ARGUMENT_IN_CONTEXT &argument) {
-        using Result = std::invoke_result_t<
-            const typename remove_cvref_t<FUNCTION_IN_CONTEXT>::value_type &,
-            const typename remove_cvref_t<ARGUMENT_IN_CONTEXT>::value_type &>;
-
-        return test::Identity<remove_cvref_t<Result>>{
-            std::invoke(function.value, argument.value)};
+    template <class FUNCTION, class FIRST, class... REST>
+    auto invoke(this auto &&, FUNCTION &&function,
+                const test::Identity<FIRST> &first,
+                const test::Identity<REST> &...rest)
+        -> test::Identity<remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
+        using Result = remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
+        return test::Identity<Result>{
+            std::invoke(function, first.value, rest.value...)};
     }
 };
 
 template <class VALUE_TYPE>
 struct TestIdentityApplicativeMap
     : Applicative<TestIdentityApplicativeImpl<VALUE_TYPE>> {
-    using TestIdentityApplicativeImpl<VALUE_TYPE>::apply;
+    using TestIdentityApplicativeImpl<VALUE_TYPE>::invoke;
     using TestIdentityApplicativeImpl<VALUE_TYPE>::pure;
 };
 

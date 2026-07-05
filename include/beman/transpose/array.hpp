@@ -66,9 +66,11 @@ struct ArrayApplicativeImpl {
     }
 };
 
+/** Dual-core map: native n-ary invoke plus the classic apply spelling. */
 template <class T, std::size_t N>
 struct ArrayApplicativeMap : Applicative<ArrayApplicativeImpl<T, N>> {
     using ArrayApplicativeImpl<T, N>::apply;
+    using ArrayApplicativeImpl<T, N>::invoke;
     using ArrayApplicativeImpl<T, N>::pure;
 };
 

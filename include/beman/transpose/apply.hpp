@@ -76,21 +76,49 @@ auto make_terminating_partial(FUNCTION &&function) {
         std::forward<FUNCTION>(function), std::tuple<>{}};
 }
 
+// The evaluator that recovers contextual application (apply) from the n-ary
+// core (invoke): apply(cf, cx) = invoke(applicative_eval, cf, cx). This is
+// GHC's default method (<*>) = liftA2 id. The trailing return type keeps it
+// SFINAE-visible so the derived apply's constraint fails cleanly -- never
+// hard-errors -- for contexts that cannot hold callables.
+struct applicative_eval_t {
+    template <class FUNCTION, class ARGUMENT>
+    constexpr auto operator()(FUNCTION &&function, ARGUMENT &&argument) const
+        -> std::invoke_result_t<FUNCTION, ARGUMENT> {
+        return std::invoke(std::forward<FUNCTION>(function),
+                           std::forward<ARGUMENT>(argument));
+    }
+};
+inline constexpr applicative_eval_t applicative_eval{};
+
 } // namespace detail
 
 // Applicative pattern invariants:
-// - Minimal required operations are pure and apply.
-// - invoke is derived from pure/apply via terminating partial application,
-//   but an Impl may provide a custom invoke for different semantics or
-//   efficiency.
+// - Dual core: minimal required operations are pure + (invoke | apply).
+//   invoke -- a plain function applied to N arguments each in the context --
+//   is the conceptual primary: McBride & Paterson's canonical form
+//     pure f <*> u1 <*> ... <*> un   ==   invoke(f, u1, ..., un),
+//   and the GHC analogue is {-# MINIMAL pure, ((<*>) | liftA2) #-} with the
+//   default (<*>) = liftA2 id. apply is the classic alternate spelling.
+// - apply-from-invoke is invoke(applicative_eval, cf, cx); it exists only
+//   when the context can hold a callable (e.g. not std::simd::vec).
+// - invoke-from-apply is the compatibility derivation via terminating
+//   partial application (C++ is not natively curried; the currying cost
+//   lives entirely in this direction).
+// - An Impl lacking native apply MUST make its invoke SFINAE-friendly: a
+//   trailing return type via std::invoke_result_t (or an explicit requires
+//   clause), never a bare auto return with the result type computed only in
+//   the body. The derived apply's constraint probes Impl::invoke.
 // - Derived operations (lift/ap/zip_with/discard_*) live on that object.
 // - Dispatch happens through a provided object or
 //   applicative_typeclass<Concrete>.
 // - Do not introduce hidden alternate semantics without a distinct map/type.
 
 /** CRTP base for Applicative instances.
- * `Impl` must provide `pure(value)` and `apply(f_in_context, arg_in_context)`.
- * All other operations are derived.
+ * `Impl` must provide `pure(value)` and either `invoke(f, args_in_context...)`
+ * or `apply(f_in_context, arg_in_context)`; the base derives the missing one
+ * and all other operations. The Map class's using-declaration selects the
+ * primitive core, mirroring Foldable's fold_map | fold_right.
  */
 template <class Impl>
 struct Applicative : protected Impl {
@@ -98,10 +126,10 @@ struct Applicative : protected Impl {
         !std::is_same_v<Impl, std::false_type>,
         "No applicative_typeclass<T> specialization found. "
         "Specialize beman::transpose::applicative_typeclass<T> for "
-        "your type T and provide pure(...) and apply(...) operations.");
-    // Alternate-core: pure + apply are the primitives; invoke and all others
-    // derive from them.
-    using Impl::apply;
+        "your type T and provide pure(...) plus invoke(...) or apply(...).");
+    // Dual core: Impl provides pure + (invoke | apply); the base derives the
+    // other. invoke is the conceptual primary (the canonical form
+    // pure f <*> u1 <*> ... <*> un); apply is the alternate spelling.
     using Impl::pure;
 
     // Teaching-friendly alias for "apply pure function to effectful arguments".
@@ -141,8 +169,17 @@ struct Applicative : protected Impl {
                 std::forward<FIRST_ARGUMENT>(first_argument),
                 std::forward<REST_ARGUMENTS>(rest_arguments)...);
         } else {
+            // Compatibility derivation from the apply core:
+            //   invoke(f, x1, ..., xn) = pure(curried f) `ap` x1 `ap` ... xn
             auto lifted_function = self.pure(detail::make_terminating_partial(
                 std::forward<FUNCTION>(function)));
+            static_assert(
+                requires(IMPL_BASE &impl) {
+                    impl.apply(std::move(lifted_function),
+                               std::forward<FIRST_ARGUMENT>(first_argument));
+                }, "Applicative Impl must provide pure and at least one of "
+                   "invoke(f, args_in_context...) or "
+                   "apply(f_in_context, arg_in_context).");
             return self.apply_chain(
                 self.ap(std::move(lifted_function),
                         std::forward<FIRST_ARGUMENT>(first_argument)),
@@ -186,12 +223,56 @@ struct Applicative : protected Impl {
         return self.pure(std::forward<VALUE>(value));
     }
 
-    /** Alias for the primitive `apply`: applies an effectful function to an
-     * effectful argument.
+    /** Contextual application: applies an effectful function to an effectful
+     * argument. Dispatches to a native `Impl::apply` when one exists;
+     * otherwise derived as `invoke(applicative_eval, cf, cx)` -- GHC's
+     * (<*>) = liftA2 id -- which is available exactly when the context can
+     * hold a callable (the constraint SFINAEs away otherwise, e.g. for
+     * std::simd::vec). Both branches call the Impl directly, so no
+     * derivation cycle with `invoke` is possible.
+     */
+    template <class FUNCTION_IN_CONTEXT, class ARGUMENT_IN_CONTEXT>
+    auto apply(this auto &&self, FUNCTION_IN_CONTEXT &&function,
+               ARGUMENT_IN_CONTEXT &&argument)
+        requires requires(const Impl &impl) {
+            impl.apply(std::forward<FUNCTION_IN_CONTEXT>(function),
+                       std::forward<ARGUMENT_IN_CONTEXT>(argument));
+        } || requires(const Impl &impl) {
+            impl.invoke(detail::applicative_eval,
+                        std::forward<FUNCTION_IN_CONTEXT>(function),
+                        std::forward<ARGUMENT_IN_CONTEXT>(argument));
+        }
+    {
+        using SELF = std::remove_reference_t<decltype(self)>;
+        using IMPL_BASE =
+            std::conditional_t<std::is_const_v<SELF>, const Impl, Impl>;
+        if constexpr (requires(IMPL_BASE &impl) {
+                          impl.apply(
+                              std::forward<FUNCTION_IN_CONTEXT>(function),
+                              std::forward<ARGUMENT_IN_CONTEXT>(argument));
+                      }) {
+            return static_cast<IMPL_BASE &>(self).apply(
+                std::forward<FUNCTION_IN_CONTEXT>(function),
+                std::forward<ARGUMENT_IN_CONTEXT>(argument));
+        } else {
+            return static_cast<IMPL_BASE &>(self).invoke(
+                detail::applicative_eval,
+                std::forward<FUNCTION_IN_CONTEXT>(function),
+                std::forward<ARGUMENT_IN_CONTEXT>(argument));
+        }
+    }
+
+    /** Alias for `apply`; constrained identically so probing `ap` on an
+     * invoke-only context is a clean false rather than a hard error.
      */
     template <class FUNCTION_IN_CONTEXT, class ARGUMENT_IN_CONTEXT>
     auto ap(this auto &&self, FUNCTION_IN_CONTEXT &&function,
-            ARGUMENT_IN_CONTEXT &&argument) {
+            ARGUMENT_IN_CONTEXT &&argument)
+        requires requires {
+            self.apply(std::forward<FUNCTION_IN_CONTEXT>(function),
+                       std::forward<ARGUMENT_IN_CONTEXT>(argument));
+        }
+    {
         return self.apply(std::forward<FUNCTION_IN_CONTEXT>(function),
                           std::forward<ARGUMENT_IN_CONTEXT>(argument));
     }
@@ -285,6 +366,12 @@ struct Applicative : protected Impl {
 template <class T>
 inline constexpr auto applicative_typeclass = std::false_type{};
 
+/** Invoke-native Applicative instance for std::optional: the flagship proof
+ * of the invoke core. `apply` is not written here at all -- the base derives
+ * it as invoke(applicative_eval, cf, cx), GHC's (<*>) = liftA2 id. The
+ * trailing return type keeps invoke SFINAE-friendly, as the derived apply's
+ * constraint requires.
+ */
 template <class VALUE_TYPE>
 struct OptionalApplicativeImpl {
     template <class VALUE>
@@ -293,26 +380,27 @@ struct OptionalApplicativeImpl {
         return std::optional<remove_cvref_t<VALUE>>{std::forward<VALUE>(value)};
     }
 
-    template <class FUNCTION_IN_CONTEXT, class ARGUMENT_IN_CONTEXT>
-    auto apply(this auto &&, FUNCTION_IN_CONTEXT &&function,
-               ARGUMENT_IN_CONTEXT &&argument) {
-        using Result =
-            std::invoke_result_t<decltype(*function), decltype(*argument)>;
-
-        if (!function || !argument) {
-            return std::optional<remove_cvref_t<Result>>{};
+    /** N-ary core: if every operand is engaged, one call; otherwise empty. */
+    template <class FUNCTION, class FIRST, class... REST>
+    auto invoke(this auto &&, FUNCTION &&function,
+                const std::optional<FIRST> &first,
+                const std::optional<REST> &...rest)
+        -> std::optional<remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
+        using Result = remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
+        if (first.has_value() && (... && rest.has_value())) {
+            return std::optional<Result>{
+                std::invoke(function, *first, *rest...)};
         }
-
-        return std::optional<remove_cvref_t<Result>>{
-            std::invoke(*std::forward<FUNCTION_IN_CONTEXT>(function),
-                        *std::forward<ARGUMENT_IN_CONTEXT>(argument))};
+        return std::optional<Result>{};
     }
 };
 
 template <class VALUE_TYPE>
 struct OptionalApplicativeMap
     : Applicative<OptionalApplicativeImpl<VALUE_TYPE>> {
-    using OptionalApplicativeImpl<VALUE_TYPE>::apply;
+    using OptionalApplicativeImpl<VALUE_TYPE>::invoke;
     using OptionalApplicativeImpl<VALUE_TYPE>::pure;
 };
 

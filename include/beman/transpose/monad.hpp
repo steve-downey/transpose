@@ -16,9 +16,9 @@ namespace beman::transpose {
 
 /** CRTP base for Monad instances.
  * `Impl` must provide `pure(value)` and `bind(ma, f)`.
- * `apply` is synthesized; `join` and `kleisli` are derived.
- * Monad does not inherit from Applicative, but provides equivalent
- * operations once `apply` is synthesized from `bind` + `pure`.
+ * `apply` and the n-ary `invoke` are synthesized; `join` and `kleisli` are
+ * derived. Monad does not inherit from Applicative, but provides equivalent
+ * operations once `apply` and `invoke` are synthesized from `bind` + `pure`.
  */
 template <class Impl>
 struct Monad : protected Impl {
@@ -40,6 +40,45 @@ struct Monad : protected Impl {
                                              std::forward<decltype(a)>(a)));
             });
         });
+    }
+
+    // invoke: n-ary lift synthesized from bind + pure (left-nested binds):
+    //   invoke(f, m1, ..., mn) = m1 >>= \a1 -> ... mn >>= \an ->
+    //   pure(f(a1...an))
+    // Prefers a native Impl::invoke when present, like Applicative. This
+    // derivation assumes a synchronous bind (the continuation is invoked
+    // before bind returns), which holds for every Monad instance in this
+    // repository.
+    template <class FUNCTION, class FIRST, class... REST>
+    auto invoke(this auto &&self, FUNCTION &&function, FIRST &&first,
+                REST &&...rest) {
+        using SELF = std::remove_reference_t<decltype(self)>;
+        using IMPL_BASE =
+            std::conditional_t<std::is_const_v<SELF>, const Impl, Impl>;
+        if constexpr (requires(IMPL_BASE &impl) {
+                          impl.invoke(std::forward<FUNCTION>(function),
+                                      std::forward<FIRST>(first),
+                                      std::forward<REST>(rest)...);
+                      }) {
+            return static_cast<IMPL_BASE &>(self).invoke(
+                std::forward<FUNCTION>(function), std::forward<FIRST>(first),
+                std::forward<REST>(rest)...);
+        } else {
+            return self.bind(std::forward<FIRST>(first), [&](auto &&head) {
+                if constexpr (sizeof...(REST) == 0) {
+                    return self.pure(std::invoke(
+                        function, std::forward<decltype(head)>(head)));
+                } else {
+                    return self.invoke(
+                        [&function, &head](auto &&...tail) {
+                            return std::invoke(
+                                function, head,
+                                std::forward<decltype(tail)>(tail)...);
+                        },
+                        std::forward<REST>(rest)...);
+                }
+            });
+        }
     }
 
     // join: flatten nested monad.

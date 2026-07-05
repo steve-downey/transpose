@@ -80,9 +80,11 @@ struct SimdLanesApplicativeImpl {
     }
 };
 
+/** Dual-core map: native n-ary invoke plus the classic apply spelling. */
 template <class T, int N>
 struct SimdLanesApplicativeMap : Applicative<SimdLanesApplicativeImpl<T, N>> {
     using SimdLanesApplicativeImpl<T, N>::apply;
+    using SimdLanesApplicativeImpl<T, N>::invoke;
     using SimdLanesApplicativeImpl<T, N>::pure;
 };
 

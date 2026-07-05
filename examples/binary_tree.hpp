@@ -154,6 +154,14 @@ struct BinaryTreeFoldableMap
  * argument distributes over the function's shape; when both have children,
  * only positions where both trees have a child are combined (pairwise).
  * These are monad-derived (not zip) applicative semantics.
+ *
+ * DELIBERATELY apply-primitive: this instance is the living exemplar of the
+ * Applicative dual core's compatibility path. The base derives its n-ary
+ * `invoke` from pure + apply via terminating partial application, while
+ * invoke-native instances (optional, sender, std::simd) go the other way.
+ * The shape-aware recursion is also a case where `apply` is the genuinely
+ * natural primitive: each recursion step really does hold functions in the
+ * context.
  * @tparam T element type of the function tree (F is the function type stored)
  */
 template <class T>
