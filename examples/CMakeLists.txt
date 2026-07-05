@@ -1,9 +1,16 @@
 # examples/CMakeLists.txt                                           -*-cmake-*-
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-set(ALL_EXAMPLES transpose_example traverse_example apply_example fold_example
-    soa_aos_example binary_tree_example algorithm_object_example
-    lookup_modes_example)
+set(ALL_EXAMPLES
+    transpose_example
+    traverse_example
+    apply_example
+    fold_example
+    soa_aos_example
+    binary_tree_example
+    algorithm_object_example
+    lookup_modes_example
+)
 
 include(CheckIncludeFileCXX)
 check_include_file_cxx(simd BEMAN_TRANSPOSE_HAS_SIMD)

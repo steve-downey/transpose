@@ -56,8 +56,7 @@ class BinaryTree {
     /** Low-level constructor accepting pre-built child shared_ptrs.
      * Null pointers represent absent children.
      */
-    static auto from_children_ptrs(T                          value,
-                                   std::shared_ptr<BinaryTree> left,
+    static auto from_children_ptrs(T value, std::shared_ptr<BinaryTree> left,
                                    std::shared_ptr<BinaryTree> right)
         -> BinaryTree {
         return BinaryTree(std::move(value), std::move(left), std::move(right));
@@ -116,20 +115,16 @@ class BinaryTree {
 template <class T>
 struct BinaryTreeFoldableImpl {
     template <class F>
-    auto fold_map(this auto &&self, F &&function,
-                  const BinaryTree<T> &tree)
+    auto fold_map(this auto &&self, F &&function, const BinaryTree<T> &tree)
         -> beman::transpose::remove_cvref_t<
-               decltype(std::invoke(function, tree.value()))> {
+            decltype(std::invoke(function, tree.value()))> {
         auto value_result = std::invoke(function, tree.value());
-        using Result =
-            beman::transpose::remove_cvref_t<decltype(value_result)>;
+        using Result = beman::transpose::remove_cvref_t<decltype(value_result)>;
 
-        Result acc =
-            tree.has_left()
-                ? beman::transpose::monoid_combine(
-                      self.fold_map(function, tree.left()),
-                      std::move(value_result))
-                : std::move(value_result);
+        Result acc = tree.has_left() ? beman::transpose::monoid_combine(
+                                           self.fold_map(function, tree.left()),
+                                           std::move(value_result))
+                                     : std::move(value_result);
 
         if (tree.has_right()) {
             acc = beman::transpose::monoid_combine(
@@ -258,7 +253,7 @@ struct BinaryTreeTraversableImpl {
             std::invoke(std::forward<F>(function), tree.value());
         using Context =
             beman::transpose::remove_cvref_t<decltype(value_context)>;
-        using U           = beman::transpose::applicative_value_t<Context>;
+        using U = beman::transpose::applicative_value_t<Context>;
         using TreeContext = decltype(applicative.invoke(
             [](auto &&value) {
                 using V = beman::transpose::remove_cvref_t<decltype(value)>;
@@ -270,8 +265,7 @@ struct BinaryTreeTraversableImpl {
         if (!tree.has_left() && !tree.has_right()) {
             return applicative.invoke(
                 [](auto &&value) {
-                    using V =
-                        beman::transpose::remove_cvref_t<decltype(value)>;
+                    using V = beman::transpose::remove_cvref_t<decltype(value)>;
                     return BinaryTree<V>::leaf(
                         std::forward<decltype(value)>(value));
                 },
@@ -303,9 +297,7 @@ struct BinaryTreeTraversableImpl {
 
         auto empty_child_like = [&](const auto &child_tree_context) {
             return applicative.invoke(
-                [](const auto &) {
-                    return std::shared_ptr<BinaryTree<U>>{};
-                },
+                [](const auto &) { return std::shared_ptr<BinaryTree<U>>{}; },
                 child_tree_context);
         };
 
@@ -327,8 +319,7 @@ struct BinaryTreeTraversableImpl {
 
         return applicative.invoke(
             [](auto &&value, auto &&left, auto &&right) {
-                using V =
-                    beman::transpose::remove_cvref_t<decltype(value)>;
+                using V = beman::transpose::remove_cvref_t<decltype(value)>;
                 return BinaryTree<V>::from_children_ptrs(
                     std::forward<decltype(value)>(value),
                     std::forward<decltype(left)>(left),

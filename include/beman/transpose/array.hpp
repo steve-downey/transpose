@@ -30,7 +30,7 @@ namespace beman::transpose {
 template <class T, std::size_t N>
 struct ArrayApplicativeImpl {
     template <class VALUE>
-    auto pure(this auto&&, VALUE&& value) {
+    auto pure(this auto &&, VALUE &&value) {
         using U = remove_cvref_t<VALUE>;
         std::array<U, N> result;
         result.fill(U(std::forward<VALUE>(value)));
@@ -38,9 +38,9 @@ struct ArrayApplicativeImpl {
     }
 
     template <class F, class A>
-    auto apply(this auto&&, const std::array<F, N>& functions,
-               const std::array<A, N>& arguments) {
-        using Result = std::invoke_result_t<const F&, const A&>;
+    auto apply(this auto &&, const std::array<F, N> &functions,
+               const std::array<A, N> &arguments) {
+        using Result = std::invoke_result_t<const F &, const A &>;
         using U = remove_cvref_t<Result>;
 
         std::array<U, N> result;
@@ -51,11 +51,11 @@ struct ArrayApplicativeImpl {
     }
 
     template <class FUNCTION, class FIRST, class... REST>
-    auto invoke(this auto&&, FUNCTION&& function, const FIRST& first,
-                const REST&... rest) {
+    auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
+                const REST &...rest) {
         using Result =
-            std::invoke_result_t<FUNCTION, const typename FIRST::value_type&,
-                                 const typename REST::value_type&...>;
+            std::invoke_result_t<FUNCTION, const typename FIRST::value_type &,
+                                 const typename REST::value_type &...>;
         using U = remove_cvref_t<Result>;
 
         std::array<U, N> result;
@@ -79,13 +79,12 @@ inline constexpr auto applicative_typeclass<std::array<T, N>> =
 namespace detail {
 
 template <std::size_t N, class... Ts, std::size_t... Is>
-auto transpose_tuple_impl(const std::tuple<std::array<Ts, N>...>& soa,
+auto transpose_tuple_impl(const std::tuple<std::array<Ts, N>...> &soa,
                           std::index_sequence<Is...>)
     -> std::array<std::tuple<Ts...>, N> {
-    const auto& app = applicative_typeclass<std::array<std::tuple<Ts...>, N>>;
-    return app.invoke(
-        [](const Ts&... elems) { return std::tuple{elems...}; },
-        std::get<Is>(soa)...);
+    const auto &app = applicative_typeclass<std::array<std::tuple<Ts...>, N>>;
+    return app.invoke([](const Ts &...elems) { return std::tuple{elems...}; },
+                      std::get<Is>(soa)...);
 }
 
 } // namespace detail
@@ -101,7 +100,7 @@ auto transpose_tuple_impl(const std::tuple<std::array<Ts, N>...>& soa,
  * @return     An array of N tuples, one per position across the input arrays.
  */
 template <std::size_t N, class... Ts>
-auto transpose_tuple(const std::tuple<std::array<Ts, N>...>& soa)
+auto transpose_tuple(const std::tuple<std::array<Ts, N>...> &soa)
     -> std::array<std::tuple<Ts...>, N> {
     return detail::transpose_tuple_impl(soa, std::index_sequence_for<Ts...>{});
 }
