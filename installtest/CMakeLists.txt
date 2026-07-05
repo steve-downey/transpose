@@ -10,19 +10,14 @@ set(CMAKE_CXX_STANDARD 20) #current minimum C++ version
 enable_testing()
 
 # Find the installed package
-set(NAME_INSTALL_DIR "../.install/lib/cmake/transpose.transpose/")
-find_package(
-    transpose.transpose
-    REQUIRED
-    PATHS ${NAME_INSTALL_DIR}
-    NO_DEFAULT_PATH
-)
+set(NAME_INSTALL_DIR "../.install/lib/cmake/beman.transpose/")
+find_package(beman.transpose REQUIRED PATHS ${NAME_INSTALL_DIR} NO_DEFAULT_PATH)
 
 # Add the test executable
 add_executable(TestInstalledLibrary test.cpp)
 
 # Link against the imported target
-target_link_libraries(TestInstalledLibrary smd::transpose)
+target_link_libraries(TestInstalledLibrary beman::transpose)
 
 # Register the test with CTest
 add_test(NAME RunInstalledTest COMMAND TestInstalledLibrary)
