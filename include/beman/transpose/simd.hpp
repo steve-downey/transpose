@@ -55,14 +55,13 @@ struct SimdVecApplicativeImpl {
     template <class FUNCTION, class FIRST, class... REST>
     auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
                 const REST &...rest)
-        -> std::simd::vec<
-            remove_cvref_t<std::invoke_result_t<
-                FUNCTION &, const typename FIRST::value_type &,
-                const typename REST::value_type &...>>,
-            width> {
-        using U = remove_cvref_t<std::invoke_result_t<
-            FUNCTION &, const typename FIRST::value_type &,
-            const typename REST::value_type &...>>;
+        -> std::simd::vec<remove_cvref_t<std::invoke_result_t<
+                              FUNCTION &, const typename FIRST::value_type &,
+                              const typename REST::value_type &...>>,
+                          width> {
+        using U = remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const typename FIRST::value_type &,
+                                 const typename REST::value_type &...>>;
         return std::simd::vec<U, width>([&](auto lane) -> U {
             return std::invoke(function, first[lane], rest[lane]...);
         });
