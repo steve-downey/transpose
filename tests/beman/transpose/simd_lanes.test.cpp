@@ -60,7 +60,8 @@ TEST_CASE("simd_lanes: dual cores cohere") {
 }
 
 TEST_CASE("simd_lanes: transpose round-trips structure and lanes") {
-    std::vector<lanes4> structure{lanes4{{1, 2, 3, 4}}, lanes4{{10, 20, 30, 40}},
+    std::vector<lanes4> structure{lanes4{{1, 2, 3, 4}},
+                                  lanes4{{10, 20, 30, 40}},
                                   lanes4{{100, 200, 300, 400}}};
     auto transposed = bt::transpose(structure);
 

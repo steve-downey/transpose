@@ -47,13 +47,13 @@ TEST_CASE("simd: invoke applies a plain function lane by lane") {
     REQUIRE(lanes_equal(unary, vec4([](int lane) { return -(lane + 1); })));
 
     auto binary = app.invoke([](int x, int y) { return x + y; }, a, b);
-    REQUIRE(lanes_equal(binary,
-                        vec4([](int lane) { return (lane + 1) * 11; })));
+    REQUIRE(
+        lanes_equal(binary, vec4([](int lane) { return (lane + 1) * 11; })));
 
     auto ternary =
         app.invoke([](int x, int y, int z) { return (x + y) * z; }, a, b, c);
-    REQUIRE(lanes_equal(ternary,
-                        vec4([](int lane) { return (lane + 1) * 22; })));
+    REQUIRE(
+        lanes_equal(ternary, vec4([](int lane) { return (lane + 1) * 22; })));
 }
 
 TEST_CASE("simd: map and zip_with are derived from the invoke core") {
@@ -82,9 +82,8 @@ TEST_CASE("simd: applicative laws hold in invoke form") {
     // Composition, functor form: map(f . g, v) == map(f, map(g, v)).
     auto outer = [](int x) { return x * 2; };
     auto inner = [](int x) { return x + 5; };
-    REQUIRE(lanes_equal(
-        app.map([&](int x) { return outer(inner(x)); }, v),
-        app.map(outer, app.map(inner, v))));
+    REQUIRE(lanes_equal(app.map([&](int x) { return outer(inner(x)); }, v),
+                        app.map(outer, app.map(inner, v))));
 }
 
 TEST_CASE("simd: apply and ap do not exist -- the invoke-only proof") {
