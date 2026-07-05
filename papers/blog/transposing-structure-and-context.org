@@ -120,8 +120,9 @@ dp::vec<float, 4> hyp([&](auto lane) { return std::hypot(xs[lane], ys[lane]); })
 
 There is one honest caveat, and it is the revealing one.
 ~std::simd::vec~ holds only scalars, so ~vec<vector<T>>~ is not a type: a bare register of lanes is not something you can ~transpose~ directly.
-That is exactly why the front door runs on ~simd_lanes~ (an array, which /can/ hold a vector), with ~std::simd::vec~ as the hardware that fills the lanes --- a /partial/ example that carries the same lanewise /independence/ without being transposable itself.
-The precise point where the real register stops typechecking is the precise point where the abstraction earns its keep.
+That is exactly why the front door runs on ~simd_lanes~ for transposition (an array, which /can/ hold a vector), with ~std::simd::vec~ as the hardware that fills the lanes.
+The register is not left outside, though: ~std::simd::vec~ is a registered applicative context in its own right --- ~map~ and ~zip_with~ run lane by lane through the same front door as ~optional~ and senders --- it just is not a /structure/ that can be walked and rebuilt.
+Part two makes that distinction precise, and the precise point where the real register stops typechecking is the precise point where the abstraction earns its keep.
 
 The third context is the interesting one for modern C++: a *deferred* computation, a ~std::execution~ sender.
 A vector of senders transposes into one sender of a vector --- "run these and gather the results" --- with nothing executed until the composed sender is run:

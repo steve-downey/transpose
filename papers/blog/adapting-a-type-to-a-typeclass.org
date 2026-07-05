@@ -180,7 +180,7 @@ Here is the whole implementer surface, across the four typeclasses this design u
 |-------------+------------------------------+-------------------------------------------------------------------------------------------------------------------|
 | Functor     | ~fmap~                       | ~replace~                                                                                                          |
 | Foldable    | ~fold_map~ (or ~fold_right~) | ~length~, ~to_vector~, ~fold_left~, ~fold_right~, ~any_of~, ~all_of~, ~empty~, ~find_first~, ~combine_all~, ~fold~ |
-| Applicative | ~pure~ + ~apply~             | ~invoke~, ~map~, ~lift~, ~ap~, ~zip_with~, ~discard_first~, ~discard_second~                                       |
+| Applicative | ~pure~ + (~invoke~ or ~apply~) | ~invoke~/~apply~ (whichever you did not supply), ~map~, ~lift~, ~ap~, ~zip_with~, ~discard_first~, ~discard_second~ |
 | Traversable | ~traverse~                   | ~transpose~, ~for_each~, ~traverse_with~, ~transpose_with~                                                         |
 
 Write one or two functions.
@@ -192,7 +192,7 @@ That is the trade, and it is the whole reason adapting a type is cheap enough to
 The three layers --- Impl, base, Map --- are a /convenience/, not a requirement.
 They exist so the common case costs one or two functions instead of a dozen.
 But a typeclass instance is, in the end, just the looked-up /dictionary/: a value that carries the concept's operations under their agreed names.
-The only contract it must honour is that the names are all /there/ and that they /behave lawfully/ --- that ~fold_map~ really folds, that ~pure~ and ~apply~ satisfy the applicative laws, that ~traverse~ preserves shape.
+The only contract it must honour is that the names are all /there/ and that they /behave lawfully/ --- that ~fold_map~ really folds, that ~pure~ and ~invoke~ satisfy the applicative laws, that ~traverse~ preserves shape.
 
 /How/ you produce a dictionary that meets that contract is entirely your business.
 Derive it from a small core with the CRTP base, as here; or hand-write every operation; or generate it; or wrap an existing library.
@@ -219,7 +219,7 @@ A type contributes whichever one is natural for it.
 This design does the same, and the Map's ~using~ declaration is the switch: it names which operation you are supplying as primitive, and the CRTP base fills in the rest --- including deriving your missing "primitive" from the one you did provide.
 
 For Foldable that is a nicety --- ~fold_map~ and ~fold_right~ each recover the other, and a type supplies whichever is natural.
-Applicative is where the choice of primitive stops being cosmetic, and the revealing case is ~std::simd~.
+Applicative is where the choice of primitive stops being cosmetic, and the case that forced the design is ~std::simd~.
 
 An applicative's textbook primitive is ~apply~: a function /already inside the context/ applied to an argument /inside the context/.
 
@@ -244,18 +244,19 @@ auto c = std::simd::vec<float>(
 That operation is ~invoke~: a /plain/ function applied to in-context arguments, forming no context-of-functions.
 It is not sugar for ~apply~ --- it is the more general shape.
 Where ~apply~ needs the context to hold a callable, ~invoke~ never does, and ~map~ and ~zip_with~ are just ~invoke~ with one or two arguments.
-~std::simd::vec~ is the proof: a context that expresses ~invoke~ but /physically cannot/ express ~apply~.
 
-So which primitive does the /library/ actually build on?
-~apply~.
-The Applicative base takes ~pure~ + ~apply~ as its core and derives ~invoke~, ~map~, and ~zip_with~ from it, and every /registered/ context provides ~apply~ --- because the lanewise applicative that goes through the front door is ~simd_lanes~, an array of lanes.
-Being an array, ~simd_lanes~ can hold a callable, so it has a perfectly good ~apply~ (and ~invoke~), and it transposes; ~std::simd::vec~ is the hardware that computes the scalars those lanes hold.
-~std::simd::vec~ itself stays a /partial/ applicative --- ~invoke~ yes, ~apply~ no --- a sharp illustration rather than a registered instance.
+So the library builds on ~invoke~.
+The Applicative core is ~pure~ + (~invoke~ or ~apply~) --- supply either, the base derives the other --- and ~invoke~ is the conceptual primary.
+This is not a novelty; it is the oldest result in the applicative literature wearing C++ clothes.
+McBride and Paterson proved that every applicative expression normalizes to a single pure function applied to the effectful arguments in order --- ~pure f ⊛ u1 ⊛ … ⊛ un~ --- and that canonical form /is/ ~invoke(f, u1, …, un)~ [cite:@mcbride2008applicative].
+Haskell's own base library reached the same conclusion: its minimal definition is ~pure~ plus /either/ ~<*>~ or ~liftA2~ (binary ~invoke~), with the default ~(<*>) = liftA2 id~ --- which is exactly how this library derives ~apply~ when you supply ~invoke~: apply a two-argument "evaluate" function to the wrapped callable and the wrapped argument.
+Deriving in that direction is a one-liner.
+Deriving ~invoke~ from ~apply~ --- the compatibility path, still fully supported --- is the direction that needs curry machinery, because C++ functions take all their arguments at once.
 
-There is a real question lurking, worth naming and leaving open: could a context be an applicative on ~invoke~ /alone/, with no ~apply~ underneath?
-You would give up partial application --- there is no in-context function to hand arguments to one at a time.
-But every applicative chain can be refactored into a single ~invoke~ that starts from ~pure(f)~ and takes all its arguments at once --- which is exactly what ~invoke~ does --- so perhaps not much is lost.
-That is a thread for another day; ~std::simd~ is the reason it is worth pulling.
+And so ~std::simd::vec~ is a /registered instance/.
+Its map supplies ~pure~ (broadcast to every lane) and ~invoke~ (the lane-wise generator), and nothing else; ~apply~ and ~ap~ simply do not exist for it --- not by fiat but by constraint, since the derivation needs a ~vec<callable>~ that cannot be formed.
+The trade is real but small: an invoke-only context gives up partial application --- there is no in-context function to feed arguments one at a time --- and partial application was never the C++ idiom anyway.
+~simd_lanes~, the array-of-lanes type, remains the lanewise context that goes through ~transpose~ (an array /can/ hold a vector, or a callable --- it supplies both cores); ~std::simd::vec~ is the hardware that computes what those lanes hold, and now participates in ~map~ and ~zip_with~ through the same front door as everything else.
 
 The adapter's takeaway is smaller and concrete.
 Because the operations are /bundled/ and the base derives the many from the few, you write one or two primitives and inherit a full surface --- and, as Foldable shows, the bundle can even accept /either/ of two cores and fill in the other.
