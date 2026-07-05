@@ -1,4 +1,4 @@
-<div class="abstract" id="orgc634592">
+<div class="abstract" id="org5c07295">
 <p>
 Part one ended on a puzzle: <code>optional</code>, a <code>std::execution</code> sender, and a lanewise SIMD value share no base class, no common header, no member named <code>transpose</code> &#x2014; yet each plugs into the same front door.
 This is how, from the side that matters most to you if you own a type: what does it cost to make <i>your</i> type join in?
@@ -137,6 +137,13 @@ Here is the whole implementer surface, across the four typeclasses this design u
 | Traversable | `traverse`                   | `transpose`, `for_each`, `traverse_with`, `transpose_with`                                                         |
 
 Write one or two functions. Get a full API. That is the trade, and it is the whole reason adapting a type is cheap enough to actually do.
+
+
+# The technique is optional; the contract is not
+
+The three layers &#x2014; Impl, base, Map &#x2014; are a *convenience*, not a requirement. They exist so the common case costs one or two functions instead of a dozen. But a typeclass instance is, in the end, just the looked-up *dictionary*: a value that carries the concept's operations under their agreed names. The only contract it must honour is that the names are all *there* and that they *behave lawfully* &#x2014; that `fold_map` really folds, that `pure` and `apply` satisfy the applicative laws, that `traverse` preserves shape.
+
+*How* you produce a dictionary that meets that contract is entirely your business. Derive it from a small core with the CRTP base, as here; or hand-write every operation; or generate it; or wrap an existing library. Two instances of the same typeclass can be built by completely different means and remain interchangeable to every algorithm, because the algorithm sees only the dictionary and trusts only its laws &#x2014; never how the dictionary was made. That is the freedom `std::numeric_limits` has always had: nothing dictates *how* a specialization computes `max()`, only that it is present and correct.
 
 
 # You write the primitive you *can* write
