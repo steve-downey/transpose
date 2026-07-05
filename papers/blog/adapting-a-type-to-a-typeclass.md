@@ -1,4 +1,4 @@
-<div class="abstract" id="org62ef101">
+<div class="abstract" id="org7628b53">
 <p>
 Part one ended on a puzzle: <code>optional</code>, a <code>std::execution</code> sender, and a lanewise SIMD value share no base class, no common header, no member named <code>transpose</code> &#x2014; yet each plugs into the same front door.
 This is how, from the side that matters most to you if you own a type: what does it cost to make <i>your</i> type join in?
@@ -22,7 +22,7 @@ auto is_signed = std::numeric_limits<int>::is_signed; // true
 
 It is a struct, specialized per type, providing named operations and values. If you wanted to teach it about a new numeric type, you would specialize the template. That is the whole idea.
 
-The version this series is built on generalizes `numeric_limits` in three small ways: the operations are functions rather than only constants, a batch of derived operations comes for free via CRTP, and lookup goes through a *variable template* rather than a class template. That last change is what lets `optional`, a sender, and a SIMD register &#x2014; three types with nothing in common &#x2014; all answer to the same name.
+The version this series is built on generalizes `numeric_limits` in three small ways: the operations are functions rather than only constants, a batch of derived operations comes for free via CRTP, and lookup goes through a *variable template* rather than a class template. That last change is what lets `optional`, a sender, and a lanewise value &#x2014; three types with nothing in common &#x2014; all answer to the same name.
 
 Here is that name for Foldable.
 
@@ -122,12 +122,12 @@ For Functor the one-to-two ratio is modest. It gets dramatic quickly. For Foldab
 
 Here is the whole implementer surface, across the four typeclasses this design uses:
 
-| Typeclass   | Primitive(s)                   | Derived operations                                                                                                 |
-|----------- |------------------------------ |------------------------------------------------------------------------------------------------------------------ |
-| Functor     | `fmap`                         | `replace`                                                                                                          |
-| Foldable    | `fold_map` (or `fold_right`)   | `length`, `to_vector`, `fold_left`, `fold_right`, `any_of`, `all_of`, `empty`, `find_first`, `combine_all`, `fold` |
-| Applicative | `pure` + `apply` (or `invoke`) | `invoke`, `map`, `lift`, `ap`, `zip_with`, `discard_first`, `discard_second`                                       |
-| Traversable | `traverse`                     | `transpose`, `for_each`, `traverse_with`, `transpose_with`                                                         |
+| Typeclass   | Primitive(s)                 | Derived operations                                                                                                 |
+|----------- |---------------------------- |------------------------------------------------------------------------------------------------------------------ |
+| Functor     | `fmap`                       | `replace`                                                                                                          |
+| Foldable    | `fold_map` (or `fold_right`) | `length`, `to_vector`, `fold_left`, `fold_right`, `any_of`, `all_of`, `empty`, `find_first`, `combine_all`, `fold` |
+| Applicative | `pure` + `apply`             | `invoke`, `map`, `lift`, `ap`, `zip_with`, `discard_first`, `discard_second`                                       |
+| Traversable | `traverse`                   | `transpose`, `for_each`, `traverse_with`, `transpose_with`                                                         |
 
 Write one or two functions. Get a full API. That is the trade, and it is the whole reason adapting a type is cheap enough to actually do.
 
@@ -147,7 +147,7 @@ class Foldable t where
 
 Either primitive suffices; the base derives the other. A type contributes whichever one is natural for it. This design does the same, and the Map's `using` declaration is the switch: it names which operation you are supplying as primitive, and the CRTP base fills in the rest &#x2014; including deriving your missing "primitive" from the one you did provide.
 
-For Foldable that is a nicety. For Applicative it is the difference between a type participating and being locked out, and the clean example is `std::simd`.
+For Foldable that is a nicety &#x2014; `fold_map` and `fold_right` each recover the other, and a type supplies whichever is natural. Applicative is where the choice of primitive stops being cosmetic, and the revealing case is `std::simd`.
 
 An applicative's textbook primitive is `apply`: a function *already inside the context* applied to an argument *inside the context*.
 
@@ -155,46 +155,30 @@ An applicative's textbook primitive is `apply`: a function *already inside the c
 // apply : C<(T -> U)>, C<T> -> C<U>
 ```
 
-That is fine for `optional`, for senders, for a zip-style list &#x2014; anything that can hold a callable. Now try to write `apply` for [`std::simd::vec`](https://en.cppreference.com/w/cpp/numeric/simd), real in GCC 16. You cannot. A `std::simd::vec<T>` holds only vectorizable scalars, so `vec<callable>` is not even a type, so `apply` *cannot be spelled at all* for SIMD.
+That works for `optional`, for senders, for a zip-style list, for any *array* of lanes &#x2014; anything that can hold a callable. Now try to spell `apply` for [`std::simd::vec`](https://en.cppreference.com/w/cpp/numeric/simd), real in GCC 16. You cannot. A `std::simd::vec<T>` holds only vectorizable scalars, so `vec<callable>` is not even a type &#x2014; there is no function-in-a-register, and `apply` *cannot be spelled at all*.
 
-But the thing you actually want &#x2014; run a scalar function across every lane &#x2014; is perfectly well defined. That operation is `invoke`: a plain function applied to in-context arguments, with no `C<callable>` ever formed.
+But the operation you actually want &#x2014; run a scalar function across every lane &#x2014; is perfectly well defined:
 
 ```cpp
 // invoke : (T... -> U), C<T>... -> C<U>     (no C<callable> ever formed)
-template <class T>
-struct SimdApplicativeImpl {
-    template <class VALUE>
-    auto pure(this auto&&, VALUE&& value) {            // broadcast to all lanes
-        using U = remove_cvref_t<VALUE>;
-        return std::simd::vec<U>(U(std::forward<VALUE>(value)));
-    }
-
-    template <class FUNCTION, class FIRST, class... REST>
-    auto invoke(this auto&&, FUNCTION&& f,
-                const FIRST& first, const REST&... rest) {
-        using R = remove_cvref_t<std::invoke_result_t<
-            FUNCTION&, decltype(first[0]), decltype(rest[0])...>>;
-        return std::simd::vec<R>([&](auto lane) -> R {
-            return std::invoke(f, first[lane], rest[lane]...);  // lane by lane
-        });
-    }
-};
-
-template <class T>
-struct SimdApplicativeMap : Applicative<SimdApplicativeImpl<T>> {
-    using SimdApplicativeImpl<T>::pure;   // invoke is the primitive; no apply
-};
+std::simd::vec<float> a = ..., b = ...;
+auto c = std::simd::vec<float>(
+    [&](auto lane) { return std::hypot(a[lane], b[lane]); });  // lane by lane
 ```
 
-So Applicative has two minimal cores &#x2014; `pure` + `apply` or `pure` + `invoke` &#x2014; and `std::simd` can supply exactly one of them. The Map's `using` declaration says which, and everything above it (`map`, `zip_with`, and the `traverse` / `transpose` from part one) is derived the same way regardless of which core you gave.
+That operation is `invoke`: a *plain* function applied to in-context arguments, forming no context-of-functions. It is not sugar for `apply` &#x2014; it is the more general shape. Where `apply` needs the context to hold a callable, `invoke` never does, and `map` and `zip_with` are just `invoke` with one or two arguments. `std::simd::vec` is the proof: a context that expresses `invoke` but *physically cannot* express `apply`.
 
-Sit with what that buys the adapter. If `apply` were a single, global customization point &#x2014; one CPO everyone must satisfy &#x2014; then `std::simd` would simply *fail to be an applicative*, blocked by the one primitive it is physically unable to express. Because the operations are bundled and the Map chooses the core, your type contributes the primitive it can actually write and inherits the rest. That is not a convenience feature. For SIMD it is the line between joining and being excluded, and it is a direct argument for why this belongs in a standard vocabulary rather than in a pile of independent one-operation hooks: the standard's job is to let types *in*, and the types that most need letting in are exactly the ones that can only spell one of the two cores.
+So which primitive does the *library* actually build on? `apply`. The Applicative base takes `pure` + `apply` as its core and derives `invoke`, `map`, and `zip_with` from it, and every *registered* context provides `apply` &#x2014; because the lanewise applicative that goes through the front door is `simd_lanes`, an array of lanes. Being an array, `simd_lanes` can hold a callable, so it has a perfectly good `apply` (and `invoke`), and it transposes; `std::simd::vec` is the hardware that computes the scalars those lanes hold. `std::simd::vec` itself stays a *partial* applicative &#x2014; `invoke` yes, `apply` no &#x2014; a sharp illustration rather than a registered instance.
+
+There is a real question lurking, worth naming and leaving open: could a context be an applicative on `invoke` *alone*, with no `apply` underneath? You would give up partial application &#x2014; there is no in-context function to hand arguments to one at a time. But every applicative chain can be refactored into a single `invoke` that starts from `pure(f)` and takes all its arguments at once &#x2014; which is exactly what `invoke` does &#x2014; so perhaps not much is lost. That is a thread for another day; `std::simd` is the reason it is worth pulling.
+
+The adapter's takeaway is smaller and concrete. Because the operations are *bundled* and the base derives the many from the few, you write one or two primitives and inherit a full surface &#x2014; and, as Foldable shows, the bundle can even accept *either* of two cores and fill in the other. A pile of independent one-CPO-per-operation hooks cannot make that trade: each operation stands alone, with nowhere to say "derive this one from that one," or "either of these will do." That coherence &#x2014; primitive and derived kept together &#x2014; is what a standard vocabulary for this should provide, and it is the through-line of part three.
 
 
 # What it cost you, and what you got
 
 Tally the adapter's bill. You wrote one primitive operation &#x2014; or two, for Applicative &#x2014; in a small `Impl` struct. You wrote a Map that names which primitive that was. You wrote a three-line variable-template specialization to register it. You did not derive from anything, reopen anything, edit a registry, or coordinate with any other adapter. You did not touch the data type, which may not even be yours to touch.
 
-In return your type gained the full derived surface in the table above, and &#x2014; this is the part that pays off in part three &#x2014; it now flows through every generic algorithm written against these typeclasses, unchanged, with static dispatch and no virtual calls. The optional you just adapted, the tree someone else adapted, the SIMD register the standard library adapted: the same algorithm runs over all of them.
+In return your type gained the full derived surface in the table above, and &#x2014; this is the part that pays off in part three &#x2014; it now flows through every generic algorithm written against these typeclasses, unchanged, with static dispatch and no virtual calls. The optional you just adapted, the tree someone else adapted, the `simd_lanes` carrying a hardware SIMD result: the same algorithm runs over all of them.
 
 That is the other half of the story, and the reason the cheap opt-in is worth anything at all. Part three, [Writing Algorithms with Typeclass Objects](writing-algorithms-with-typeclass-objects.md), takes the algorithm author's chair: how you *consume* these machines, why the names compose, and why traits, CPOs, and concepts-alone cannot hold an applicative family together the way a bundled typeclass object can.

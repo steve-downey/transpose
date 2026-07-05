@@ -1,4 +1,4 @@
-<div class="abstract" id="org3db5c65">
+<div class="abstract" id="org9a63b5c">
 <p>
 You have a <code>vector&lt;optional&lt;T&gt;&gt;</code> and you want an <code>optional&lt;vector&lt;T&gt;&gt;</code>.
 You have written the loop. So has everyone.
@@ -71,20 +71,21 @@ auto out = bt::transpose(lanes);  // out : zip_list<vector<int>> --- 2 lanes of 
 
 Same verb. No per-domain loop, no per-domain overload at the call site. The hand-written version of *that* one is a double loop with a min-width calculation and a transpose-the-ragged-matrix nested index &#x2014; the kind of code that is correct exactly once.
 
-And `zip_list` is a stand-in for the real thing. Since GCC 16 you can run the identical lanewise composition on actual hardware SIMD registers, through the same applicative surface:
+And `zip_list` is the portable stand-in. The lanewise applicative that actually goes through the front door is `simd_lanes<T, N>` &#x2014; an `N`-lane array. Because it is an array it *can* hold a whole `vector`, so `simd_lanes<vector<T>, N>` is a real type and `transpose` flips a `vector<simd_lanes<T, N>>` into one lane-array of vectors, exactly as `zip_list` did above.
+
+And the lanes can be real hardware. Since GCC 16 you can compute each lane with [`std::simd::vec`](https://en.cppreference.com/w/cpp/numeric/simd) &#x2014; an actual SIMD register &#x2014; and pour the results into a `simd_lanes` that then transposes:
 
 ```cpp
 #include <simd>
 namespace dp = std::simd;
 
-dp::vec<float> xs = ...;        // a register of lanes
-dp::vec<float> ys = 10.0f;      // broadcast to every lane
-const auto& lanewise = bt::applicative_typeclass<dp::vec<float>>;
-auto hyp = lanewise.zip_with(
-    [](float x, float y){ return std::hypot(x, y); }, xs, ys);  // lane by lane
+dp::vec<float, 4> xs = ...;      // a hardware register of four lanes
+dp::vec<float, 4> ys = 10.0f;    // broadcast to every lane
+dp::vec<float, 4> hyp([&](auto lane) { return std::hypot(xs[lane], ys[lane]); });
+// hyp's four lanes fill a bt::simd_lanes<float, 4> --- which transposes.
 ```
 
-There is one honest caveat, and it is the revealing one. `std::simd::vec` holds only scalars, so `vec<vector<T>>` is not a type, and `transpose` of a vector of registers is not even something you can spell. The `transpose` verb stays with `zip_list` (which *can* hold a vector); `std::simd` carries the same *independence* on real lanes through `zip_with` and `map`. The lanewise story is therefore both faithfully modeled and real &#x2014; and the exact point where the real type stops typechecking is the exact point where the abstraction earns its keep.
+There is one honest caveat, and it is the revealing one. `std::simd::vec` holds only scalars, so `vec<vector<T>>` is not a type: a bare register of lanes is not something you can `transpose` directly. That is exactly why the front door runs on `simd_lanes` (an array, which *can* hold a vector), with `std::simd::vec` as the hardware that fills the lanes &#x2014; a *partial* example that carries the same lanewise *independence* without being transposable itself. The precise point where the real register stops typechecking is the precise point where the abstraction earns its keep.
 
 The third context is the interesting one for modern C++: a **deferred** computation, a `std::execution` sender. A vector of senders transposes into one sender of a vector &#x2014; "run these and gather the results" &#x2014; with nothing executed until the composed sender is run:
 
