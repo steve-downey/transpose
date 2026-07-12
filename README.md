@@ -54,7 +54,12 @@ bt::transpose(std::vector<bt::zip_list<int>>{...});  // -> zip_list<vector<int>>
 
 `std::optional` is the only standard context that ships with a registered
 instance; `sender` and `zip_list` are deliberately minimal, non-normative
-demonstration types proving the front door is context-agnostic.
+demonstration types proving the front door is context-agnostic. `zip_list`
+carries the `transpose` verb for the lanewise domain because it can hold a
+composite payload; real `std::simd::vec<T>` (`simd.hpp`) demonstrates the same
+lanewise composition at the applicative layer (`pure` / `invoke` / `zip_with`),
+since `vec<vector<T>>` is not a type and so `std::simd` cannot go through
+`transpose` itself.
 
 ## Public surface
 
@@ -66,7 +71,13 @@ Headers live under `include/beman/transpose/`:
   `monad.hpp` — the bundled customization core (applicative / functor /
   foldable / monoid / monad typeclass objects)
 - `sequence.hpp` — `Foldable`/`Traversable` instances for `std::vector`
-- `zip_list.hpp`, `sender.hpp` — non-normative demonstration contexts
+- `zip_list.hpp`, `sender.hpp`, `simd.hpp`, `exec.hpp` — non-normative
+  demonstration contexts. `sender.hpp` is a minimal pedagogical stand-in;
+  `simd.hpp` adapts real `std::simd::vec<T>` (built only on a C++26 toolchain
+  that ships `<simd>`, e.g. GCC 16); `exec.hpp` adapts **real** `std::execution`
+  senders via vendored `beman.execution`, so `transpose(vector<S>)` produces a
+  real `sender<vector<T>>` with no type erasure (built only when
+  `vendored/beman.execution` is present)
 - `detail/typeclass_base.hpp` — shared support
 
 The customization mechanism supports three lookup modes: implicit

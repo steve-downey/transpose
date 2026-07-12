@@ -20,7 +20,10 @@ override DEPSDIR := $(ROOTDIR)deps
 
 override PANDOC_VER := $(shell cat $(DEPSDIR)/pandoc.ver)
 override PANDOC_DIR := $(DEPSDIR)/pandoc/$(PANDOC_VER)
-override PYTHON_DIR := $(DEPSDIR)/python
+# PYTHON_DIR may be overridden (e.g. PYTHON_DIR=<project>/.venv) so the paper
+# build reuses an existing project uv venv instead of creating a second Python
+# environment for the panflute filter. Defaults to the framework-local venv.
+PYTHON_DIR ?= $(DEPSDIR)/python
 override PYTHON_BIN := $(PYTHON_DIR)/bin/python3
 
 export SHELL := bash

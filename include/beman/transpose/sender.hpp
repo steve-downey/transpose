@@ -10,6 +10,10 @@
 // structure of senders transposes into a single sender of the structure, e.g.
 // vector<sender<T>> becomes sender<vector<T>>, with no work performed until the
 // resulting sender is run. It is illustrative, not a proposed standard type.
+//
+// For the *real* deferred domain — transpose over actual std::execution (P2300)
+// senders via beman.execution, with no type erasure — see exec.hpp. This toy
+// remains only as a minimal, dependency-free teaching stand-in.
 
 #include <beman/transpose/apply.hpp>
 
