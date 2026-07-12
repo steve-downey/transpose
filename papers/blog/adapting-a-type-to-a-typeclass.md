@@ -1,14 +1,13 @@
-<div class="abstract" id="orgafae914">
+<div class="abstract" id="org5beccbc">
 <p>
 Part one ended on a puzzle: <code>optional</code>, a <code>std::execution</code> sender, and a lanewise SIMD value share no base class, no common header, no member named <code>transpose</code> &#x2014; yet each plugs into the same front door.
 This is how, from the side that matters most to you if you own a type: what does it cost to make <i>your</i> type join in?
 The answer is about three lines, and you never reopen a class you don't own.
-This is part three of five.
 </p>
 
 </div>
 
-*This is part three of a short series.* *Part one,* [Transposing Structure and Context](transposing-structure-and-context.md), *named the problem; part two,* [Context is Applicative, Structure is Traversable](how-traverse-and-transpose-work.md), *opened the machinery &#x2014; `traverse` and `transpose` built from a Traversable structure and an Applicative context.* *This post takes the* type adapter's *chair: what it takes to make `optional`, a sender, or your own type into one of those instances. Part four,* [Writing Algorithms with Typeclass Objects](writing-algorithms-with-typeclass-objects.md), *takes the* algorithm author's.
+**Next:** [Writing Algorithms with Typeclass Objects](writing-algorithms-with-typeclass-objects.md) &#x2014; **Prev:** [Context is Applicative, Structure is Traversable](how-traverse-and-transpose-work.md) &#x2014; **Up:** [Contents](index.md)
 
 
 # You already know this pattern
@@ -72,7 +71,7 @@ And the instance is a *value*, which makes registering it globally a choice rath
 
 # You write a little; you get a lot
 
-The opt-in points the variable template at a *Map* object, and the Map is where the small amount of real work goes. The trick is that "the real work" is genuinely small: you write the one or two operations that are irreducible for your type, and a CRTP base derives the rest.
+The opt-in points the variable template at a *Map* object, and the Map is where the real work goes. The trick is that the real work is genuinely small: you write the one or two operations that are irreducible for your type, and a CRTP base derives the rest.
 
 Take the smallest typeclass, Functor. Its primitive is `fmap`; its derived operation is `replace`.
 
@@ -161,7 +160,7 @@ class Foldable t where
 
 Either primitive suffices; the base derives the other. A type contributes whichever one is natural for it. This design does the same, and the Map's `using` declaration is the switch: it names which operation you are supplying as primitive, and the CRTP base fills in the rest &#x2014; including deriving your missing "primitive" from the one you did provide.
 
-For Foldable that is a nicety &#x2014; `fold_map` and `fold_right` each recover the other, and a type supplies whichever is natural. Applicative is where the choice of primitive stops being cosmetic, and the case that forced the design is `std::simd`.
+For Foldable that is a nicety &#x2014; `fold_map` and `fold_right` each recover the other. Applicative is where the choice of primitive stops being cosmetic, and the case that forced the design is `std::simd`.
 
 An applicative's textbook primitive is `apply`: a function *already inside the context* applied to an argument *inside the context*.
 

@@ -1,12 +1,14 @@
-<div class="abstract" id="org815ecf1">
+<div class="abstract" id="org9a12254">
 <p>
 You have a <code>vector&lt;optional&lt;T&gt;&gt;</code> and you want an <code>optional&lt;vector&lt;T&gt;&gt;</code>.
 You have written the loop. So has everyone.
 It is the same loop for futures, for parsed results, for lanewise computation &#x2014; and it does not have to be a loop at all.
-This is part one of five: the problem, and the single front door that solves it. Part two opens the machinery behind the door; parts three and four are the two sides of the mechanism &#x2014; a type that wants in, and an algorithm that wants to use it &#x2014; and part five places the whole approach among its predecessors.
+This is the opening: the problem, and the single front door that solves it. What follows opens the machinery behind the door, then works the two sides of the mechanism &#x2014; a type that wants in, and an algorithm that wants to use it &#x2014; before placing the whole approach among its predecessors.
 </p>
 
 </div>
+
+**Next:** [Context is Applicative, Structure is Traversable](how-traverse-and-transpose-work.md) &#x2014; **Up:** [Contents](index.md)
 
 
 # A loop you have written before
@@ -28,9 +30,9 @@ collect(const std::vector<std::optional<int>>& in) {
 }
 ```
 
-It is six lines and four decisions: reserve, the early exit, the dereference, the accumulate. None of them is interesting and all of them are easy to get subtly wrong.
+It is six lines and four decisions: reserve, the early exit, the dereference, the accumulate. None of them is interesting. All of them are easy to get subtly wrong.
 
-Worse, it does not travel. The day the element stops being `optional` &#x2014; it becomes an `expected`, a future, a parser result &#x2014; you write the loop again. The *shape* of the problem never changed, but the code did, because the loop hard-codes one context into its control flow.
+Worse, it does not travel. The day the element stops being `optional` &#x2014; it becomes an `expected`, a future, a parser result &#x2014; you write the loop again. The *shape* of the problem never changed, but the code did. The loop hard-codes one context into its control flow.
 
 
 # Name the operation: transpose
@@ -45,7 +47,7 @@ A structure whose elements each sit inside some context, turned into one context
 
 That is a **transpose**, in the same sense as transposing a matrix. A `vector` of three `optional` s becomes one `optional` of a three-element `vector`. Order preserved, count preserved, only the nesting inverted.
 
-Once you have the name, you start seeing it everywhere.
+Once you have the name, you see it everywhere.
 
 
 # One front door, several contexts

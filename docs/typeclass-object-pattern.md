@@ -2,7 +2,7 @@
 
 # Typeclass Object Pattern in This Repository
 
-This repository uses a typeclass-object lookup approach to approximate the intent of C++03 concept maps.
+This repository approximates the intent of C++03 concept maps — approximates, not reproduces — with a typeclass-object lookup.
 
 The short version:
 
@@ -35,7 +35,7 @@ This repository uses one implementation surface:
 
 ## Lookup modes (important)
 
-The typeclass implementation object is an object and should be usable in three ways:
+The typeclass implementation object is, true to its name, an object — and should be usable in three ways:
 
 1. Implicit lookup by variable template.
 
@@ -117,7 +117,7 @@ That call performs compile-time lookup to the right typeclass object specializat
 
 ## Testing and build wiring expectations
 
-- Catch2 is the active and only test framework in active code paths.
+- Catch2 is the only test framework in active code paths.
 - Typeclass-object behavior is tested in `tests/beman/transpose/*.test.cpp` and in example programs under `examples/` that instantiate and use `*_typeclass<T>` maps.
 - The compatibility shim used during migration has been removed.
 - Tests should use native Catch2 includes and macros.
@@ -222,7 +222,7 @@ Contract summary:
 1. Prefer explicit map lookup in tests for readability and diagnostics.
 
 - `const auto& map = beman::transpose::traversable_typeclass<Tree>;` gives clearer compile errors than deeply nested generic calls.
-- NTTP pinning is excellent for proving lookup stability in generic helpers.
+- NTTP pinning earns its keep when proving lookup stability in generic helpers.
 
 1. Be deliberate about fold-order semantics.
 

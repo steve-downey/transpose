@@ -22,10 +22,12 @@
 You have a ~vector<optional<T>>~ and you want an ~optional<vector<T>>~.
 You have written the loop. So has everyone.
 It is the same loop for futures, for parsed results, for lanewise computation --- and it does not have to be a loop at all.
-This is part one of five: the problem, and the single front door that solves it. Part two opens the machinery behind the door; parts three and four are the two sides of the mechanism --- a type that wants in, and an algorithm that wants to use it --- and part five places the whole approach among its predecessors.
+This is the opening: the problem, and the single front door that solves it. What follows opens the machinery behind the door, then works the two sides of the mechanism --- a type that wants in, and an algorithm that wants to use it --- before placing the whole approach among its predecessors.
 #+end_abstract
 
 {{{TEASER_END}}}
+
+*Next:* [[file:how-traverse-and-transpose-work.org][Context is Applicative, Structure is Traversable]] --- *Up:* [[file:index.org][Contents]]
 
 * A loop you have written before
 
@@ -50,11 +52,11 @@ collect(const std::vector<std::optional<int>>& in) {
 #+end_src
 
 It is six lines and four decisions: reserve, the early exit, the dereference, the accumulate.
-None of them is interesting and all of them are easy to get subtly wrong.
+None of them is interesting. All of them are easy to get subtly wrong.
 
 Worse, it does not travel.
 The day the element stops being ~optional~ --- it becomes an ~expected~, a future, a parser result --- you write the loop again.
-The /shape/ of the problem never changed, but the code did, because the loop hard-codes one context into its control flow.
+The /shape/ of the problem never changed, but the code did. The loop hard-codes one context into its control flow.
 
 * Name the operation: transpose
 
@@ -72,7 +74,7 @@ That is a *transpose*, in the same sense as transposing a matrix.
 A ~vector~ of three ~optional~ s becomes one ~optional~ of a three-element ~vector~.
 Order preserved, count preserved, only the nesting inverted.
 
-Once you have the name, you start seeing it everywhere.
+Once you have the name, you see it everywhere.
 
 * One front door, several contexts
 
