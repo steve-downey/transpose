@@ -38,9 +38,8 @@ installation all narrow the space for accidental breakage. That is why the
 rules below are intentionally opinionated. [Google-Headers; LLVM-Qualified;
 CMake-FindPackage]. citeturn10search2turn9search1turn13search1
 
-This document is meant to be followed by humans and automated assistants alike.
-It is self-contained in the body text, but it includes citation keys and a
-BibTeX bibliography at the end so the design rationale can be audited without
+The body text is self-contained. But it carries citation keys and a BibTeX
+bibliography at the end, so the design rationale can be audited without
 cluttering the rules themselves. Wherever a detail is not fixed by this report
 or by a local codebase, it is marked no specific constraint. [BDE;
 CMake-MinimumRequired]. citeturn9search0turn11search6

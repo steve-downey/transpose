@@ -1,21 +1,20 @@
-<div class="abstract" id="org9f9b52f">
+<div class="abstract" id="orgfd634a6">
 <p>
 The variable-template concept map from parts two and three was not invented in a vacuum.
 Bringing functional and typeclass-style programming to C++ is a decades-old sport, and every serious attempt makes a real trade.
 This closing part places the pattern among its neighbours &#x2014; an ancestor from before C++ had lambdas, a whole category-theory hierarchy, a library that extends the standard vocabulary types, and a safe-iteration model on an entirely different axis &#x2014; and asks what it is that keeps getting reinvented.
-This is part five of five.
 </p>
 
 </div>
 
-*This is the final part of a five-part series.* *Part one,* [Transposing Structure and Context](transposing-structure-and-context.md), *posed the problem; part two,* [Context is Applicative, Structure is Traversable](how-traverse-and-transpose-work.md), *explained how it works; and parts three,* [Adapting a Type to a Typeclass](adapting-a-type-to-a-typeclass.md), *and four,* [Writing Algorithms with Typeclass Objects](writing-algorithms-with-typeclass-objects.md), *made the case for one mechanism. This part places that mechanism among the real attempts that came before it.*
+**Prev:** [Writing Algorithms with Typeclass Objects](writing-algorithms-with-typeclass-objects.md) &#x2014; **Up:** [Contents](index.md)
 
 
 # Not invented in a vacuum
 
 Parts two and three argued for a single pattern: a variable template used as a concept map, a looked-up *dictionary* of a concept's operations, bundled, statically dispatched, attachable to types you do not own. Making that case without showing the neighbours would be a cheat. People have been bringing functional and typeclass-style programming to C++ for twenty-five years, and each attempt is the right answer to a slightly different question.
 
-What follows is four of them, plus the one the standard itself tried and dropped. Every claim here was checked against the primary sources rather than the summaries around them; where the popular retelling overstates, I say so, because a fair comparison is the only kind worth making.
+What follows is four of them, plus the one the standard itself tried and dropped. I checked every claim here against the primary sources rather than the summaries around them; where the popular retelling overstates, I say so, because a fair comparison is the only kind worth making.
 
 
 # FC++: the ancestor, before the language helped
@@ -24,7 +23,7 @@ Two decades ago &#x2014; before C++ had lambdas, before `auto` &#x2014; Brian Mc
 
 Its unit is the *functoid*: a function-object class carrying a nested `Sig` member template that computes its own return type. On that foundation FC++ delivered genuinely higher-order polymorphic functions, automatic currying (call a function with some of its arguments and get back a function awaiting the rest), a subtyping rule for functions themselves (covariant in the result, contravariant in the arguments), lazy and infinite lists, and more than fifty functions lifted straight from the Haskell Prelude.
 
-It is worth being precise about the cost, because the folklore overstates it. The paper concedes that a type error "reports the full template instantiation stack," but it calls its own error reporting "adequate"; and the famous order-of-magnitude speed-up was a gain over FC++'s *own earlier* version on lazy-list-heavy benchmarks, not an absolute claim that functional C++ runs ten times faster than anything. The real lesson of FC++ is not that it was slow or ugly. It is that all of this was reachable in C++ *before the language offered any help* &#x2014; and that reaching it took heroic machinery: the `Sig` return-type protocol, hand-built curryable combinators, reference-counted list cells. Much of the language evolution since has been, in effect, a project to make that machinery unnecessary.
+Be precise about the cost, because the folklore overstates it. The paper concedes that a type error "reports the full template instantiation stack," but it calls its own error reporting "adequate"; and the famous order-of-magnitude speed-up was a gain over FC++'s *own earlier* version on lazy-list-heavy benchmarks, not an absolute claim that functional C++ runs ten times faster than anything. The real lesson of FC++ is not that it was slow or ugly. It is that all of this was reachable in C++ *before the language offered any help* &#x2014; and that reaching it took heroic machinery: the `Sig` return-type protocol, hand-built curryable combinators, reference-counted list cells. Much of the language evolution since has been, in effect, a project to make that machinery unnecessary.
 
 
 # awgn/cat: the whole hierarchy, on traits
@@ -82,7 +81,7 @@ The honest cost is the one parts two and three already named: you call the opera
 
 Step back from the particulars and the striking thing is the *repetition*. FC++ hand-rolled higher-order dispatch in 2000. `cat` rebuilt the hierarchy on traits in 2023. libfn is re-deriving it from the standard types right now. Senders and receivers encode the same monadic structure yet again, inside P2300. Every few years someone re-implements out-of-band customization and the operations that ride on it, because the language still has no single agreed way to say "this type satisfies this concept, and here is how."
 
-That recurrence *is* the standardization argument, in one sentence. The demand is real, it is durable, and it keeps being met privately and incompatibly. Concept maps were the standard's own answer, and the standard dropped them. A small, bundled, out-of-band customization mechanism &#x2014; whatever its eventual spelling &#x2014; would let all of this stop being reinvented. The pattern in this series is one concrete, working proposal for that mechanism. It is not the only one possible. But four independent attempts in twenty-five years, all circling the same missing feature, are the landscape telling you the hole is there.
+That recurrence *is* the standardization argument, in one sentence. The demand is real, it is durable, and it keeps being met privately and incompatibly. Concept maps were the standard's own answer, and the standard dropped them. A small, bundled, out-of-band customization mechanism &#x2014; whatever its eventual spelling &#x2014; would let all of this stop being reinvented. The pattern in this series is one concrete, working proposal for that mechanism. It is not the only one possible. But four independent attempts in twenty-five years, all circling the same missing feature, tell you the hole is there.
 
 Bjarne Stroustrup (2009). *The C++0x \`\`Remove Concepts'' Decision*.
 

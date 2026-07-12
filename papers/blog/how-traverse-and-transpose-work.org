@@ -23,13 +23,11 @@ Part one flipped ~structure<context<T>>~ into ~context<structure<T>>~ with one v
 This part opens it, and there is less inside than the names suggest.
 The two axes each have a job and a name: the /structure/ is *Traversable*, the /context/ is *Applicative*, and ~traverse~ and ~transpose~ are built from exactly those two.
 No prior category theory required --- that is rather the point.
-This is part two of five.
 #+end_abstract
 
 {{{TEASER_END}}}
 
-/This is part two of a five-part series./
-/Part one,/ [[file:transposing-structure-and-context.org][Transposing Structure and Context]], /posed the problem and showed the front door. This part explains how the door works. The three that follow build on it: adapting a type, writing the algorithms, and the prior art./
+*Next:* [[file:adapting-a-type-to-a-typeclass.org][Adapting a Type to a Typeclass]] --- *Prev:* [[file:transposing-structure-and-context.org][Transposing Structure and Context]] --- *Up:* [[file:index.org][Contents]]
 
 * Two axes, two jobs
 
@@ -41,7 +39,7 @@ Two things are stacked there, and they do different work.
 
 Name those two and the rest follows mechanically.
 ~traverse~ walks a Traversable while collecting results in an Applicative; ~transpose~ is the special case where there is nothing to collect but the contexts themselves.
-The whole of this post is those two ideas and how they click together.
+This whole post is those two ideas and how they click together.
 
 * Context = Applicative
 
@@ -74,7 +72,7 @@ Given a /plain/ function and arguments that each sit /inside the context/, it pr
 invoke : (T... -> U), C<T>... -> C<U>
 #+end_src
 
-Read it as: the context knows how to bring several wrapped values together under one ordinary function.
+Read it as: the context knows how to combine several in-context values under one ordinary function.
 Concretely, three ways:
 
 - ~optional~: if every argument is present, call the function and wrap; if any is absent, the result is absent.

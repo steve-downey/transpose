@@ -166,7 +166,7 @@ The variable template lives in the ~beman::transpose~ namespace; the type it ada
 
 * Three Lookup Modes
 
-This is the part that distinguishes the pattern from a plain specialization.
+This is what distinguishes the pattern from a plain specialization.
 The looked-up object is a /value/.
 You can use it three ways.
 
@@ -219,8 +219,8 @@ If someone specializes the variable template later, existing instantiations are 
 
 * How It Differs From Standard Approaches
 
-The pattern sits in a specific place in the design space.
-Here is how it compares to the standard approaches C++ programmers already know.
+The pattern sits in a specific place in the design space, near several things C++ programmers already know.
+The differences are the point.
 
 ** ~numeric_limits~: Close, But Static
 
@@ -241,7 +241,7 @@ A class template specialization must always instantiate the same class template.
 [[https://en.cppreference.com/w/cpp/header/type_traits][Type traits]] like ~is_integral<T>~ and ~is_floating_point<T>~ answer questions about types.
 They do not provide operations.
 
-The typeclass object answers questions /and/ provides the operations in one place.
+But the typeclass object answers questions /and/ provides the operations in one place.
 ~beman::transpose::foldable_typeclass<T>~ both asserts "T is Foldable" (by existing) and gives you ~fold_map~, ~length~, ~to_vector~.
 
 ** CPOs: ADL, Not Objects
@@ -274,7 +274,7 @@ The compiler dispatches statically via monomorphization.
 
 The typeclass object achieves the same goals in C++ at the library level.
 The trade-off is that dispatch is explicit (you call through the looked-up object) rather than implicit (the compiler resolves it via the trait bound).
-In practice, this means slightly more syntax but also more control --- you can override the instance at the call site without changing the type.
+That is more syntax and more control --- you can override the instance at the call site without changing the type.
 
 * Alternate Cores
 
@@ -506,7 +506,7 @@ That is the trade.
 * Where It Matters
 
 This pattern is load-bearing.
-In this repository, the pattern dispatches for:
+In this repository, it dispatches for:
 
 - ~std::optional<T>~ --- Functor, Applicative, Monad
 - ~std::vector<T>~ --- Functor, Foldable, Traversable

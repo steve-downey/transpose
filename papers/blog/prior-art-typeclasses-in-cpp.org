@@ -22,13 +22,11 @@
 The variable-template concept map from parts two and three was not invented in a vacuum.
 Bringing functional and typeclass-style programming to C++ is a decades-old sport, and every serious attempt makes a real trade.
 This closing part places the pattern among its neighbours --- an ancestor from before C++ had lambdas, a whole category-theory hierarchy, a library that extends the standard vocabulary types, and a safe-iteration model on an entirely different axis --- and asks what it is that keeps getting reinvented.
-This is part five of five.
 #+end_abstract
 
 {{{TEASER_END}}}
 
-/This is the final part of a five-part series./
-/Part one,/ [[file:transposing-structure-and-context.org][Transposing Structure and Context]], /posed the problem; part two,/ [[file:how-traverse-and-transpose-work.org][Context is Applicative, Structure is Traversable]], /explained how it works; and parts three,/ [[file:adapting-a-type-to-a-typeclass.org][Adapting a Type to a Typeclass]], /and four,/ [[file:writing-algorithms-with-typeclass-objects.org][Writing Algorithms with Typeclass Objects]], /made the case for one mechanism. This part places that mechanism among the real attempts that came before it./
+*Prev:* [[file:writing-algorithms-with-typeclass-objects.org][Writing Algorithms with Typeclass Objects]] --- *Up:* [[file:index.org][Contents]]
 
 * Not invented in a vacuum
 
@@ -37,7 +35,7 @@ Making that case without showing the neighbours would be a cheat.
 People have been bringing functional and typeclass-style programming to C++ for twenty-five years, and each attempt is the right answer to a slightly different question.
 
 What follows is four of them, plus the one the standard itself tried and dropped.
-Every claim here was checked against the primary sources rather than the summaries around them; where the popular retelling overstates, I say so, because a fair comparison is the only kind worth making.
+I checked every claim here against the primary sources rather than the summaries around them; where the popular retelling overstates, I say so, because a fair comparison is the only kind worth making.
 
 * FC++: the ancestor, before the language helped
 
@@ -46,7 +44,7 @@ Two decades ago --- before C++ had lambdas, before ~auto~ --- Brian McNamara and
 Its unit is the /functoid/: a function-object class carrying a nested ~Sig~ member template that computes its own return type.
 On that foundation FC++ delivered genuinely higher-order polymorphic functions, automatic currying (call a function with some of its arguments and get back a function awaiting the rest), a subtyping rule for functions themselves (covariant in the result, contravariant in the arguments), lazy and infinite lists, and more than fifty functions lifted straight from the Haskell Prelude.
 
-It is worth being precise about the cost, because the folklore overstates it.
+Be precise about the cost, because the folklore overstates it.
 The paper concedes that a type error "reports the full template instantiation stack," but it calls its own error reporting "adequate"; and the famous order-of-magnitude speed-up was a gain over FC++'s /own earlier/ version on lazy-list-heavy benchmarks, not an absolute claim that functional C++ runs ten times faster than anything.
 The real lesson of FC++ is not that it was slow or ugly.
 It is that all of this was reachable in C++ /before the language offered any help/ --- and that reaching it took heroic machinery: the ~Sig~ return-type protocol, hand-built curryable combinators, reference-counted list cells.
@@ -155,6 +153,6 @@ Concept maps were the standard's own answer, and the standard dropped them.
 A small, bundled, out-of-band customization mechanism --- whatever its eventual spelling --- would let all of this stop being reinvented.
 The pattern in this series is one concrete, working proposal for that mechanism.
 It is not the only one possible.
-But four independent attempts in twenty-five years, all circling the same missing feature, are the landscape telling you the hole is there.
+But four independent attempts in twenty-five years, all circling the same missing feature, tell you the hole is there.
 
 #+print_bibliography:
