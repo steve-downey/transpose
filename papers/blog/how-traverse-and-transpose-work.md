@@ -1,15 +1,14 @@
-<div class="abstract" id="orge60574c">
+<div class="abstract" id="org74712ca">
 <p>
 Part one flipped <code>structure&lt;context&lt;T&gt;&gt;</code> into <code>context&lt;structure&lt;T&gt;&gt;</code> with one verb, <code>transpose</code>, across three contexts that share nothing &#x2014; and left the machinery unopened.
 This part opens it, and there is less inside than the names suggest.
 The two axes each have a job and a name: the <i>structure</i> is <b>Traversable</b>, the <i>context</i> is <b>Applicative</b>, and <code>traverse</code> and <code>transpose</code> are built from exactly those two.
 No prior category theory required &#x2014; that is rather the point.
-This is part two of five.
 </p>
 
 </div>
 
-*This is part two of a five-part series.* *Part one,* [Transposing Structure and Context](transposing-structure-and-context.md), *posed the problem and showed the front door. This part explains how the door works. The three that follow build on it: adapting a type, writing the algorithms, and the prior art.*
+**Next:** [Adapting a Type to a Typeclass](adapting-a-type-to-a-typeclass.md) &#x2014; **Prev:** [Transposing Structure and Context](transposing-structure-and-context.md) &#x2014; **Up:** [Contents](index.md)
 
 
 # Two axes, two jobs
@@ -19,7 +18,7 @@ Everything in part one had the shape `structure<context<T>>`: a `vector` of `opt
 -   The *structure* &#x2014; the `vector`, or a tree &#x2014; is a shape you can *walk* and *rebuild*. That capability has a name: **Traversable**.
 -   The *context* &#x2014; `optional`, a sender, a lane array &#x2014; is a value sitting in some setting, and the setting can be *combined* across independent positions. That capability has a name too: **Applicative**.
 
-Name those two and the rest follows mechanically. `traverse` walks a Traversable while collecting results in an Applicative; `transpose` is the special case where there is nothing to collect but the contexts themselves. The whole of this post is those two ideas and how they click together.
+Name those two and the rest follows mechanically. `traverse` walks a Traversable while collecting results in an Applicative; `transpose` is the special case where there is nothing to collect but the contexts themselves. This whole post is those two ideas and how they click together.
 
 
 # Context = Applicative
@@ -48,7 +47,7 @@ For `optional`, `pure(x)` is `Some(x)`. For a sender, it is a sender that immedi
 invoke : (T... -> U), C<T>... -> C<U>
 ```
 
-Read it as: the context knows how to bring several wrapped values together under one ordinary function. Concretely, three ways:
+Read it as: the context knows how to combine several in-context values under one ordinary function. Concretely, three ways:
 
 -   `optional`: if every argument is present, call the function and wrap; if any is absent, the result is absent.
 -   sender: a new sender that, when run, runs all the operands and then calls the function.
