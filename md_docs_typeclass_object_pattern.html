@@ -96,7 +96,7 @@ $(document).ready(function(){initNavTree('md_docs_typeclass_object_pattern.html'
 <div class="contents">
 <div class="textblock"><h1><a class="anchor" id="autotoc_md19"></a>
 Typeclass Object Pattern in This Repository</h1>
-<p>This repository uses a typeclass-object lookup approach to approximate the intent of C++03 concept maps.</p>
+<p>This repository approximates the intent of C++03 concept maps — approximates, not reproduces — with a typeclass-object lookup.</p>
 <p>The short version:</p>
 <ul>
 <li>A concept is represented by a typeclass object interface.</li>
@@ -125,7 +125,7 @@ The surface in this repo</h2>
 </ul>
 <h2><a class="anchor" id="autotoc_md22"></a>
 Lookup modes (important)</h2>
-<p>The typeclass implementation object is an object and should be usable in three ways:</p>
+<p>The typeclass implementation object is, true to its name, an object — and should be usable in three ways:</p>
 <ol type="1">
 <li>Implicit lookup by variable template.</li>
 </ol>
@@ -225,7 +225,7 @@ How to add a new concept</h2>
 <h2><a class="anchor" id="autotoc_md29"></a>
 Testing and build wiring expectations</h2>
 <ul>
-<li>Catch2 is the active and only test framework in active code paths.</li>
+<li>Catch2 is the only test framework in active code paths.</li>
 <li>Typeclass-object behavior is tested in <code>tests/beman/transpose/*.test.cpp</code> and in example programs under <code>examples/</code> that instantiate and use <code>*_typeclass&lt;T&gt;</code> maps.</li>
 <li>The compatibility shim used during migration has been removed.</li>
 <li>Tests should use native Catch2 includes and macros.</li>
@@ -317,7 +317,7 @@ Traps and corrections from tree-instance implementation</h2>
 </ol>
 <ul>
 <li><code>const auto&amp; map = beman::transpose::traversable_typeclass&lt;Tree&gt;;</code> gives clearer compile errors than deeply nested generic calls.</li>
-<li>NTTP pinning is excellent for proving lookup stability in generic helpers.</li>
+<li>NTTP pinning earns its keep when proving lookup stability in generic helpers.</li>
 </ul>
 <ol type="1">
 <li>Be deliberate about fold-order semantics.</li>
