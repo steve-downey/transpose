@@ -79,18 +79,25 @@ auto make_terminating_partial(FUNCTION &&function) {
 } // namespace detail
 
 // Applicative pattern invariants:
-// - Minimal required operations are pure and apply.
-// - invoke is derived from pure/apply via terminating partial application,
-//   but an Impl may provide a custom invoke for different semantics or
-//   efficiency.
+// - Every instance provides pure. The composition primitive is either apply
+//   (the f-in-context / arg-in-context form) or invoke (apply a plain function
+//   across one or more in-context arguments). An Impl supplies whichever it can
+//   express; the base derives invoke from pure + apply when only apply is given.
+// - Some contexts cannot express apply at all: std::simd::vec<T> has no
+//   vec<callable>, so its only expressible primitive is invoke. Such a context
+//   provides pure + invoke and no apply (see simd.hpp).
 // - Derived operations (lift/ap/zip_with/discard_*) live on that object.
 // - Dispatch happens through a provided object or
 //   applicative_typeclass<Concrete>.
 // - Do not introduce hidden alternate semantics without a distinct map/type.
 
 /** CRTP base for Applicative instances.
- * `Impl` must provide `pure(value)` and `apply(f_in_context, arg_in_context)`.
- * All other operations are derived.
+ * `Impl` must provide `pure(value)` and, as its composition primitive, either
+ * `apply(f_in_context, arg_in_context)` or `invoke(f, args_in_context...)`.
+ * All other operations are derived. The Map class's using-declaration selects
+ * which primitive is exposed, exactly as Foldable selects fold_map vs
+ * fold_right (see fold.hpp); `apply` is intentionally not imported here so that
+ * invoke-only contexts (e.g. std::simd) are well-formed.
  */
 template <class Impl>
 struct Applicative : protected Impl {
@@ -98,10 +105,12 @@ struct Applicative : protected Impl {
         !std::is_same_v<Impl, std::false_type>,
         "No applicative_typeclass<T> specialization found. "
         "Specialize beman::transpose::applicative_typeclass<T> for "
-        "your type T and provide pure(...) and apply(...) operations.");
-    // Alternate-core: pure + apply are the primitives; invoke and all others
-    // derive from them.
-    using Impl::apply;
+        "your type T and provide pure(...) plus either apply(...) or "
+        "invoke(...) as the composition primitive.");
+    // Alternate-core: pure is always required; the Map exposes apply or invoke
+    // as the primitive and the base derives the rest (invoke from pure + apply
+    // when only apply is present). apply is deliberately not `using`-imported
+    // here so that contexts without an expressible apply remain well-formed.
     using Impl::pure;
 
     // Teaching-friendly alias for "apply pure function to effectful arguments".

@@ -13,6 +13,19 @@ project(
 
 include(CTest)
 
+# Detect a C++26 standard library that ships <simd> (e.g. GCC 16). The std::simd
+# example and test are non-normative demonstrations of the lanewise applicative
+# on real hardware; they are gated out on toolchains without <simd>.
+include(CheckCXXSourceCompiles)
+set(_beman_transpose_saved_required_flags "${CMAKE_REQUIRED_FLAGS}")
+set(CMAKE_REQUIRED_FLAGS "-std=c++26")
+check_cxx_source_compiles(
+    "#include <simd>
+     int main() { return static_cast<int>(std::simd::vec<float>::size()); }"
+    BEMAN_TRANSPOSE_HAS_STD_SIMD
+)
+set(CMAKE_REQUIRED_FLAGS "${_beman_transpose_saved_required_flags}")
+
 option(
     BEMAN_TRANSPOSE_BUILD_TESTS
     "Enable building tests and test infrastructure. Default: ${PROJECT_IS_TOP_LEVEL}. Values: { ON, OFF }."
@@ -30,6 +43,19 @@ configure_file(
     "${PROJECT_BINARY_DIR}/include/beman/transpose/config_generated.hpp"
     @ONLY
 )
+
+# Real-async demonstration via vendored beman.execution (a std::execution /
+# P2300 implementation). Built only when the vendored subtree is present;
+# consumed headers-only (modules off, its own tests/examples off), the same way
+# callcc vendors it. The exec example/test link beman::execution_headers.
+set(BEMAN_TRANSPOSE_HAS_BEMAN_EXECUTION OFF)
+if(EXISTS "${PROJECT_SOURCE_DIR}/vendored/beman.execution/CMakeLists.txt")
+    set(BEMAN_USE_MODULES OFF CACHE BOOL "consume beman.execution as headers" FORCE)
+    set(BEMAN_EXECUTION_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(BEMAN_EXECUTION_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    add_subdirectory(vendored/beman.execution)
+    set(BEMAN_TRANSPOSE_HAS_BEMAN_EXECUTION ON)
+endif()
 
 # beman.transpose is a header-only library.
 add_library(beman.transpose INTERFACE)
