@@ -186,7 +186,7 @@ auto n = foldable.length(value);
 auto n = this->foldable_base::length(value);
 #+end_src
 
-The disambiguation is slightly more verbose, but it carries information: it tells me which typeclass this operation comes from.
+The disambiguation is slightly more verbose, but it carries information: which typeclass this operation comes from.
 In the lookup-object version, I need to trace back to which ~const auto&~ declaration ~foldable~ refers to.
 In the inheritance version, the base class name /is/ the provenance.
 
@@ -196,7 +196,7 @@ The existing ~beman::transpose::traverse(f, tree)~ is a free function template.
 It deduces ~T~, looks up the typeclass, and calls through it.
 That works.
 
-The inheriting CPO adds something when:
+The inheriting CPO earns its keep when:
 
 1. The algorithm body is longer than one operation.
    A free function with three lookup-object locals is fine for three lines.
@@ -214,7 +214,7 @@ This pattern is for when the algorithm grows past that.
 
 * The ~decltype~ Wrinkle
 
-One practical finding: ~const auto&~ NTTP parameters give a reference type under ~decltype~.
+One practical snag: ~const auto&~ NTTP parameters give a reference type under ~decltype~.
 You cannot inherit from a reference, and you cannot use a reference type in a qualified name.
 ~remove_cvref_t<decltype(TC)>~ is needed at three points:
 
@@ -264,4 +264,4 @@ The caller never mentions typeclasses, inheritance, or NTTPs.
 | ~validate~           | The ~inline constexpr~ object             | Caller             |
 
 The inheritance is the load-bearing trick: it brings typeclass operations into unqualified scope without ADL, without macros, and without runtime cost.
-The deducing CPO layer ensures callers pay no syntactic tax for the machinery underneath.
+The deducing CPO layer means callers pay no syntactic tax for the machinery underneath.

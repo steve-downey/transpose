@@ -1,21 +1,20 @@
-<div class="abstract" id="orgcfd0cf6">
+<div class="abstract" id="org9209adb">
 <p>
 Part two showed how cheap it is to make a type an instance of a typeclass.
 This is the other side of the trade: you are writing the algorithm, and you want it to run over <i>every</i> instance &#x2014; the optional, the tree, the SIMD lanes &#x2014; with the operation names reading as if they belong to your code, dispatched statically, with no ADL and no central registry.
 This is where the bundled typeclass object earns its place over traits, CPOs, and concepts alone, and why that argument is really an argument about the standard library.
-This is part four of five.
 </p>
 
 </div>
 
-*This is part four of a short series.* *Part one,* [Transposing Structure and Context](transposing-structure-and-context.md), *posed the transpose problem; part two,* [Context is Applicative, Structure is Traversable](how-traverse-and-transpose-work.md), *explained how `traverse` and `transpose` work.* *Part three,* [Adapting a Type to a Typeclass](adapting-a-type-to-a-typeclass.md), *showed how a type opts in for about three lines.* *Here we consume what that opt-in produced.*
+**Next:** [Prior Art: How Others Have Brought Typeclasses to C++](prior-art-typeclasses-in-cpp.md) &#x2014; **Prev:** [Adapting a Type to a Typeclass](adapting-a-type-to-a-typeclass.md) &#x2014; **Up:** [Contents](index.md)
 
 
 # The other chair
 
 In part three you owned a type and wanted it to join the club. Here you own an *algorithm* &#x2014; a fold that checks a precondition, a traversal that rebuilds a structure, `transpose` itself &#x2014; and you want it to work across every type that has joined, without knowing in advance which types those are.
 
-The typeclass object is a value: `foldable_typeclass<T>` is not a tag or a concept, it is an object you can hold and call. That single fact gives the algorithm author three different ways to reach an operation, and they matter in different places.
+The typeclass object is a value: `foldable_typeclass<T>` is not a tag or a concept, it is an object you can hold and call. That single fact gives the algorithm author three ways to reach an operation, and they matter in different places.
 
 
 # Three ways to reach an operation
@@ -99,7 +98,7 @@ struct validate_impl : remove_cvref_t<decltype(TC)> {
 
 ## Composing more than one machine
 
-When an algorithm needs operations from two typeclasses, inherit from both. Both bases are empty, so there is no diamond and no storage; and the typeclass surfaces are designed with disjoint operation names, so there is no ambiguity to resolve.
+When an algorithm needs operations from two typeclasses, inherit from both. Both bases are empty, so there is no diamond and no storage. And the typeclass surfaces are designed with disjoint operation names, so there is no ambiguity to resolve.
 
 ```cpp
 template <class T,
@@ -214,7 +213,7 @@ Standardizing `transpose` and `traverse` without standardizing something like th
 
 And it degrades gracefully. If C++ later grows richer generic facilities &#x2014; pattern matching, a real return of concept maps &#x2014; this API should get *simpler*. It should not need to be replaced. That is the mark of proposing the right shape rather than a workaround: the workaround gets thrown away when the language catches up; the right shape just gets better plumbing underneath.
 
-That leaves one question these three parts have not answered: if the shape is right, why has no one standardized it &#x2014; and what has everyone built instead? That is part five, [Prior Art: How Others Have Brought Typeclasses to C++](prior-art-typeclasses-in-cpp.md).
+That leaves one question the series has not yet answered: if the shape is right, why has no one standardized it &#x2014; and what has everyone built instead? That is part five, [Prior Art: How Others Have Brought Typeclasses to C++](prior-art-typeclasses-in-cpp.md).
 
 Bjarne Stroustrup (2009). *The C++0x \`\`Remove Concepts'' Decision*.
 

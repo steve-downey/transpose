@@ -30,7 +30,7 @@
 
 #+begin_abstract
 C++ has several extension point mechanisms: ADL, concepts, CPOs, tag_invoke.
-None of them give you what a Haskell typeclass or a Rust trait gives you: a bundle of related operations, derivable defaults, and open extension with static dispatch.
+None of them give you what a Haskell typeclass or a Rust trait does: a bundle of related operations, derivable defaults, and open extension with static dispatch.
 The typeclass object pattern fills that gap using variable templates.
 #+end_abstract
 
@@ -246,7 +246,7 @@ struct FoldRightSequenceMap : Foldable<FoldRightSequenceImpl> {
 #+end_src
 
 Both produce identical derived surfaces.
-Different types naturally express different primitives.
+Different types express different primitives.
 A tree might find ~fold_map~ natural.
 A stream might prefer ~fold_right~.
 The choice is local to the instance, not global to the concept.
