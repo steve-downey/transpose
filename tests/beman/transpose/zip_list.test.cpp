@@ -52,10 +52,17 @@ TEST_CASE("zip_list: applicative laws hold") {
                                           bt::zip_list<int>{{3, 4, 5}}));
 }
 
-TEST_CASE("zip_list: no apply forms exist -- invoke is the only core") {
-    // A zip_list can hold callables as elements (interchange above uses
-    // that), but the classic apply/ap verbs are gone from the library.
-    using Map = bt::remove_cvref_t<decltype(bt::applicative_typeclass<bt::zip_list<int>>)>;
-    STATIC_REQUIRE_FALSE(
-        bt::test::has_apply_form<Map, bt::zip_list<int (*)(int)>, bt::zip_list<int>>);
+TEST_CASE("zip_list: derived ap agrees with the invoke basis") {
+    // zip_list is invoke-basis; the secondary ap is derived as
+    // invoke(eval, fs, xs) and must agree with the direct spelling.
+    const auto &app = bt::applicative_typeclass<bt::zip_list<int>>;
+    auto add_ten = [](int x) { return x + 10; };
+    bt::zip_list<decltype(add_ten)> functions;
+    functions.data = {add_ten, add_ten, add_ten};
+    auto via_ap = app.ap(functions, bt::zip_list<int>{{1, 2, 3, 4}});
+    auto via_invoke =
+        app.invoke([](const auto &f, int x) { return f(x); }, functions,
+                   bt::zip_list<int>{{1, 2, 3, 4}});
+    REQUIRE(via_ap.data == via_invoke.data);
+    REQUIRE(via_ap.data == std::vector<int>{11, 12, 13});
 }

@@ -46,10 +46,17 @@ TEST_CASE("simd_lanes: applicative laws hold") {
                                           lanes4{{2, 4, 6, 8}}));
 }
 
-TEST_CASE("simd_lanes: no apply forms exist -- invoke is the only core") {
-    using Map = bt::remove_cvref_t<decltype(bt::applicative_typeclass<lanes4>)>;
-    STATIC_REQUIRE_FALSE(
-        bt::test::has_apply_form<Map, bt::simd_lanes<int (*)(int), 4>, lanes4>);
+TEST_CASE("simd_lanes: derived ap agrees with the invoke basis") {
+    // simd_lanes is invoke-basis; the secondary ap is derived and must
+    // agree with the direct invoke spelling.
+    const auto &app = bt::applicative_typeclass<lanes4>;
+    bt::simd_lanes<int (*)(int), 4> functions;
+    functions.data.fill(+[](int x) { return x * x; });
+    auto via_ap = app.ap(functions, lanes4{{1, 2, 3, 4}});
+    auto via_invoke = app.invoke([](auto f, int x) { return f(x); }, functions,
+                                 lanes4{{1, 2, 3, 4}});
+    REQUIRE(via_ap == via_invoke);
+    REQUIRE(via_ap == (lanes4{{1, 4, 9, 16}}));
 }
 
 TEST_CASE("simd_lanes: transpose round-trips structure and lanes") {
