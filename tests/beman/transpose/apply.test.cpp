@@ -22,22 +22,28 @@ TEST_CASE("apply: optional invoke combines effectful arguments") {
                        std::optional<int>{3}) == std::optional<int>{});
 }
 
-TEST_CASE("apply: a lifted callable is applied through invoke, not apply") {
-    // A context CAN hold a callable (pure of a lambda is fine); applying it
-    // is still spelled through the n-ary invoke -- the classic apply/ap
-    // verbs do not exist in this library.
+TEST_CASE("apply: ap is a supported basis and secondary operation") {
+    // invoke is the user-facing interface; ap -- one-step application of a
+    // callable-in-context -- is the classic basis, derived here from
+    // optional's invoke basis and available as a secondary operation.
     const auto &app = bt::applicative_typeclass<std::optional<int>>;
-    auto call = [](const auto &f, int x) { return f(x); };
     auto lifted = app.pure([](int x) { return x * 10; });
-    REQUIRE(app.invoke(call, lifted, std::optional<int>{5}) ==
-            std::optional<int>{50});
-    REQUIRE(app.invoke(call, app.pure([](int x) { return x * 10; }),
-                       std::optional<int>{}) == std::optional<int>{});
+    REQUIRE(app.ap(lifted, std::optional<int>{5}) == std::optional<int>{50});
+    REQUIRE(app.ap(app.pure([](int x) { return x * 10; }),
+                   std::optional<int>{}) == std::optional<int>{});
+
+    // ap agrees with the invoke spelling of the same application.
+    auto call = [](const auto &f, int x) { return f(x); };
+    REQUIRE(app.ap(lifted, std::optional<int>{5}) ==
+            app.invoke(call, lifted, std::optional<int>{5}));
 
     using Map = bt::remove_cvref_t<decltype(app)>;
-    STATIC_REQUIRE_FALSE(
-        bt::test::has_apply_form<Map, std::optional<int (*)(int)>,
-                                 std::optional<int>>);
+    STATIC_REQUIRE(bt::test::has_apply_form<Map, std::optional<int (*)(int)>,
+                                            std::optional<int>>);
+
+    // The detail:: free-function form works too.
+    REQUIRE(bt::detail::ap(app, lifted, std::optional<int>{5}) ==
+            std::optional<int>{50});
 }
 
 TEST_CASE("apply: identity and homomorphism laws on optional") {

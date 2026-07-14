@@ -21,9 +21,10 @@ namespace beman::transpose::test {
 // scope hard-errors on an invalid expression instead of yielding false
 // ([expr.prim.req]).
 
-/** True when the Map exposes any contextual-application (`apply`/`ap`)
- * member for these operands. The library removed those forms; this probe
- * exists so tests can PIN their absence on every instance. */
+/** True when the Map exposes one-step contextual application (`ap`, the
+ * classic basis kept as a secondary operation) for these operands. It is
+ * available exactly when the context can hold a callable; the probe pins
+ * its absence where it cannot (std::simd::vec). */
 template <class MAP, class FUNCTIONS_IN_CONTEXT, class ARGUMENTS_IN_CONTEXT>
 concept has_apply_form =
     requires(const MAP &map, const FUNCTIONS_IN_CONTEXT &cf,
