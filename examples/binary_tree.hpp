@@ -149,20 +149,15 @@ struct BinaryTreeFoldableMap
 /** Applicative typeclass instance for BinaryTree<T> with shape-aware
  * semantics.
  *
- * pure(v) produces a single leaf. apply recurses pairwise over matching tree
- * structure: a leaf function distributes over the argument's shape; a leaf
- * argument distributes over the function's shape; when both have children,
- * only positions where both trees have a child are combined (pairwise).
- * These are monad-derived (not zip) applicative semantics.
- *
- * DELIBERATELY apply-primitive: this instance is the living exemplar of the
- * Applicative dual core's compatibility path. The base derives its n-ary
- * `invoke` from pure + apply via terminating partial application, while
- * invoke-native instances (optional, sender, std::simd) go the other way.
- * The shape-aware recursion is also a case where `apply` is the genuinely
- * natural primitive: each recursion step really does hold functions in the
- * context.
- * @tparam T element type of the function tree (F is the function type stored)
+ * pure(v) produces a single leaf. invoke(f, t1, ..., tn) applies the plain
+ * function to the operand values at each node and recurses shape-aware into
+ * the child positions: a leaf operand broadcasts (it rides along whole into
+ * every child position the other operands provide), and where several
+ * operands have shape, only positions where every shaped operand has a
+ * child are combined. These are monad-derived (not zip) applicative
+ * semantics, stated directly n-ary -- the pairwise rules of the classic
+ * formulation fall out as the two-operand case.
+ * @tparam T element type
  */
 template <class T>
 struct BinaryTreeApplicativeImpl {
@@ -174,70 +169,59 @@ struct BinaryTreeApplicativeImpl {
     }
 
     /**
-     * @brief Apply a tree of functions to a tree of arguments, shape-aware.
-     * @param functions tree whose nodes contain callables
-     * @param arguments tree whose nodes contain arguments
-     * @return tree of results; shape determined by pairwise recursion rules
+     * @brief Shape-aware n-ary application over trees.
+     * @param function plain callable over one value from each operand
+     * @param first    first operand tree
+     * @param rest     remaining operand trees
+     * @return tree of results; shape by broadcast-and-intersect recursion
      */
-    template <class F, class A>
-    auto apply(this auto &&self, const BinaryTree<F> &functions,
-               const BinaryTree<A> &arguments)
-        -> BinaryTree<std::invoke_result_t<const F &, const A &>> {
-        using R = std::invoke_result_t<const F &, const A &>;
+    template <class FUNCTION, class FIRST, class... REST>
+    auto invoke(this auto &&self, FUNCTION &&function,
+                const BinaryTree<FIRST> &first,
+                const BinaryTree<REST> &...rest)
+        -> BinaryTree<beman::transpose::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
+        using R = beman::transpose::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
+
+        auto is_leaf = [](const auto &tree) {
+            return !tree.has_left() && !tree.has_right();
+        };
 
         std::shared_ptr<BinaryTree<R>> left{};
         std::shared_ptr<BinaryTree<R>> right{};
 
-        const auto function_is_leaf =
-            !functions.has_left() && !functions.has_right();
-        const auto argument_is_leaf =
-            !arguments.has_left() && !arguments.has_right();
+        const bool any_left = (rest.has_left() || ... || first.has_left());
+        const bool shaped_have_left =
+            ((is_leaf(rest) || rest.has_left()) && ... &&
+             (is_leaf(first) || first.has_left()));
+        if (any_left && shaped_have_left) {
+            left = BinaryTree<R>::make_ptr(
+                self.invoke(function, (is_leaf(first) ? first : first.left()),
+                            (is_leaf(rest) ? rest : rest.left())...));
+        }
 
-        if (function_is_leaf) {
-            // pure(f) should distribute f over the argument shape.
-            if (arguments.has_left()) {
-                left = BinaryTree<R>::make_ptr(
-                    self.apply(functions, arguments.left()));
-            }
-            if (arguments.has_right()) {
-                right = BinaryTree<R>::make_ptr(
-                    self.apply(functions, arguments.right()));
-            }
-        } else if (argument_is_leaf) {
-            // A non-leaf function tree can be applied pointwise to a single
-            // argument.
-            if (functions.has_left()) {
-                left = BinaryTree<R>::make_ptr(
-                    self.apply(functions.left(), arguments));
-            }
-            if (functions.has_right()) {
-                right = BinaryTree<R>::make_ptr(
-                    self.apply(functions.right(), arguments));
-            }
-        } else {
-            // If both have shape, recurse pairwise where both children exist.
-            if (functions.has_left() && arguments.has_left()) {
-                left = BinaryTree<R>::make_ptr(
-                    self.apply(functions.left(), arguments.left()));
-            }
-
-            if (functions.has_right() && arguments.has_right()) {
-                right = BinaryTree<R>::make_ptr(
-                    self.apply(functions.right(), arguments.right()));
-            }
+        const bool any_right = (rest.has_right() || ... || first.has_right());
+        const bool shaped_have_right =
+            ((is_leaf(rest) || rest.has_right()) && ... &&
+             (is_leaf(first) || first.has_right()));
+        if (any_right && shaped_have_right) {
+            right = BinaryTree<R>::make_ptr(
+                self.invoke(function, (is_leaf(first) ? first : first.right()),
+                            (is_leaf(rest) ? rest : rest.right())...));
         }
 
         return BinaryTree<R>::from_children_ptrs(
-            functions.value()(arguments.value()), std::move(left),
-            std::move(right));
+            std::invoke(function, first.value(), rest.value()...),
+            std::move(left), std::move(right));
     }
 };
 
-/** Applicative map exposing pure and apply for BinaryTree<T>. */
+/** Applicative map exposing pure and the n-ary invoke for BinaryTree<T>. */
 template <class T>
 struct BinaryTreeApplicativeMap
     : beman::transpose::Applicative<BinaryTreeApplicativeImpl<T>> {
-    using BinaryTreeApplicativeImpl<T>::apply;
+    using BinaryTreeApplicativeImpl<T>::invoke;
     using BinaryTreeApplicativeImpl<T>::pure;
 };
 

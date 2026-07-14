@@ -102,14 +102,12 @@ auto zip_list_result_size(const FIRST &first, const REST &...rest)
 } // namespace detail
 
 /** Applicative typeclass instance for zip_list<T> with positional (zip)
- * semantics. Dual-core: both invoke and apply are provided natively.
+ * semantics.
  *
  * pure(x) = infinite repetition of x (zip_list::repeat(x)).
  * invoke(f, xs...) zips the argument lists positionally under the plain
  * function f, truncating to the length of the shortest finite operand. If
  * all operands are infinite the result is also infinite.
- * apply(fs, xs) is the classic spelling: a zip_list of callables zipped
- * against a zip_list of arguments.
  * @tparam T element type of the zip_list
  */
 template <class T>
@@ -119,39 +117,6 @@ struct ZipListApplicativeImpl {
     auto pure(this auto &&, VALUE &&value) {
         using U = remove_cvref_t<VALUE>;
         return zip_list<U>::repeat(U(std::forward<VALUE>(value)));
-    }
-
-    /**
-     * @brief Zip functions and arguments positionally; truncate to shortest
-     * finite.
-     * @param functions zip_list of callables
-     * @param arguments zip_list of arguments
-     * @return zip_list of results; infinite only when both operands are
-     * infinite
-     */
-    template <class F, class A>
-    auto apply(this auto &&, const zip_list<F> &functions,
-               const zip_list<A> &arguments) {
-        using Result = std::invoke_result_t<const F &, const A &>;
-        using U = remove_cvref_t<Result>;
-
-        const auto count = detail::zip_list_result_size(functions, arguments);
-        if (!count.has_value()) {
-            return zip_list<U>::repeat(
-                std::invoke(detail::zip_list_value_at(functions, 0),
-                            detail::zip_list_value_at(arguments, 0)));
-        }
-
-        zip_list<U> result;
-        result.data.reserve(*count);
-
-        for (std::size_t index = 0; index < *count; ++index) {
-            result.data.push_back(
-                std::invoke(detail::zip_list_value_at(functions, index),
-                            detail::zip_list_value_at(arguments, index)));
-        }
-
-        return result;
     }
 
     /**
@@ -192,11 +157,9 @@ struct ZipListApplicativeImpl {
     }
 };
 
-/** Applicative map for zip_list<T>: dual-core, exposing the native n-ary
- * invoke core alongside the classic apply spelling. */
+/** Applicative map for zip_list<T>: the native n-ary invoke core. */
 template <class T>
 struct ZipListApplicativeMap : Applicative<ZipListApplicativeImpl<T>> {
-    using ZipListApplicativeImpl<T>::apply;
     using ZipListApplicativeImpl<T>::invoke;
     using ZipListApplicativeImpl<T>::pure;
 };

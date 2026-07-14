@@ -13,6 +13,14 @@
 #include <utility>
 #include <vector>
 
+// EVIDENCE, NOT PROPOSED WORDING. D3200R0 proposes Applicative and
+// Traversable; it does not propose Foldable. The fold family (fold_map and
+// its derived operations, over structures that are not ranges) is proposed
+// by the recursive-tree-algorithms companion paper (Paper D), whose
+// motivation it belongs to -- std::ranges::fold_left already covers flat
+// sequences. This header ships as proof that the typeclass-object mechanism
+// scales to the fold family; treat its surface as implementation evidence.
+
 namespace beman::transpose::detail {
 
 // Identity function for fold composition - no type erasure needed

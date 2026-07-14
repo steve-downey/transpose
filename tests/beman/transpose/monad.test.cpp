@@ -26,12 +26,6 @@ TEST_CASE("monad: join flattens nested optional") {
     REQUIRE(bt::join(nested) == std::optional<int>{5});
 }
 
-TEST_CASE("monad: apply synthesized from bind and pure") {
-    const auto &m = bt::monad_typeclass<std::optional<int>>;
-    auto mf = std::optional{[](int x) { return x + 100; }};
-    REQUIRE(m.apply(mf, std::optional<int>{1}) == std::optional<int>{101});
-}
-
 TEST_CASE("monad: invoke synthesized from bind and pure") {
     const auto &m = bt::monad_typeclass<std::optional<int>>;
     auto add3 = [](int a, int b, int c) { return a + b + c; };

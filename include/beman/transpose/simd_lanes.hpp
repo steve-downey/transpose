@@ -50,19 +50,6 @@ struct SimdLanesApplicativeImpl {
         return simd_lanes<U, N>::repeat(U(std::forward<VALUE>(value)));
     }
 
-    template <class F, class A>
-    auto apply(this auto &&, const simd_lanes<F, N> &functions,
-               const simd_lanes<A, N> &arguments) {
-        using Result = std::invoke_result_t<const F &, const A &>;
-        using U = remove_cvref_t<Result>;
-
-        simd_lanes<U, N> result;
-        for (int i = 0; i < N; ++i) {
-            result.data[i] = std::invoke(functions.data[i], arguments.data[i]);
-        }
-        return result;
-    }
-
     template <class FUNCTION, class FIRST, class... REST>
     auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
                 const REST &...rest) {
@@ -80,10 +67,9 @@ struct SimdLanesApplicativeImpl {
     }
 };
 
-/** Dual-core map: native n-ary invoke plus the classic apply spelling. */
+/** Applicative map for simd_lanes<T, N>: the native n-ary invoke core. */
 template <class T, int N>
 struct SimdLanesApplicativeMap : Applicative<SimdLanesApplicativeImpl<T, N>> {
-    using SimdLanesApplicativeImpl<T, N>::apply;
     using SimdLanesApplicativeImpl<T, N>::invoke;
     using SimdLanesApplicativeImpl<T, N>::pure;
 };

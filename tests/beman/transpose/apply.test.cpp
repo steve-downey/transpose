@@ -22,14 +22,22 @@ TEST_CASE("apply: optional invoke combines effectful arguments") {
                        std::optional<int>{3}) == std::optional<int>{});
 }
 
-TEST_CASE("apply: pure and ap on optional") {
-    // optional is invoke-native; ap here exercises the base's DERIVED apply,
-    // invoke(applicative_eval, cf, cx) -- GHC's (<*>) = liftA2 id.
+TEST_CASE("apply: a lifted callable is applied through invoke, not apply") {
+    // A context CAN hold a callable (pure of a lambda is fine); applying it
+    // is still spelled through the n-ary invoke -- the classic apply/ap
+    // verbs do not exist in this library.
     const auto &app = bt::applicative_typeclass<std::optional<int>>;
+    auto call = [](const auto &f, int x) { return f(x); };
     auto lifted = app.pure([](int x) { return x * 10; });
-    REQUIRE(app.ap(lifted, std::optional<int>{5}) == std::optional<int>{50});
-    REQUIRE(app.ap(app.pure([](int x) { return x * 10; }),
-                   std::optional<int>{}) == std::optional<int>{});
+    REQUIRE(app.invoke(call, lifted, std::optional<int>{5}) ==
+            std::optional<int>{50});
+    REQUIRE(app.invoke(call, app.pure([](int x) { return x * 10; }),
+                       std::optional<int>{}) == std::optional<int>{});
+
+    using Map = bt::remove_cvref_t<decltype(app)>;
+    STATIC_REQUIRE_FALSE(
+        bt::test::has_apply_form<Map, std::optional<int (*)(int)>,
+                                 std::optional<int>>);
 }
 
 TEST_CASE("apply: identity and homomorphism laws on optional") {
