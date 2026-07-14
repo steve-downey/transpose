@@ -87,12 +87,12 @@ TEST_CASE("simd: applicative laws hold in invoke form") {
 }
 
 TEST_CASE("simd: apply and ap do not exist -- the invoke-only proof") {
-    // vec<callable> is not a type, so contextual application cannot be
-    // spelled: the base's derived apply constraint is a clean false for
-    // every nameable operand. This non-instantiation is the point.
+    // vec<callable> is not a type, so the classic contextual application
+    // could never be spelled here. This is the case that fixed the
+    // library's single core: no apply forms exist on any instance, and
+    // this one could not have had them even in principle.
     using Map = bt::remove_cvref_t<decltype(bt::applicative_typeclass<vec4>)>;
-    STATIC_REQUIRE_FALSE(bt::test::can_apply<Map, vec4, vec4>);
-    STATIC_REQUIRE_FALSE(bt::test::can_ap<Map, vec4, vec4>);
+    STATIC_REQUIRE_FALSE(bt::test::has_apply_form<Map, vec4, vec4>);
     SUCCEED("std::simd::basic_vec participates through pure + invoke alone");
 }
 

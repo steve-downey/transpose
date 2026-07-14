@@ -46,17 +46,10 @@ TEST_CASE("simd_lanes: applicative laws hold") {
                                           lanes4{{2, 4, 6, 8}}));
 }
 
-TEST_CASE("simd_lanes: dual cores cohere") {
-    using bt::test::check_apply_invoke_coherence;
-    using bt::test::check_invoke_ap_chain_coherence;
-
-    auto square = [](int x) { return x * x; };
-    bt::simd_lanes<decltype(square), 4> functions;
-    functions.data.fill(square);
-    REQUIRE(check_apply_invoke_coherence(functions, lanes4{{1, 2, 3, 4}}));
-    REQUIRE(check_invoke_ap_chain_coherence([](int a, int b) { return a - b; },
-                                            lanes4{{9, 8, 7, 6}},
-                                            lanes4{{1, 2, 3, 4}}));
+TEST_CASE("simd_lanes: no apply forms exist -- invoke is the only core") {
+    using Map = bt::remove_cvref_t<decltype(bt::applicative_typeclass<lanes4>)>;
+    STATIC_REQUIRE_FALSE(
+        bt::test::has_apply_form<Map, bt::simd_lanes<int (*)(int), 4>, lanes4>);
 }
 
 TEST_CASE("simd_lanes: transpose round-trips structure and lanes") {

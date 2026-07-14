@@ -14,11 +14,20 @@
 
 namespace beman::transpose {
 
+// EVIDENCE, NOT PROPOSED WORDING. D3200R0 does not propose a Monad
+// abstraction — deferred, not rejected. Everything about the typeclass
+// design leads to a consistent generic name for sequential composition
+// eventually (today's and_then/transform/let_value are per-type members,
+// not generic), and this header is the proof the mechanism carries Monad
+// without strain. It is unproposed only because nothing in the coordinated
+// set currently needs bind; the slot stays open for the paper that does.
+// See D3200R0 "Why not Monad".
+
 /** CRTP base for Monad instances.
  * `Impl` must provide `pure(value)` and `bind(ma, f)`.
- * `apply` and the n-ary `invoke` are synthesized; `join` and `kleisli` are
- * derived. Monad does not inherit from Applicative, but provides equivalent
- * operations once `apply` and `invoke` are synthesized from `bind` + `pure`.
+ * The n-ary `invoke` is synthesized; `join` and `kleisli` are derived.
+ * Monad does not inherit from Applicative, but provides the equivalent
+ * applicative operation once `invoke` is synthesized from `bind` + `pure`.
  */
 template <class Impl>
 struct Monad : protected Impl {
@@ -29,18 +38,6 @@ struct Monad : protected Impl {
 
     using Impl::bind;
     using Impl::pure;
-
-    // apply: synthesized from bind + pure.
-    // ap mf mx = mf >>= \f -> mx >>= \a -> pure (f a)
-    template <class MF, class MA>
-    auto apply(this auto &&self, MF &&mf, MA &&ma) {
-        return self.bind(std::forward<MF>(mf), [&self, &ma](auto &&f) {
-            return self.bind(ma, [&self, &f](auto &&a) {
-                return self.pure(std::invoke(std::forward<decltype(f)>(f),
-                                             std::forward<decltype(a)>(a)));
-            });
-        });
-    }
 
     // invoke: n-ary lift synthesized from bind + pure (left-nested binds):
     //   invoke(f, m1, ..., mn) = m1 >>= \a1 -> ... mn >>= \an ->

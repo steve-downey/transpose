@@ -50,11 +50,9 @@ struct sender {
  *
  * pure(x) yields a ready sender of x. invoke(f, s1, ..., sn) yields a single
  * new sender that, when run, runs every operand and applies the plain
- * function f to the results -- one deferred call capturing everything,
- * rather than n-1 nested apply closures. No work happens until the composed
- * sender is run. `apply` is not written here; the base derives it as
- * invoke(applicative_eval, sf, sa), which preserves the deferred semantics
- * (sender<std::function<...>> remains a perfectly good sender).
+ * function f to the results -- one deferred call capturing everything, so
+ * laziness is preserved by construction. No work happens until the composed
+ * sender is run.
  */
 template <class T>
 struct SenderApplicativeImpl {

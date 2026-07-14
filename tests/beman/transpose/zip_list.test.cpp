@@ -52,18 +52,10 @@ TEST_CASE("zip_list: applicative laws hold") {
                                           bt::zip_list<int>{{3, 4, 5}}));
 }
 
-TEST_CASE("zip_list: dual cores cohere (GHC: both defined => must agree)") {
-    using bt::test::check_apply_invoke_coherence;
-    using bt::test::check_invoke_ap_chain_coherence;
-
-    auto add_ten = [](int x) { return x + 10; };
-    bt::zip_list<decltype(add_ten)> functions;
-    functions.data = {add_ten, add_ten, add_ten};
-    // Native apply == invoke(eval, fs, xs), the apply-from-invoke formula.
-    REQUIRE(check_apply_invoke_coherence(functions,
-                                         bt::zip_list<int>{{1, 2, 3, 4}}));
-    // Native invoke == the classic pure(curried) `ap` x1 `ap` x2 derivation.
-    REQUIRE(check_invoke_ap_chain_coherence([](int a, int b) { return a * b; },
-                                            bt::zip_list<int>{{2, 3}},
-                                            bt::zip_list<int>{{10, 20, 30}}));
+TEST_CASE("zip_list: no apply forms exist -- invoke is the only core") {
+    // A zip_list can hold callables as elements (interchange above uses
+    // that), but the classic apply/ap verbs are gone from the library.
+    using Map = bt::remove_cvref_t<decltype(bt::applicative_typeclass<bt::zip_list<int>>)>;
+    STATIC_REQUIRE_FALSE(
+        bt::test::has_apply_form<Map, bt::zip_list<int (*)(int)>, bt::zip_list<int>>);
 }
