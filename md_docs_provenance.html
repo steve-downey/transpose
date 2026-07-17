@@ -95,7 +95,7 @@ $(document).ready(function(){initNavTree('md_docs_provenance.html',''); initResi
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><p>This library is the standalone Beman-layout reference implementation of <b>Paper A</b> of the P3200 coordinated proposal set (shape-preserving <code>traverse</code> / <code>transpose</code> plus bundled customization). Its core was extracted from the <code>trees</code> pedagogy/monorepo rather than written fresh, so this note records where the code came from.</p>
-<h1><a class="anchor" id="autotoc_md15"></a>
+<h1><a class="anchor" id="autotoc_md22"></a>
 Source</h1>
 <ul>
 <li><b>Source repository</b>: <code>trees</code> (local working copy <code>~/src/trees</code>).</li>
@@ -104,7 +104,7 @@ Source</h1>
 <li><b>Design rationale</b>: <code>docs/notes/standardization-inverted-triangle-plan.md</code> and the <code>beman-extraction-*</code> notes in the same directory.</li>
 </ul>
 <p>A <code>git notes</code> annotation on the import commit in this repository points back to the source commit range.</p>
-<h1><a class="anchor" id="autotoc_md16"></a>
+<h1><a class="anchor" id="autotoc_md23"></a>
 What was copied and renamed</h1>
 <p>The typeclass layer in <code>trees</code> is self-contained (no dependency on the finger-tree or fixpoint modules), so it was lifted as a unit and mechanically rewritten:</p>
 <table class="markdownTable">
@@ -127,7 +127,7 @@ What was copied and renamed</h1>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><code>ziplist/</code>   </td><td class="markdownTableBodyNone"><code>zip_list.hpp</code> + <code>zip_list_applicative.hpp</code>   </td><td class="markdownTableBodyNone">merged into <code>zip_list.hpp</code>   </td></tr>
 </table>
-<h1><a class="anchor" id="autotoc_md17"></a>
+<h1><a class="anchor" id="autotoc_md24"></a>
 Intentional deviations</h1>
 <ul>
 <li>**<code>beman::optional</code> support dropped.** The <code>trees</code> sources carried parallel instances for <code>beman::optional::optional</code>. To keep this a standalone unit whose only third-party dependency is Catch2 (for tests), only <code>std::optional</code> instances were ported. <code>std::optional</code> fully covers the fallible-value domain.</li>
@@ -135,9 +135,13 @@ Intentional deviations</h1>
 <li><b>Tests rewritten, not ported verbatim.</b> The original Catch2/<code>.t.cpp</code> suites leaned on <code>beman::optional</code> and on tree types that are out of scope here. Fresh, namespace-correct tests were written, including an explicit three-domain proof in <code>tests/beman/transpose/transpose.test.cpp</code>.</li>
 <li>**<code>.copier-answers.yml</code> re-pointed to the Beman copier exemplar.** The repo was originally stamped from a different (cookiecutter-style) <code>example</code> template. The answers file was rewritten in Copier's format to track the Beman exemplar copier template (<code><a href="https://github.com/steve-downey/exemplar.git">https://github.com/steve-downey/exemplar.git</a></code>, <code>_commit v2.4.1-35-g2313d70</code>), with answers matching this repo (<code>project_name: transpose</code>, &lsquo;minimum_cpp_build_version: '23&rsquo;<code>,</code>unit_test_library: catch2<code>, </code>paper: P3200<code>). The template currently lives on the</code>copier<code>branch (PR not yet merged upstream), so updates use</code>copier update &ndash;trust &ndash;vcs-ref copier`. Only the answers file was re-pointed; template-managed files (CMake, presets, CI) were not regenerated, to preserve this repo's hand-built layout and custom Makefile workflow.</li>
 </ul>
-<h1><a class="anchor" id="autotoc_md18"></a>
+<h1><a class="anchor" id="autotoc_md25"></a>
 Synchronization policy</h1>
-<p><code>trees</code> remains the pedagogy/exploration repository; <code>beman.transpose</code> is the production reference implementation for Paper A. The intended relationship is a one-way extraction with deliberate divergence: API evolution tracking paper revisions happens here, and is not back-ported to <code>trees</code>. </p>
+<p><code>trees</code> remains the pedagogy/exploration repository; <code>beman.transpose</code> is the production reference implementation for Paper A. The intended relationship is a one-way extraction with deliberate divergence: API evolution tracking paper revisions happens here, and is not back-ported to <code>trees</code>.</p>
+<h1><a class="anchor" id="autotoc_md26"></a>
+2026-07-14: the pure/apply forms removed; evidence labels added</h1>
+<p>Coordinated-set ruling (recorded in the tree-coordination meta-repo, SYNC entry 3): the classic contextual-application forms — <code>apply</code>, <code>ap</code>, the <code>terminating_partial</code> currying helper, Monad's synthesized <code>apply</code> — are removed from the public surface. Curried application of a callable-in-context is a Haskell artifact, and <code>std::simd::vec</code> (which cannot form <code>vec&lt;callable&gt;</code>) proves <code>apply</code> was never the primitive. Applicative's single core is <code>pure</code> + n-ary <code>invoke</code>; the law suite is stated in invoke form, and tests pin the <em>absence</em> of apply forms on every instance. See D3200R0 "Why not `apply`".</p>
+<p>At the same time, unproposed repo surface was labeled explicitly (repo surface ≠ paper surface): <code>fold.hpp</code> carries the fold family, proposed by the recursive-tree-algorithms companion paper, not by D3200R0; <code>monad.hpp</code> is evidence that the mechanism carries Monad, which is deferred — not rejected — because nothing currently proposed calls <code>bind</code>. See D3200R0 "Why not Monad" and the header-top notes in both files. Traversable's freedom from any Foldable superclass requirement is now a documented deliberate constraint in <code>traverse.hpp</code>. </p>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->
 </div><!-- doc-content -->
