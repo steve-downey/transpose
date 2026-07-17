@@ -42,33 +42,42 @@ var NAVTREE =
         [ "Prose and Documentation Formatting", "md_docs_CODING_RULES.html#autotoc_md13", null ]
       ] ]
     ] ],
+    [ "Coordination worklist — 2026-07-13", "md_docs_coordination_worklist_2026_07_13.html", [
+      [ "1. Add a \"Why not Monad\" section to D3200R0", "md_docs_coordination_worklist_2026_07_13.html#autotoc_md15", null ],
+      [ "2. Label unproposed repo surface as evidence", "md_docs_coordination_worklist_2026_07_13.html#autotoc_md16", null ],
+      [ "3. Keep Traversable free of a Foldable superclass requirement", "md_docs_coordination_worklist_2026_07_13.html#autotoc_md17", null ],
+      [ "4. Relationships essay hook", "md_docs_coordination_worklist_2026_07_13.html#autotoc_md18", null ],
+      [ "5. Remove the pure/apply forms; <tt>invoke</tt> is the applicative core", "md_docs_coordination_worklist_2026_07_13.html#autotoc_md19", null ],
+      [ "6. BinaryTree example cross-check (standing item)", "md_docs_coordination_worklist_2026_07_13.html#autotoc_md20", null ]
+    ] ],
     [ "Provenance: extraction of Paper A into beman.transpose", "md_docs_provenance.html", [
-      [ "Source", "md_docs_provenance.html#autotoc_md15", null ],
-      [ "What was copied and renamed", "md_docs_provenance.html#autotoc_md16", null ],
-      [ "Intentional deviations", "md_docs_provenance.html#autotoc_md17", null ],
-      [ "Synchronization policy", "md_docs_provenance.html#autotoc_md18", null ]
+      [ "Source", "md_docs_provenance.html#autotoc_md22", null ],
+      [ "What was copied and renamed", "md_docs_provenance.html#autotoc_md23", null ],
+      [ "Intentional deviations", "md_docs_provenance.html#autotoc_md24", null ],
+      [ "Synchronization policy", "md_docs_provenance.html#autotoc_md25", null ],
+      [ "2026-07-14: the pure/apply forms removed; evidence labels added", "md_docs_provenance.html#autotoc_md26", null ]
     ] ],
     [ "typeclass-object-pattern", "md_docs_typeclass_object_pattern.html", [
-      [ "Typeclass Object Pattern in This Repository", "md_docs_typeclass_object_pattern.html#autotoc_md19", [
-        [ "Why this exists", "md_docs_typeclass_object_pattern.html#autotoc_md20", null ],
-        [ "The surface in this repo", "md_docs_typeclass_object_pattern.html#autotoc_md21", null ],
-        [ "Lookup modes (important)", "md_docs_typeclass_object_pattern.html#autotoc_md22", null ],
-        [ "Core mechanics", "md_docs_typeclass_object_pattern.html#autotoc_md23", [
-          [ "Concept side", "md_docs_typeclass_object_pattern.html#autotoc_md24", null ],
-          [ "Type side", "md_docs_typeclass_object_pattern.html#autotoc_md25", null ],
-          [ "Call side", "md_docs_typeclass_object_pattern.html#autotoc_md26", null ]
+      [ "Typeclass Object Pattern in This Repository", "md_docs_typeclass_object_pattern.html#autotoc_md27", [
+        [ "Why this exists", "md_docs_typeclass_object_pattern.html#autotoc_md28", null ],
+        [ "The surface in this repo", "md_docs_typeclass_object_pattern.html#autotoc_md29", null ],
+        [ "Lookup modes (important)", "md_docs_typeclass_object_pattern.html#autotoc_md30", null ],
+        [ "Core mechanics", "md_docs_typeclass_object_pattern.html#autotoc_md31", [
+          [ "Concept side", "md_docs_typeclass_object_pattern.html#autotoc_md32", null ],
+          [ "Type side", "md_docs_typeclass_object_pattern.html#autotoc_md33", null ],
+          [ "Call side", "md_docs_typeclass_object_pattern.html#autotoc_md34", null ]
         ] ],
-        [ "How to add a new instance", "md_docs_typeclass_object_pattern.html#autotoc_md27", null ],
-        [ "How to add a new concept", "md_docs_typeclass_object_pattern.html#autotoc_md28", null ],
-        [ "Testing and build wiring expectations", "md_docs_typeclass_object_pattern.html#autotoc_md29", null ],
-        [ "Algorithm objects: Inheriting from typeclass instances", "md_docs_typeclass_object_pattern.html#autotoc_md30", [
-          [ "Pattern", "md_docs_typeclass_object_pattern.html#autotoc_md31", null ],
-          [ "Multi-typeclass composition", "md_docs_typeclass_object_pattern.html#autotoc_md32", null ],
-          [ "Key points", "md_docs_typeclass_object_pattern.html#autotoc_md33", null ]
+        [ "How to add a new instance", "md_docs_typeclass_object_pattern.html#autotoc_md35", null ],
+        [ "How to add a new concept", "md_docs_typeclass_object_pattern.html#autotoc_md36", null ],
+        [ "Testing and build wiring expectations", "md_docs_typeclass_object_pattern.html#autotoc_md37", null ],
+        [ "Algorithm objects: Inheriting from typeclass instances", "md_docs_typeclass_object_pattern.html#autotoc_md38", [
+          [ "Pattern", "md_docs_typeclass_object_pattern.html#autotoc_md39", null ],
+          [ "Multi-typeclass composition", "md_docs_typeclass_object_pattern.html#autotoc_md40", null ],
+          [ "Key points", "md_docs_typeclass_object_pattern.html#autotoc_md41", null ]
         ] ],
-        [ "Applicative: Derived invoke via terminating partial application", "md_docs_typeclass_object_pattern.html#autotoc_md34", null ],
-        [ "Traps and corrections from tree-instance implementation", "md_docs_typeclass_object_pattern.html#autotoc_md35", null ],
-        [ "Notes for future cleanup", "md_docs_typeclass_object_pattern.html#autotoc_md36", null ]
+        [ "Applicative: Derived invoke via terminating partial application", "md_docs_typeclass_object_pattern.html#autotoc_md42", null ],
+        [ "Traps and corrections from tree-instance implementation", "md_docs_typeclass_object_pattern.html#autotoc_md43", null ],
+        [ "Notes for future cleanup", "md_docs_typeclass_object_pattern.html#autotoc_md44", null ]
       ] ]
     ] ]
   ] ]
