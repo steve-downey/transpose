@@ -37,19 +37,6 @@ struct ArrayApplicativeImpl {
         return result;
     }
 
-    template <class F, class A>
-    auto apply(this auto &&, const std::array<F, N> &functions,
-               const std::array<A, N> &arguments) {
-        using Result = std::invoke_result_t<const F &, const A &>;
-        using U = remove_cvref_t<Result>;
-
-        std::array<U, N> result;
-        for (std::size_t i = 0; i < N; ++i) {
-            result[i] = std::invoke(functions[i], arguments[i]);
-        }
-        return result;
-    }
-
     template <class FUNCTION, class FIRST, class... REST>
     auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
                 const REST &...rest) {
@@ -66,10 +53,9 @@ struct ArrayApplicativeImpl {
     }
 };
 
-/** Dual-core map: native n-ary invoke plus the classic apply spelling. */
+/** Applicative map for std::array<T, N>: the native n-ary invoke core. */
 template <class T, std::size_t N>
 struct ArrayApplicativeMap : Applicative<ArrayApplicativeImpl<T, N>> {
-    using ArrayApplicativeImpl<T, N>::apply;
     using ArrayApplicativeImpl<T, N>::invoke;
     using ArrayApplicativeImpl<T, N>::pure;
 };

@@ -52,18 +52,17 @@ TEST_CASE("zip_list: applicative laws hold") {
                                           bt::zip_list<int>{{3, 4, 5}}));
 }
 
-TEST_CASE("zip_list: dual cores cohere (GHC: both defined => must agree)") {
-    using bt::test::check_apply_invoke_coherence;
-    using bt::test::check_invoke_ap_chain_coherence;
-
+TEST_CASE("zip_list: derived ap agrees with the invoke basis") {
+    // zip_list is invoke-basis; the secondary ap is derived as
+    // invoke(eval, fs, xs) and must agree with the direct spelling.
+    const auto &app = bt::applicative_typeclass<bt::zip_list<int>>;
     auto add_ten = [](int x) { return x + 10; };
     bt::zip_list<decltype(add_ten)> functions;
     functions.data = {add_ten, add_ten, add_ten};
-    // Native apply == invoke(eval, fs, xs), the apply-from-invoke formula.
-    REQUIRE(check_apply_invoke_coherence(functions,
-                                         bt::zip_list<int>{{1, 2, 3, 4}}));
-    // Native invoke == the classic pure(curried) `ap` x1 `ap` x2 derivation.
-    REQUIRE(check_invoke_ap_chain_coherence([](int a, int b) { return a * b; },
-                                            bt::zip_list<int>{{2, 3}},
-                                            bt::zip_list<int>{{10, 20, 30}}));
+    auto via_ap = app.ap(functions, bt::zip_list<int>{{1, 2, 3, 4}});
+    auto via_invoke =
+        app.invoke([](const auto &f, int x) { return f(x); }, functions,
+                   bt::zip_list<int>{{1, 2, 3, 4}});
+    REQUIRE(via_ap.data == via_invoke.data);
+    REQUIRE(via_ap.data == std::vector<int>{11, 12, 13});
 }

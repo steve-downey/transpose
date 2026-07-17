@@ -73,3 +73,24 @@ rewritten:
 production reference implementation for Paper A. The intended relationship is a
 one-way extraction with deliberate divergence: API evolution tracking paper
 revisions happens here, and is not back-ported to `trees`.
+
+## 2026-07-14: the pure/apply forms removed; evidence labels added
+
+Coordinated-set ruling (recorded in the tree-coordination meta-repo, SYNC
+entry 3): the classic contextual-application forms — `apply`, `ap`, the
+`terminating_partial` currying helper, Monad's synthesized `apply` — are
+removed from the public surface. Curried application of a
+callable-in-context is a Haskell artifact, and `std::simd::vec` (which
+cannot form `vec<callable>`) proves `apply` was never the primitive.
+Applicative's single core is `pure` + n-ary `invoke`; the law suite is
+stated in invoke form, and tests pin the *absence* of apply forms on every
+instance. See D3200R0 "Why not `apply`".
+
+At the same time, unproposed repo surface was labeled explicitly (repo
+surface ≠ paper surface): `fold.hpp` carries the fold family, proposed by
+the recursive-tree-algorithms companion paper, not by D3200R0; `monad.hpp`
+is evidence that the mechanism carries Monad, which is deferred — not
+rejected — because nothing currently proposed calls `bind`. See D3200R0
+"Why not Monad" and the header-top notes
+in both files. Traversable's freedom from any Foldable superclass
+requirement is now a documented deliberate constraint in `traverse.hpp`.

@@ -50,9 +50,9 @@ TEST_CASE("sender: n-ary invoke defers every operand until get") {
     REQUIRE(*runs == 3);
 }
 
-TEST_CASE("sender: ap through the derived apply stays deferred") {
-    // sender is invoke-native; ap goes through the base's derived apply
-    // (invoke(applicative_eval, sf, sa)) and must preserve laziness.
+TEST_CASE("sender: a lifted callable applied through invoke stays deferred") {
+    // A sender of a callable is a perfectly good sender; applying it is
+    // spelled through the n-ary invoke and must preserve laziness.
     auto runs = std::make_shared<int>(0);
     const auto &app = bt::applicative_typeclass<bt::sender<int>>;
 
@@ -62,7 +62,8 @@ TEST_CASE("sender: ap through the derived apply stays deferred") {
         return 14;
     }};
 
-    auto combined = app.ap(lifted, operand);
+    auto combined = app.invoke(
+        [](const auto &f, int x) { return f(x); }, lifted, operand);
     REQUIRE(*runs == 0);
     REQUIRE(combined.get() == 42);
     REQUIRE(*runs == 1);

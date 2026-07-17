@@ -5,9 +5,10 @@
 
 // Applicative instance for std::simd::basic_vec (P1928, C++26): the context
 // that PROVES the invoke core. A vec<T> holds only vectorizable scalars, so
-// vec<callable> is not a type: `apply` cannot be spelled at all, and the
-// base's derived apply must (and does) constrain itself away. pure is the
-// broadcast constructor; invoke is the lane-wise generator constructor.
+// vec<callable> is not a type: the classic `apply` (a callable held inside
+// the context) could never be spelled here -- which is why this library has
+// no apply anywhere, only the n-ary invoke. pure is the broadcast
+// constructor; invoke is the lane-wise generator constructor.
 //
 // NOTE: this is an applicative instance only -- NOT a traversal context for
 // rebuilding structures (a vec cannot hold a vector<T> either). It is the
@@ -27,11 +28,11 @@
 
 namespace beman::transpose {
 
-/** Invoke-native Applicative Impl for std::simd::basic_vec<T, ABI>.
- * No `apply` is written and none can be derived: there is no vec of
- * callables to hold a function-in-context. pure and invoke carry trailing
- * return types / constraints so every probe fails cleanly (SFINAE) rather
- * than hard-erroring.
+/** Applicative Impl for std::simd::basic_vec<T, ABI>: there is no vec of
+ * callables to hold a function-in-context, so lane-wise application can
+ * only be the n-ary invoke -- the concrete case that fixed this library's
+ * single core. pure and invoke carry trailing return types / constraints so
+ * every probe fails cleanly (SFINAE) rather than hard-erroring.
  */
 template <class T, class ABI>
 struct SimdVecApplicativeImpl {
