@@ -174,14 +174,15 @@ struct BinaryTreeApplicativeImpl {
     }
 
     /**
-     * @brief One-step application of a tree of functions to a tree of arguments, shape-aware.
+     * @brief One-step application of a tree of functions to a tree of
+     * arguments, shape-aware.
      * @param functions tree whose nodes contain callables
      * @param arguments tree whose nodes contain arguments
      * @return tree of results; shape determined by pairwise recursion rules
      */
     template <class F, class A>
     auto ap(this auto &&self, const BinaryTree<F> &functions,
-               const BinaryTree<A> &arguments)
+            const BinaryTree<A> &arguments)
         -> BinaryTree<std::invoke_result_t<const F &, const A &>> {
         using R = std::invoke_result_t<const F &, const A &>;
 
