@@ -187,10 +187,9 @@ struct Applicative : protected Impl {
                 requires(IMPL_BASE &impl) {
                     impl.ap(std::move(lifted_function),
                             std::forward<FIRST_ARGUMENT>(first_argument));
-                },
-                "Applicative Impl must provide pure and at least one basis: "
-                "invoke(f, args_in_context...) or "
-                "ap(f_in_context, arg_in_context).");
+                }, "Applicative Impl must provide pure and at least one basis: "
+                   "invoke(f, args_in_context...) or "
+                   "ap(f_in_context, arg_in_context).");
             return self.ap_chain(
                 self.ap(std::move(lifted_function),
                         std::forward<FIRST_ARGUMENT>(first_argument)),
@@ -251,9 +250,8 @@ struct Applicative : protected Impl {
         if constexpr (sizeof...(REST_ARGUMENTS) == 0) {
             return next;
         } else {
-            return self.ap_chain(
-                std::move(next),
-                std::forward<REST_ARGUMENTS>(rest_arguments)...);
+            return self.ap_chain(std::move(next), std::forward<REST_ARGUMENTS>(
+                                                      rest_arguments)...);
         }
     }
 

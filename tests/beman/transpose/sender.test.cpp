@@ -62,8 +62,8 @@ TEST_CASE("sender: a lifted callable applied through invoke stays deferred") {
         return 14;
     }};
 
-    auto combined = app.invoke(
-        [](const auto &f, int x) { return f(x); }, lifted, operand);
+    auto combined =
+        app.invoke([](const auto &f, int x) { return f(x); }, lifted, operand);
     REQUIRE(*runs == 0);
     REQUIRE(combined.get() == 42);
     REQUIRE(*runs == 1);

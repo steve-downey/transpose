@@ -60,9 +60,8 @@ TEST_CASE("zip_list: derived ap agrees with the invoke basis") {
     bt::zip_list<decltype(add_ten)> functions;
     functions.data = {add_ten, add_ten, add_ten};
     auto via_ap = app.ap(functions, bt::zip_list<int>{{1, 2, 3, 4}});
-    auto via_invoke =
-        app.invoke([](const auto &f, int x) { return f(x); }, functions,
-                   bt::zip_list<int>{{1, 2, 3, 4}});
+    auto via_invoke = app.invoke([](const auto &f, int x) { return f(x); },
+                                 functions, bt::zip_list<int>{{1, 2, 3, 4}});
     REQUIRE(via_ap.data == via_invoke.data);
     REQUIRE(via_ap.data == std::vector<int>{11, 12, 13});
 }
