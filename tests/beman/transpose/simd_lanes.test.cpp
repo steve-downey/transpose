@@ -46,17 +46,17 @@ TEST_CASE("simd_lanes: applicative laws hold") {
                                           lanes4{{2, 4, 6, 8}}));
 }
 
-TEST_CASE("simd_lanes: dual cores cohere") {
-    using bt::test::check_apply_invoke_coherence;
-    using bt::test::check_invoke_ap_chain_coherence;
-
-    auto square = [](int x) { return x * x; };
-    bt::simd_lanes<decltype(square), 4> functions;
-    functions.data.fill(square);
-    REQUIRE(check_apply_invoke_coherence(functions, lanes4{{1, 2, 3, 4}}));
-    REQUIRE(check_invoke_ap_chain_coherence([](int a, int b) { return a - b; },
-                                            lanes4{{9, 8, 7, 6}},
-                                            lanes4{{1, 2, 3, 4}}));
+TEST_CASE("simd_lanes: derived ap agrees with the invoke basis") {
+    // simd_lanes is invoke-basis; the secondary ap is derived and must
+    // agree with the direct invoke spelling.
+    const auto &app = bt::applicative_typeclass<lanes4>;
+    bt::simd_lanes<int (*)(int), 4> functions;
+    functions.data.fill(+[](int x) { return x * x; });
+    auto via_ap = app.ap(functions, lanes4{{1, 2, 3, 4}});
+    auto via_invoke = app.invoke([](auto f, int x) { return f(x); }, functions,
+                                 lanes4{{1, 2, 3, 4}});
+    REQUIRE(via_ap == via_invoke);
+    REQUIRE(via_ap == (lanes4{{1, 4, 9, 16}}));
 }
 
 TEST_CASE("simd_lanes: transpose round-trips structure and lanes") {

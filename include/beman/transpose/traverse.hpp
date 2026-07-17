@@ -25,6 +25,14 @@ namespace beman::transpose {
  * `Impl` must provide `traverse(applicative, f, container)` and declare
  * `element_type`. All other operations (`transpose`, `for_each`,
  * `traverse_with`, `transpose_with`) are derived.
+ *
+ * DELIBERATE CONSTRAINT: Traversable does not and must not require a
+ * Foldable instance (no Haskell-style superclass). `traverse` needs only
+ * an Applicative and the walk; the fold family is proposed by the
+ * companion recursive-tree-algorithms paper, and requiring it here would
+ * put that paper's concept beneath this one after review. foldMapDefault-
+ * style derivations (folding via traverse) remain possible as evidence,
+ * never a requirement.
  */
 template <class Impl>
 struct Traversable : protected Impl {

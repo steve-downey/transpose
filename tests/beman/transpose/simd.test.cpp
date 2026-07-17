@@ -86,13 +86,14 @@ TEST_CASE("simd: applicative laws hold in invoke form") {
                         app.map(outer, app.map(inner, v))));
 }
 
-TEST_CASE("simd: apply and ap do not exist -- the invoke-only proof") {
-    // vec<callable> is not a type, so contextual application cannot be
-    // spelled: the base's derived apply constraint is a clean false for
-    // every nameable operand. This non-instantiation is the point.
+TEST_CASE("simd: ap does not exist here -- the invoke-interface proof") {
+    // vec<callable> is not a type, so one-step contextual application
+    // cannot be spelled: the derived ap's constraint is a clean false for
+    // every nameable operand. This is the case that makes invoke the
+    // user-facing interface -- ap remains a fine basis elsewhere, but an
+    // ap-shaped interface would lock this domain out entirely.
     using Map = bt::remove_cvref_t<decltype(bt::applicative_typeclass<vec4>)>;
-    STATIC_REQUIRE_FALSE(bt::test::can_apply<Map, vec4, vec4>);
-    STATIC_REQUIRE_FALSE(bt::test::can_ap<Map, vec4, vec4>);
+    STATIC_REQUIRE_FALSE(bt::test::has_apply_form<Map, vec4, vec4>);
     SUCCEED("std::simd::basic_vec participates through pure + invoke alone");
 }
 

@@ -14,23 +14,23 @@
 
 namespace beman::transpose::test {
 
-// Law helpers are spelled invoke-first: the n-ary invoke core is available
-// on every applicative, while ap/apply exist only for contexts that can hold
-// callables. Availability probes below are NAMED CONCEPTS on purpose: a bare
-// requires-expression at block scope hard-errors on an invalid expression
-// instead of yielding false ([expr.prim.req]).
+// Law helpers are spelled through the n-ary invoke core, the only
+// application form in this library (the classic ap/apply spellings were
+// removed 2026-07-14; see apply.hpp's pattern invariants). Availability
+// probes are NAMED CONCEPTS on purpose: a bare requires-expression at block
+// scope hard-errors on an invalid expression instead of yielding false
+// ([expr.prim.req]).
 
-/** True when contextual application is available for these operand types --
- * i.e. the context can hold a callable and `ap`/`apply` exist. */
+/** True when the Map exposes one-step contextual application (`ap`, the
+ * classic basis kept as a secondary operation) for these operands. It is
+ * available exactly when the context can hold a callable; the probe pins
+ * its absence where it cannot (std::simd::vec). */
 template <class MAP, class FUNCTIONS_IN_CONTEXT, class ARGUMENTS_IN_CONTEXT>
-concept can_ap = requires(const MAP &map, const FUNCTIONS_IN_CONTEXT &cf,
-                          const ARGUMENTS_IN_CONTEXT &cx) { map.ap(cf, cx); };
-
-/** Companion probe for the primitive spelling. */
-template <class MAP, class FUNCTIONS_IN_CONTEXT, class ARGUMENTS_IN_CONTEXT>
-concept can_apply =
+concept has_apply_form =
     requires(const MAP &map, const FUNCTIONS_IN_CONTEXT &cf,
-             const ARGUMENTS_IN_CONTEXT &cx) { map.apply(cf, cx); };
+             const ARGUMENTS_IN_CONTEXT &cx) { map.apply(cf, cx); } ||
+    requires(const MAP &map, const FUNCTIONS_IN_CONTEXT &cf,
+             const ARGUMENTS_IN_CONTEXT &cx) { map.ap(cf, cx); };
 
 /** Verify the Applicative identity law, invoke form: `map(id, v) == v`.
  * Holds for every context, including those that cannot hold callables. */
@@ -52,21 +52,18 @@ auto check_applicative_homomorphism_law(const FUNCTION &function,
     return left == right;
 }
 
-/** Verify the Applicative interchange law: `u <*> pure(y) == pure($ y) <*> u`
- * (right side expressed via map). Callable-holding contexts only. */
+/** Verify the Applicative interchange law, invoke form:
+ * `invoke(eval, u, pure(y)) == map(f -> f(y), u)` -- floating a pure
+ * operand out of an application. Instantiable only for contexts whose
+ * *elements* are callables (a plain vector-of-lambdas is fine); no apply
+ * verb is involved. */
 template <class FUNCTIONS_IN_CONTEXT, class VALUE>
 auto check_applicative_interchange_law(const FUNCTIONS_IN_CONTEXT &functions,
-                                       const VALUE &value) -> bool
-    requires requires(const FUNCTIONS_IN_CONTEXT &fs) {
-        applicative_typeclass<remove_cvref_t<FUNCTIONS_IN_CONTEXT>>.ap(
-            fs,
-            applicative_typeclass<remove_cvref_t<FUNCTIONS_IN_CONTEXT>>.pure(
-                value));
-    }
-{
+                                       const VALUE &value) -> bool {
     const auto &applicative =
         applicative_typeclass<remove_cvref_t<FUNCTIONS_IN_CONTEXT>>;
-    auto left = applicative.ap(functions, applicative.pure(value));
+    auto call = [](const auto &f, const auto &x) { return std::invoke(f, x); };
+    auto left = applicative.invoke(call, functions, applicative.pure(value));
     auto right = applicative.map(
         [&value](const auto &f) { return std::invoke(f, value); }, functions);
     return left == right;
@@ -85,60 +82,6 @@ auto check_functor_composition_law(const F &outer, const G &inner,
         value);
     auto right = applicative.map(outer, applicative.map(inner, value));
     return left == right;
-}
-
-/** Dual-core coherence (GHC: if both cores are defined, they must agree):
- * native `apply(fs, xs)` equals the derivation `invoke(eval, fs, xs)`. */
-template <class FUNCTIONS_IN_CONTEXT, class ARGUMENTS_IN_CONTEXT>
-auto check_apply_invoke_coherence(const FUNCTIONS_IN_CONTEXT &functions,
-                                  const ARGUMENTS_IN_CONTEXT &arguments)
-    -> bool {
-    const auto &applicative =
-        applicative_typeclass<remove_cvref_t<FUNCTIONS_IN_CONTEXT>>;
-    auto via_apply = applicative.apply(functions, arguments);
-    auto via_invoke = applicative.invoke(
-        [](const auto &f, const auto &x) { return std::invoke(f, x); },
-        functions, arguments);
-    return via_apply == via_invoke;
-}
-
-/** Assignable curried steps for the ap-chain coherence check. Contexts like
- * simd_lanes store elements in std::array and require default-construction
- * and copy assignment, which lambda closures do not provide. */
-template <class FUNCTION, class FIRST>
-struct curried_second_step {
-    const FUNCTION *function = nullptr;
-    FIRST first{};
-
-    template <class SECOND>
-    auto operator()(const SECOND &second) const {
-        return std::invoke(*function, first, second);
-    }
-};
-
-template <class FUNCTION>
-struct curried_first_step {
-    const FUNCTION *function = nullptr;
-
-    template <class FIRST>
-    auto operator()(const FIRST &first) const {
-        return curried_second_step<FUNCTION, FIRST>{function, first};
-    }
-};
-
-/** Dual-core coherence, other direction: native `invoke` equals the classic
- * curried derivation `pure(curried f)` ap x1 ap x2. */
-template <class CONTEXT, class FUNCTION>
-auto check_invoke_ap_chain_coherence(const FUNCTION &function,
-                                     const CONTEXT &first,
-                                     const CONTEXT &second) -> bool {
-    const auto &applicative = applicative_typeclass<remove_cvref_t<CONTEXT>>;
-    auto direct = applicative.invoke(function, first, second);
-    auto chained = applicative.ap(
-        applicative.ap(
-            applicative.pure(curried_first_step<FUNCTION>{&function}), first),
-        second);
-    return direct == chained;
 }
 
 /** Minimal single-element applicative context used in law tests. */
@@ -167,9 +110,8 @@ struct Sequence {
 
 namespace beman::transpose {
 
-/** Invoke-native Applicative implementation for Identity<V>: pure wraps,
- * invoke unwraps every operand and calls the plain function once. apply is
- * base-derived (invoke(applicative_eval, cf, cx)). */
+/** Applicative implementation for Identity<V>: pure wraps, invoke unwraps
+ * every operand and calls the plain function once. */
 template <class VALUE_TYPE>
 struct TestIdentityApplicativeImpl {
     template <class VALUE>
