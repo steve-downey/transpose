@@ -140,31 +140,33 @@ template <class VALUE_TYPE>
 inline constexpr auto monad_typeclass<std::optional<VALUE_TYPE>> =
     OptionalMonadMap<VALUE_TYPE>{};
 
-// -- Customization-point objects --
+// -- Operation objects --
 //
-// See functor.hpp for the shape and the motivation. Still evidence, not
-// proposed wording -- but evidence of one more thing now: that the CPO layer
-// is uniform across the whole typeclass family, including the member nobody
-// is proposing. If the CPO spelling only worked for the operations D3200R0
-// happens to propose, that would be a sign it was fitted to those operations
-// rather than to the mechanism.
+// See functor.hpp for the shape, the motivation, and why the namespace is
+// nested. Still evidence, not proposed wording -- but evidence of one more
+// thing now: that the operation-object layer is uniform across the whole
+// typeclass family, including the member nobody is proposing. If the spelling
+// only worked for the operations D3200R0 happens to propose, that would say
+// it had been fitted to those operations instead of to the mechanism.
 //
 // It also settles a naming question the free-function API had ducked. `bind`
 // could not be a function template here without reading as a competitor to
 // std::bind; the old spelling was `mbind`, a wart adopted to dodge exactly
-// that. An object needs no such dodge: `beman::transpose::bind` is a
-// variable, it is never found by ADL, and it never enters overload
-// resolution with std::bind. The typeclass operation gets its real name.
+// that. An object needs no such dodge: `ops::bind` is a variable, it is never
+// found by ADL, and it never enters overload resolution with std::bind. The
+// typeclass operation gets its real name.
 
-/** Customization-point object for Monad's `bind` primitive.
+namespace ops {
+
+/** Operation object for Monad's `bind` primitive.
  *
  * The context keys the lookup and is deduced from the first argument.
  */
 struct bind_fn {
     /** Sequences a monadic value `ma` through `f` (Haskell's `>>=`).
      *
-     * @tparam TC  The Monad instance; defaults to the lookup for `MA` and
-     *             may be pinned explicitly.
+     * @tparam TC  The Monad instance, from the lookup for the keying argument.
+     * Not for callers to supply; pin with mode 2.
      */
     template <class MA, class F,
               const auto &TC = monad_typeclass<remove_cvref_t<MA>>>
@@ -180,26 +182,7 @@ struct bind_fn {
 /** Sequential composition: `bind(ma, f)`. */
 inline constexpr bind_fn bind{};
 
-/** Instance-pinned form of `bind`; see `fmap_with` in functor.hpp for why the
- * pin has to be a class template parameter to stay reachable.
- *
- * Distinct from `Monad::bind_with`, which takes the instance as an ordinary
- * argument (lookup mode 2) rather than as a template parameter.
- */
-template <const auto &TC>
-struct bind_with_fn {
-    /** Sequences `ma` through `f` using the pinned Monad instance. */
-    template <class MA, class F>
-    constexpr auto operator()(MA &&ma, F &&f) const {
-        return TC.bind(std::forward<MA>(ma), std::forward<F>(f));
-    }
-};
-
-/** Sequential composition using a pinned instance. */
-template <const auto &TC>
-inline constexpr bind_with_fn<TC> bind_with{};
-
-/** Customization-point object for Monad's derived `join`. */
+/** Operation object for Monad's derived `join`. */
 struct join_fn {
     /** Flattens a nested monadic value; equivalent to `bind(mma, id)`. */
     template <class MMA, const auto &TC = monad_typeclass<remove_cvref_t<MMA>>>
@@ -215,7 +198,7 @@ struct join_fn {
 /** Flattens one level of nesting: `join(mma)`. */
 inline constexpr join_fn join{};
 
-/** Customization-point object for Monad's derived `kleisli` composition.
+/** Operation object for Monad's derived `kleisli` composition.
  *
  * Neither argument is in-context -- both are functions returning a monadic
  * value -- so, like `pure`, the context cannot be deduced and is named:
@@ -251,6 +234,7 @@ template <class MA, class F>
 auto mbind(MA &&ma, F &&f) {
     return bind(std::forward<MA>(ma), std::forward<F>(f));
 }
+} // namespace ops
 
 } // namespace beman::transpose
 

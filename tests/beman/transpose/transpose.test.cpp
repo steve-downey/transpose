@@ -20,11 +20,12 @@ TEST_CASE(
     "transpose: optional domain (vector<optional<T>> -> optional<vector<T>>)") {
     std::vector<std::optional<int>> all{
         std::optional<int>{1}, std::optional<int>{2}, std::optional<int>{3}};
-    REQUIRE(bt::transpose(all) == std::optional<std::vector<int>>{{1, 2, 3}});
+    REQUIRE(bt::ops::transpose(all) ==
+            std::optional<std::vector<int>>{{1, 2, 3}});
 
     std::vector<std::optional<int>> gapped{
         std::optional<int>{1}, std::optional<int>{}, std::optional<int>{3}};
-    REQUIRE(bt::transpose(gapped) == std::optional<std::vector<int>>{});
+    REQUIRE(bt::ops::transpose(gapped) == std::optional<std::vector<int>>{});
 }
 
 TEST_CASE("transpose: sender domain (vector<sender<T>> -> sender<vector<T>>)") {
@@ -39,7 +40,7 @@ TEST_CASE("transpose: sender domain (vector<sender<T>> -> sender<vector<T>>)") {
     std::vector<bt::sender<int>> senders{deferred(10), deferred(20),
                                          deferred(30)};
 
-    auto composed = bt::transpose(senders);
+    auto composed = bt::ops::transpose(senders);
     // Deferred: nothing has run until the composed sender is run.
     REQUIRE(*runs == 0);
 
@@ -56,7 +57,7 @@ TEST_CASE(
         bt::zip_list<int>{{100, 200}},
     };
 
-    auto transposed = bt::transpose(lanes);
+    auto transposed = bt::ops::transpose(lanes);
     // Result is 2 lanes, each a vector across the three positions.
     REQUIRE_FALSE(transposed.is_repeating());
     REQUIRE(transposed.data.size() == 2);

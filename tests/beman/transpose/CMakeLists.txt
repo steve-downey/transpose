@@ -6,7 +6,7 @@ set(transpose_tests
     dual_monoid
     functor
     apply
-    cpo
+    ops
     fold
     monad
     traverse

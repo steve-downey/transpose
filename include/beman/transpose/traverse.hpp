@@ -116,15 +116,18 @@ struct Traversable : protected Impl {
 template <class T>
 inline constexpr auto traversable_typeclass = std::false_type{};
 
-// -- Customization-point objects --
+// -- Operation objects --
 //
-// See functor.hpp for the shape and the motivation. `traverse` was already a
-// free function template doing exactly this lookup-and-call; it is now the
-// object form, so the whole proposed surface reads the same way. The call
-// syntax is unchanged, and the object additionally suppresses ADL and cannot
-// be overloaded -- the properties that make a lookup-based verb predictable.
+// See functor.hpp for the shape, the motivation, and why the namespace is
+// nested. `traverse` was already a free function template doing exactly this
+// lookup-and-call; it becomes an object in `ops`, which suppresses ADL and
+// makes it non-overloadable. Callers move from `traverse(f, v)` to
+// `ops::traverse(f, v)`; whether the proposed verbs should pay that is a
+// naming-review question, not one this header can settle.
 
-/** Customization-point object for Traversable's `traverse`.
+namespace ops {
+
+/** Operation object for Traversable's `traverse`.
  *
  * The structure keys the Traversable lookup and is deduced from the second
  * argument; the applicative context is then inferred from what `function`
@@ -139,8 +142,8 @@ struct traverse_fn {
      * @param value     The traversable container to process.
      * @return          The container shape transposed into the applicative
      *                  effect.
-     * @tparam TC       The Traversable instance; defaults to the lookup for
-     *                  `T` and may be pinned explicitly.
+     * @tparam TC  The Traversable instance, from the lookup for the keying
+     * argument. Not for callers to supply; pin with mode 2.
      */
     template <class F, class T,
               const auto &TC = traversable_typeclass<remove_cvref_t<T>>>
@@ -157,27 +160,11 @@ struct traverse_fn {
 /** Shape-preserving effectful traversal: `traverse(f, structure)`. */
 inline constexpr traverse_fn traverse{};
 
-/** Instance-pinned form of `traverse`; see `fmap_with` in functor.hpp for why
- * the pin has to be a class template parameter to stay reachable.
- */
-template <const auto &TC>
-struct traverse_with_fn {
-    /** Traverses `value` with `function` using the pinned Traversable
-     * instance. */
-    template <class F, class T>
-    constexpr auto operator()(F &&function, T &&value) const {
-        return TC.for_each(std::forward<T>(value), std::forward<F>(function));
-    }
-};
-
-/** Shape-preserving effectful traversal using a pinned instance. */
-template <const auto &TC>
-inline constexpr traverse_with_fn<TC> traverse_with{};
-
-// `for_each` gets no CPO. The derived operation is `traverse`
+// `for_each` gets no operation object. The derived operation is `traverse`
 // with the arguments the other way round, and `for_each` at namespace scope
 // would sit next to std::for_each / std::ranges::for_each with a different
 // return contract -- one name, two meanings, is worse than one spelling.
+} // namespace ops
 
 } // namespace beman::transpose
 

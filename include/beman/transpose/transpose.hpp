@@ -37,7 +37,9 @@
 
 namespace beman::transpose {
 
-/** Customization-point object for Traversable's derived `transpose`; the
+namespace ops {
+
+/** Operation object for Traversable's derived `transpose`; the
  * object form of the verb, matching `traverse`.
  */
 struct transpose_fn {
@@ -51,8 +53,8 @@ struct transpose_fn {
      * @param value  A traversable structure whose elements are an applicative
      *               context (e.g. `std::vector<std::optional<T>>`).
      * @return       The single outer context holding the structure.
-     * @tparam TC    The Traversable instance; defaults to the lookup for `T`
-     *               and may be pinned explicitly.
+     * @tparam TC  The Traversable instance, from the lookup for the keying
+     * argument. Not for callers to supply; pin with mode 2.
      */
     template <class T,
               const auto &TC = traversable_typeclass<remove_cvref_t<T>>>
@@ -68,6 +70,7 @@ struct transpose_fn {
 
 /** Structure of contexts to context of structure: `transpose(structure)`. */
 inline constexpr transpose_fn transpose{};
+} // namespace ops
 
 } // namespace beman::transpose
 
