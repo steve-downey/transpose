@@ -272,7 +272,7 @@ Cheap, but it'll happen to anyone adopting the plain names, so it should be said
 =empty= is Foldable's "holds nothing" here.
 It's also Alternative's identity (the unit of =<|>=), and compile-time-scheme's =alternative.hpp= already spells that one =empty=.
 transpose has no Alternative yet, which is the only reason there's no clash today.
-It would be a clash in the one namespace whose job is to make clashes impossible, so it should be settled now rather than when Alternative shows up.
+It would be a clash in the one namespace whose job is to make clashes impossible.
 
 I went and looked at what the languages that have both typeclasses do, and they agree with each other and disagree with me:
 
@@ -307,13 +307,13 @@ So the operation gets its actual name, and =mbind= stays as a one-line forwarder
 
 * Where this leaves things
 
-Everything above is on a branch, with 80 tests passing, on gcc-15 only; there's no clang on this machine.
-The paper delta is small: D3200R0 already promises to discuss "the three lookup modes" in a section that's still a placeholder, so it becomes four, plus a paragraph on what mode 4 costs and a note that these aren't customization points.
+Everything above is on a branch, 80 tests, green across the CI matrix: clang 19 through 22, appleclang, C++23 and C++26, libc++ and libstdc++.
+I could only build gcc-15 locally, and the deducing-this paths through the CRTP bases were the part I expected to differ somewhere. They didn't.
 
-What I'm still not sure about:
+The paper delta is small.
+D3200R0 already promised to discuss "the three lookup modes" in a section that's still a placeholder, so it becomes four, plus what mode 4 costs and a note that these aren't customization points.
 
-- whether =ops= is the right name for the namespace, or whether something less generic reads better in the wording;
-- whether the two proposed verbs should really move — =traverse(f, structure)= is the spelling in the paper, and =traverse= is a change to it that naming review may not want;
-- whether =zero= is the right name for Alternative's identity, given three languages call it =empty=.
-
-None of those are blocked on code.
+=empty= stays as it is, and stays flagged.
+The collision with =std::empty= is real, and it's the same well-known C++ problem every other short name in a widely-used namespace has. This design didn't invent it.
+Every name in the paper is provisional until naming review; this one more than most.
+Recording the argument and the three-language survey is the useful part, so that whoever settles it isn't starting from scratch.

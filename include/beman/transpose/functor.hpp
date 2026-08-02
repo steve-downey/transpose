@@ -110,7 +110,9 @@ inline constexpr auto functor = std::false_type{};
 // The one name where coherence is under real strain is `empty`, which means
 // Foldable's "holds nothing" here and Alternative's "identity of alt" in the
 // sibling compile-time-scheme tree. Adding Alternative would claim it twice,
-// in the one namespace whose job is to make that impossible. The three
+// in the one namespace whose job is to make that impossible. That is the
+// ordinary C++ trouble with a short name in a widely-used namespace, and the
+// name is provisional like every other name here, more so than most. The three
 // languages with both typeclasses all give `empty` to Alternative and name
 // the Foldable predicate something else -- `null` in Haskell (Data.Foldable)
 // and PureScript (which re-exports Control.Plus's `empty` from the same
