@@ -63,7 +63,7 @@ TEST_CASE("simd_lanes: transpose round-trips structure and lanes") {
     std::vector<lanes4> structure{lanes4{{1, 2, 3, 4}},
                                   lanes4{{10, 20, 30, 40}},
                                   lanes4{{100, 200, 300, 400}}};
-    auto transposed = bt::transpose(structure);
+    auto transposed = bt::ops::transpose(structure);
 
     REQUIRE(transposed.width == 4);
     REQUIRE(transposed.data[0] == std::vector<int>{1, 10, 100});

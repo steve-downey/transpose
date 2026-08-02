@@ -13,17 +13,17 @@ TEST_CASE("monad: optional bind short-circuits on empty") {
     auto half_if_even = [](int x) {
         return x % 2 == 0 ? std::optional<int>{x / 2} : std::optional<int>{};
     };
-    REQUIRE(bt::mbind(std::optional<int>{8}, half_if_even) ==
+    REQUIRE(bt::ops::mbind(std::optional<int>{8}, half_if_even) ==
             std::optional<int>{4});
-    REQUIRE(bt::mbind(std::optional<int>{7}, half_if_even) ==
+    REQUIRE(bt::ops::mbind(std::optional<int>{7}, half_if_even) ==
             std::optional<int>{});
-    REQUIRE(bt::mbind(std::optional<int>{}, half_if_even) ==
+    REQUIRE(bt::ops::mbind(std::optional<int>{}, half_if_even) ==
             std::optional<int>{});
 }
 
 TEST_CASE("monad: join flattens nested optional") {
     std::optional<std::optional<int>> nested{std::optional<int>{5}};
-    REQUIRE(bt::join(nested) == std::optional<int>{5});
+    REQUIRE(bt::ops::join(nested) == std::optional<int>{5});
 }
 
 TEST_CASE("monad: invoke synthesized from bind and pure") {

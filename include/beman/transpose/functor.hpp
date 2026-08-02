@@ -45,27 +45,73 @@ struct Functor : protected Impl {
 template <class T>
 inline constexpr auto functor_typeclass = std::false_type{};
 
-// -- Customization-point objects --
+// -- Operation objects --
+//
+// This comment is the reference for the `ops` namespace; the other typeclass
+// headers point back to it.
 //
 // A fourth lookup mode, on top of implicit lookup, explicit object argument,
-// and NTTP pinning (examples/lookup_modes_example.cpp): the operation as a
-// niebloid that does the lookup itself. `fmap(f, v)` names the operation the
-// caller means, rather than the object the operation is reached through.
+// and NTTP pinning (examples/lookup_modes_example.cpp): the operation as an
+// object that does the lookup itself. `ops::fmap(f, v)` names the operation
+// the caller means, rather than the object the operation is reached through.
 //
 // Two cases motivate them. First, everything-is-local code -- a container on
 // the stack that one algorithm maps or traverses -- where naming a lookup
 // object costs a line to save nothing. Second, and the reason the pattern is
 // not merely cosmetic: a *non-template* caller can not carry the typeclass as
-// an NTTP, because there is no template parameter list to hang it on. The CPO
-// resolves the instance at the call site instead.
+// an NTTP, because there is no template parameter list to hang it on. The
+// operation object resolves the instance at the call site instead.
 //
-// Shape, uniform across every typeclass here: deduce the type that keys the
-// lookup from one designated argument, default a trailing `const auto &TC`
-// NTTP to the lookup for that type, and call through it. Pinning stays
-// available by supplying TC, and the pre-existing modes are untouched -- the
-// CPO is an addition, never a replacement.
+// They are NOT customization points, and D3200R0's case for a bundled
+// mechanism depends on the difference. Customization happens once, at
+// functor_typeclass<T> and its siblings. There is no per-operation hook, no
+// ADL path in, and nothing specializable that would make `fmap` mean
+// something other than what the instance's own fmap means. The familiar name
+// for this shape is "customization point object"; it is the wrong name here,
+// and these are operation objects over a customizable bundle.
+//
+// Shape, uniform across every typeclass: deduce the type that keys the lookup
+// from one designated argument, default a trailing `const auto &TC` NTTP to
+// the lookup for that type, and call through it.
+//
+// WHY A NESTED NAMESPACE. Every operation given an object claims a name, and
+// the family wants `empty`, `length`, `invoke`, `to_vector`, `any_of` and
+// `all_of` -- all of which exist in namespace std with related meanings.
+// `ops` keeps them out of beman::transpose itself, the way `ranges` does,
+// so that a header pulling in the typeclass declarations does not also pull
+// in a competitor to std::empty. Collisions *within* the family are already
+// ruled out: the typeclass operation names are disjoint by design, which is
+// what lets an algorithm inherit from two instances at once (see
+// examples/algorithm_object_example.cpp). One namespace for all of them is
+// therefore safe.
+//
+// The one name where that guarantee is under real strain is `empty`, which
+// means Foldable's "holds nothing" here and Alternative's "identity of alt"
+// in the sibling compile-time-scheme tree. Adding Alternative would claim it
+// twice. The three languages with both typeclasses all give `empty` to
+// Alternative and name the Foldable predicate something else -- `null` in
+// Haskell (Data.Foldable) and PureScript (which re-exports Control.Plus's
+// `empty` from the same module, so the split is load-bearing there),
+// `isEmpty` in Cats, whose Alternative gets `empty` from MonoidK.
+//
+// C++ points the other way: std::empty, std::ranges::empty and every
+// container's .empty() are the *predicate*, and the language has no
+// nullary-constructor-named-empty convention to protect. So the plan here is
+// the opposite of the FP convention and consistent with the host language:
+// Foldable keeps `empty`, and Alternative's identity takes another name when
+// it arrives. `zero<C>()` sits naturally beside `pure<C>(v)` -- both build a
+// context and both must name it, for the same reason.
+//
+// PINNING is mode 2, unchanged: `tc.fmap(f, v)` on an instance object, which
+// is shorter than any spelling routed through these objects. An operation
+// object takes no explicit template arguments, so mode 3 is not available on
+// it -- the trailing TC above is reachable only as
+// `ops::fmap.operator()<F, T, TC>(...)`, which is a curiosity, not an API.
+// The earlier lookup modes are all untouched; `ops` is an addition.
 
-/** Customization-point object for Functor's `fmap`.
+namespace ops {
+
+/** Operation object for Functor's `fmap`.
  *
  * The container type keys the lookup and is deduced from the second
  * argument.
@@ -73,8 +119,8 @@ inline constexpr auto functor_typeclass = std::false_type{};
 struct fmap_fn {
     /** Applies `function` to every element of `value`, preserving shape.
      *
-     * @tparam TC  The Functor instance; defaults to the lookup for `T` and
-     *             may be pinned explicitly.
+     * @tparam TC  The Functor instance, from the lookup for the keying
+     * argument. Not for callers to supply; pin with mode 2.
      */
     template <class F, class T,
               const auto &TC = functor_typeclass<remove_cvref_t<T>>>
@@ -90,35 +136,7 @@ struct fmap_fn {
 /** Maps a function over a functor: `fmap(f, container)`. */
 inline constexpr fmap_fn fmap{};
 
-/** Instance-pinned form of `fmap`, for reaching an instance other than the
- * registered one.
- *
- * The trailing `TC` on `fmap_fn::operator()` is reachable in principle, but
- * only as `fmap.operator()<F, T, TC>(...)` -- an object has no syntax for
- * explicit template arguments, and every deduced parameter has to be
- * respelled to get past them to the pin. Making the pin a *class* template
- * parameter restores lookup mode 3 at its usual cost:
- *
- *     fmap_with<my_functor>(f, container)
- *
- * The `_with` suffix matches the instance-overriding operations the CRTP
- * bases already carry (`traverse_with`, `invoke_with`, `bind_with`).
- */
-template <const auto &TC>
-struct fmap_with_fn {
-    /** Applies `function` to every element of `value` using the pinned
-     * instance. */
-    template <class F, class T>
-    constexpr auto operator()(F &&function, T &&value) const {
-        return TC.fmap(std::forward<F>(function), std::forward<T>(value));
-    }
-};
-
-/** Maps a function over a functor using a pinned instance. */
-template <const auto &TC>
-inline constexpr fmap_with_fn<TC> fmap_with{};
-
-/** Customization-point object for Functor's derived `replace`. */
+/** Operation object for Functor's derived `replace`. */
 struct replace_fn {
     /** Replaces every element of `value` with `replacement`. */
     template <class T, class U,
@@ -134,6 +152,7 @@ struct replace_fn {
 
 /** Replaces every element of a functor with one value. */
 inline constexpr replace_fn replace{};
+} // namespace ops
 
 template <class VALUE_TYPE>
 struct OptionalFunctorImpl {

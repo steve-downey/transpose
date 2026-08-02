@@ -335,16 +335,18 @@ struct Applicative : protected Impl {
 template <class T>
 inline constexpr auto applicative_typeclass = std::false_type{};
 
-// -- Customization-point objects --
+// -- Operation objects --
 //
 // See functor.hpp for the shape and the motivation. Applicative is where the
-// deducing CPO meets its one structural limit: `pure` has no in-context
+// deducing form meets its one structural limit: `pure` has no in-context
 // argument, so nothing at the call site names the context to look up. It is
-// spelled as a variable template of CPOs, taking the context explicitly --
+// spelled as a variable template of operation objects, taking the context --
 // `pure<std::optional<int>>(42)` -- and it is the only operation in this
 // header that does not deduce.
 
-/** Customization-point object for Applicative's `invoke`, the user-facing
+namespace ops {
+
+/** Operation object for Applicative's `invoke`, the user-facing
  * application verb.
  *
  * The context keys the lookup and is deduced from the first in-context
@@ -354,8 +356,8 @@ struct invoke_fn {
     /** Applies the plain callable `function` to N in-context arguments,
      * producing one in-context result.
      *
-     * @tparam TC  The Applicative instance; defaults to the lookup for the
-     *             first argument's type and may be pinned explicitly.
+     * @tparam TC  The Applicative instance, from the lookup for the keying
+     * argument. Not for callers to supply; pin with mode 2.
      */
     template <
         class FUNCTION, class FIRST_ARGUMENT, class... REST_ARGUMENTS,
@@ -377,28 +379,7 @@ struct invoke_fn {
 /** Lifted contextual application: `invoke(f, ax, ay, ...)`. */
 inline constexpr invoke_fn invoke{};
 
-/** Instance-pinned form of `invoke`; see `fmap_with` in functor.hpp for why
- * the pin has to be a class template parameter to stay reachable.
- */
-template <const auto &TC>
-struct invoke_with_fn {
-    /** Applies `function` to N in-context arguments using the pinned
-     * instance. */
-    template <class FUNCTION, class FIRST_ARGUMENT, class... REST_ARGUMENTS>
-    constexpr auto operator()(FUNCTION &&function,
-                              FIRST_ARGUMENT &&first_argument,
-                              REST_ARGUMENTS &&...rest_arguments) const {
-        return TC.invoke(std::forward<FUNCTION>(function),
-                         std::forward<FIRST_ARGUMENT>(first_argument),
-                         std::forward<REST_ARGUMENTS>(rest_arguments)...);
-    }
-};
-
-/** Lifted contextual application using a pinned instance. */
-template <const auto &TC>
-inline constexpr invoke_with_fn<TC> invoke_with{};
-
-/** Customization-point object for Applicative's `ap`, the classic one-step
+/** Operation object for Applicative's `ap`, the classic one-step
  * application; secondary to `invoke`, and available only where the context
  * can hold a callable.
  *
@@ -425,11 +406,11 @@ struct ap_fn {
 /** One-step contextual application: `ap(cf, cx)`. */
 inline constexpr ap_fn ap{};
 
-/** Customization-point object for Applicative's `pure`, parameterized on the
+/** Operation object for Applicative's `pure`, parameterized on the
  * context because no argument can name it.
  *
  * `CONTEXT` is the instantiated context type that keys the lookup, e.g.
- * `pure<std::optional<int>>(42)`. This is the one place the deducing-CPO
+ * `ops::pure<std::optional<int>>(42)`. This is the one place the deducing
  * pattern does not reach: `pure` builds the context rather than consuming
  * one, so the context is in the return type and never in an argument.
  */
@@ -452,7 +433,7 @@ struct pure_fn {
 template <class CONTEXT>
 inline constexpr pure_fn<CONTEXT> pure{};
 
-/** Customization-point object for the derived `zip_with`. */
+/** Operation object for the derived `zip_with`. */
 struct zip_with_fn {
     /** Lifts a binary function over two in-context arguments. */
     template <
@@ -475,7 +456,7 @@ struct zip_with_fn {
 /** Lifts a binary function over two in-context arguments. */
 inline constexpr zip_with_fn zip_with{};
 
-/** Customization-point object for the derived `discard_first`. */
+/** Operation object for the derived `discard_first`. */
 struct discard_first_fn {
     /** Sequences two in-context values, keeping the second. */
     template <
@@ -496,7 +477,7 @@ struct discard_first_fn {
 /** Sequences two in-context values, keeping the second. */
 inline constexpr discard_first_fn discard_first{};
 
-/** Customization-point object for the derived `discard_second`. */
+/** Operation object for the derived `discard_second`. */
 struct discard_second_fn {
     /** Sequences two in-context values, keeping the first. */
     template <
@@ -517,6 +498,7 @@ struct discard_second_fn {
 
 /** Sequences two in-context values, keeping the first. */
 inline constexpr discard_second_fn discard_second{};
+} // namespace ops
 
 /** Applicative instance for std::optional: the flagship of the invoke core.
  * The trailing return type keeps invoke SFINAE-friendly so availability

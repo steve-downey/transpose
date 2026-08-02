@@ -10,7 +10,7 @@ set(ALL_EXAMPLES
     binary_tree_example
     algorithm_object_example
     lookup_modes_example
-    cpo_example
+    ops_example
 )
 
 include(CheckIncludeFileCXX)

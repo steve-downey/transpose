@@ -43,7 +43,7 @@ int main() {
     }
 
     std::vector<bt::simd_lanes<int, W>> structure{lane_a, lane_b, lane_c};
-    auto transposed = bt::transpose(structure);
+    auto transposed = bt::ops::transpose(structure);
 
     std::cout << "transpose: " << structure.size() << " simd_lanes<int," << W
               << "> -> " << transposed.width << " lanes of vector<int>\n";
@@ -72,7 +72,7 @@ int main() {
         return result;
     };
 
-    auto scaled = bt::traverse(scale_by_lane, coefficients);
+    auto scaled = bt::ops::traverse(scale_by_lane, coefficients);
 
     std::cout << "\ntraverse: scaled " << coefficients.size()
               << " coefficients across " << W << " SIMD lanes\n";
