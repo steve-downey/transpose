@@ -26,8 +26,8 @@ For a given type and concept, pick a specific implementation map.
 
 This repository uses one implementation surface:
 
-- Per-concept variable templates (`functor_typeclass<T>`, `foldable_typeclass<T>`,
-  `applicative_typeclass<T>`, `traversable_typeclass<T>`, `monad_typeclass<T>`) for lookup.
+- Per-concept variable templates (`functor<T>`, `foldable<T>`,
+  `applicative<T>`, `traversable<T>`, `monad<T>`) for lookup.
 - Generic algorithms dispatch through those looked-up objects.
 - Headers live under `include/beman/transpose/`.
 - Tests live under `tests/beman/transpose/`.
@@ -39,7 +39,7 @@ The typeclass implementation object is, true to its name, an object — and shou
 
 1. Implicit lookup by variable template.
 
-- Example shape: `functor_typeclass<T>` in `include/beman/transpose/`.
+- Example shape: `functor<T>` in `include/beman/transpose/`.
 
 1. Explicit object argument.
 
@@ -54,10 +54,10 @@ It keeps instance selection explicit, testable, and overridable while preserving
 
 The NTTP style in practice:
 
-- `template <typename P, const auto& functor = beman::transpose::functor_typeclass<P>>`
+- `template <typename P, const auto& functor = beman::transpose::functor<P>>`
 - See `examples/lookup_modes_example.cpp` for NTTP pinning examples.
 
-In `include/beman/transpose/`, preserve this spirit through `*_typeclass<T>` lookup objects.
+In `include/beman/transpose/`, preserve this spirit through the per-concept lookup objects (`functor<T>`, `foldable<T>`, and siblings).
 If additional wrapper APIs are introduced, they should keep explicit object override and NTTP pinning available for generic code.
 
 In the current typeclass headers this is exposed directly via helper APIs such as:
@@ -66,7 +66,9 @@ In the current typeclass headers this is exposed directly via helper APIs such a
 - `traverse_with(map, ...)` in Traversable
 - NTTP-pinned helper templates in foldable tests and tree tests
 
-Current naming convention is `*_typeclass<T>` for implementation objects.
+The lookup objects take the plain concept name: `functor<T>`, `applicative<T>`, `foldable<T>`, `traversable<T>`, `monad<T>`.
+What collides with those names takes a longer, more descriptive one — the CRTP bases are `derive_functor<Impl>` and siblings, not `Functor<Impl>`.
+A local holding a looked-up instance therefore cannot be named for its concept; spell it `applicative_map`, matching the existing `traversable_map` and `monad_map` parameters.
 
 ## Core mechanics
 
@@ -81,23 +83,23 @@ A concept contributes:
 
 A type participates by specializing the per-concept lookup object:
 
-- specialize `*_typeclass<T>` to an instance object
+- specialize the concept's lookup variable (`functor<T>`, `foldable<T>`, …) to an instance object
 
 ### Call side
 
 Generic code calls through the looked-up typeclass object, not type members directly:
 
-- `functor_typeclass<T>.fmap(f, value)` — via looked-up object
-- `foldable_typeclass<T>.fold_map(f, value)` — via looked-up object
-- `applicative_typeclass<T>.invoke(fn, ax, ay)` — via looked-up object
-- `beman::transpose::traverse(f, container)` — free function entry point
+- `functor<T>.fmap(f, value)` — via looked-up object
+- `foldable<T>.fold_map(f, value)` — via looked-up object
+- `applicative<T>.invoke(fn, ax, ay)` — via looked-up object
+- `beman::transpose::traverse(f, container)` — operation object; deduces the instance from `container`
 
 That call performs compile-time lookup to the right typeclass object specialization.
 
 ## How to add a new instance
 
 1. Decide the concept and the concrete type or type family.
-1. Implement the `*_typeclass<T>` specialization close to the type adapter header.
+1. Implement the lookup-variable specialization close to the type adapter header.
 1. Keep operation names aligned with existing concept APIs.
 1. Add a `.test.cpp` test file with at least:
 
@@ -110,7 +112,7 @@ That call performs compile-time lookup to the right typeclass object specializat
 ## How to add a new concept
 
 1. Add a new tag and generic entry-point API in `include/beman/transpose/<concept>.hpp`.
-1. Add `*_typeclass<T>` specializations for at least one concrete type.
+1. Add lookup-variable specializations for at least one concrete type.
 1. Add tests in `tests/beman/transpose/<concept>.test.cpp`.
 1. Add the header to `beman.transpose` header file set in `CMakeLists.txt`.
 1. If needed, add an examples source file in `examples/`.
@@ -118,7 +120,7 @@ That call performs compile-time lookup to the right typeclass object specializat
 ## Testing and build wiring expectations
 
 - Catch2 is the only test framework in active code paths.
-- Typeclass-object behavior is tested in `tests/beman/transpose/*.test.cpp` and in example programs under `examples/` that instantiate and use `*_typeclass<T>` maps.
+- Typeclass-object behavior is tested in `tests/beman/transpose/*.test.cpp` and in example programs under `examples/` that instantiate and use the looked-up instance maps.
 - The compatibility shim used during migration has been removed.
 - Tests should use native Catch2 includes and macros.
 
@@ -134,7 +136,7 @@ The typeclass objects are stateless empty structs, so inheritance adds no data a
 namespace detail {
 
 template <class T,
-          const auto& TC = beman::transpose::traversable_typeclass<beman::transpose::remove_cvref_t<T>>>
+          const auto& TC = beman::transpose::traversable<beman::transpose::remove_cvref_t<T>>>
 struct validate_impl : beman::transpose::remove_cvref_t<decltype(TC)> {
     template <class Pred>
     auto call(Pred&& pred, const T& value) const {
@@ -165,8 +167,8 @@ When an algorithm needs both Foldable and Traversable, inherit from both:
 
 ```cpp
 template <class T,
-          const auto& FC = beman::transpose::foldable_typeclass<beman::transpose::remove_cvref_t<T>>,
-          const auto& TC = beman::transpose::traversable_typeclass<beman::transpose::remove_cvref_t<T>>>
+          const auto& FC = beman::transpose::foldable<beman::transpose::remove_cvref_t<T>>,
+          const auto& TC = beman::transpose::traversable<beman::transpose::remove_cvref_t<T>>>
 struct transform_if_large_impl
     : beman::transpose::remove_cvref_t<decltype(FC)>,
       beman::transpose::remove_cvref_t<decltype(TC)> {
@@ -209,7 +211,7 @@ That gives us a practical equivalent of Ben Deane's terminating partial-applicat
 Contract summary:
 
 - Minimal required operations for Applicative impl are `pure` and `apply`.
-- `invoke` is provided by the base `Applicative<Impl>`.
+- `invoke` is provided by the base `derive_applicative<Impl>`.
 - Implementations may still override `invoke` for custom semantics or performance, for example shape-aware structures.
 
 ## Traps and corrections from tree-instance implementation
@@ -221,7 +223,7 @@ Contract summary:
 
 1. Prefer explicit map lookup in tests for readability and diagnostics.
 
-- `const auto& map = beman::transpose::traversable_typeclass<Tree>;` gives clearer compile errors than deeply nested generic calls.
+- `const auto& map = beman::transpose::traversable<Tree>;` gives clearer compile errors than deeply nested generic calls.
 - NTTP pinning earns its keep when proving lookup stability in generic helpers.
 
 1. Be deliberate about fold-order semantics.
