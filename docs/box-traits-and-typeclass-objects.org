@@ -133,7 +133,8 @@ One hook.
 Ten derived operations.
 
 The looked-up object is a value.
-It can be used implicitly, passed as an explicit argument, or bound as an NTTP default --- three lookup modes.
+It can be used implicitly, passed as an explicit argument, or bound as an NTTP default.
+A fourth mode skips naming it: ~beman::transpose::length(tree)~ is an operation object that does the lookup itself, for calls where the instance isn't the interesting part.
 
 * Where They Agree
 

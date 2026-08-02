@@ -170,10 +170,10 @@ This matters because a variable template specialization is an object.
 I can take a reference to it, pass it as an NTTP, or override it locally.
 A class template specialization is a type --- I can instantiate it, but I cannot hand it around as a value.
 
-* Three Lookup Modes
+* Four Lookup Modes
 
 The looked-up object is a value.
-This gives three ways to use it.
+This gives three ways to use it, and a fourth that skips it.
 
 ** Implicit
 
@@ -210,6 +210,22 @@ Lookup is fixed at instantiation.
 It does not depend on ADL, overload resolution, or the call site's namespace.
 Callers can override the default for testing or policy reasons.
 Existing instantiations are unaffected if someone specializes the variable template later.
+
+** The Operation Object
+
+The three modes above name the instance first.
+The fourth doesn't name it:
+
+#+begin_src cpp
+auto n = beman::transpose::length(tree);
+#+end_src
+
+~length~ deduces ~T~, resolves ~foldable<T>~, and calls through it.
+This is the mode for calls where the instance isn't the interesting part, and the only one available to a non-template function, which has no template parameter list to carry a pin.
+
+It trades mode 3 for the deduction.
+An object takes no explicit template arguments, so pinning falls back to the explicit object argument, which was shorter anyway.
+The object is a spelling and not a hook; customization still happens only at ~foldable<T>~.
 
 * Comparison
 
