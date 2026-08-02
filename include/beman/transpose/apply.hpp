@@ -335,6 +335,189 @@ struct Applicative : protected Impl {
 template <class T>
 inline constexpr auto applicative_typeclass = std::false_type{};
 
+// -- Customization-point objects --
+//
+// See functor.hpp for the shape and the motivation. Applicative is where the
+// deducing CPO meets its one structural limit: `pure` has no in-context
+// argument, so nothing at the call site names the context to look up. It is
+// spelled as a variable template of CPOs, taking the context explicitly --
+// `pure<std::optional<int>>(42)` -- and it is the only operation in this
+// header that does not deduce.
+
+/** Customization-point object for Applicative's `invoke`, the user-facing
+ * application verb.
+ *
+ * The context keys the lookup and is deduced from the first in-context
+ * argument; every operand is expected to share that context.
+ */
+struct invoke_fn {
+    /** Applies the plain callable `function` to N in-context arguments,
+     * producing one in-context result.
+     *
+     * @tparam TC  The Applicative instance; defaults to the lookup for the
+     *             first argument's type and may be pinned explicitly.
+     */
+    template <
+        class FUNCTION, class FIRST_ARGUMENT, class... REST_ARGUMENTS,
+        const auto &TC = applicative_typeclass<remove_cvref_t<FIRST_ARGUMENT>>>
+    constexpr auto operator()(FUNCTION &&function,
+                              FIRST_ARGUMENT &&first_argument,
+                              REST_ARGUMENTS &&...rest_arguments) const {
+        static_assert(
+            has_instance_v<decltype(TC)>,
+            "No Applicative instance for this type. Specialize "
+            "beman::transpose::applicative_typeclass<T> with an "
+            "object providing pure(...) plus invoke(...) or ap(...).");
+        return TC.invoke(std::forward<FUNCTION>(function),
+                         std::forward<FIRST_ARGUMENT>(first_argument),
+                         std::forward<REST_ARGUMENTS>(rest_arguments)...);
+    }
+};
+
+/** Lifted contextual application: `invoke(f, ax, ay, ...)`. */
+inline constexpr invoke_fn invoke{};
+
+/** Instance-pinned form of `invoke`; see `fmap_with` in functor.hpp for why
+ * the pin has to be a class template parameter to stay reachable.
+ */
+template <const auto &TC>
+struct invoke_with_fn {
+    /** Applies `function` to N in-context arguments using the pinned
+     * instance. */
+    template <class FUNCTION, class FIRST_ARGUMENT, class... REST_ARGUMENTS>
+    constexpr auto operator()(FUNCTION &&function,
+                              FIRST_ARGUMENT &&first_argument,
+                              REST_ARGUMENTS &&...rest_arguments) const {
+        return TC.invoke(std::forward<FUNCTION>(function),
+                         std::forward<FIRST_ARGUMENT>(first_argument),
+                         std::forward<REST_ARGUMENTS>(rest_arguments)...);
+    }
+};
+
+/** Lifted contextual application using a pinned instance. */
+template <const auto &TC>
+inline constexpr invoke_with_fn<TC> invoke_with{};
+
+/** Customization-point object for Applicative's `ap`, the classic one-step
+ * application; secondary to `invoke`, and available only where the context
+ * can hold a callable.
+ *
+ * The context keys the lookup and is deduced from the argument-in-context,
+ * not from the callable-in-context.
+ */
+struct ap_fn {
+    /** Applies a callable held in context to one argument in context. */
+    template <class FUNCTION_IN_CONTEXT, class ARGUMENT_IN_CONTEXT,
+              const auto &TC =
+                  applicative_typeclass<remove_cvref_t<ARGUMENT_IN_CONTEXT>>>
+    constexpr auto operator()(FUNCTION_IN_CONTEXT &&function,
+                              ARGUMENT_IN_CONTEXT &&argument) const {
+        static_assert(
+            has_instance_v<decltype(TC)>,
+            "No Applicative instance for this type. Specialize "
+            "beman::transpose::applicative_typeclass<T> with an "
+            "object providing pure(...) plus invoke(...) or ap(...).");
+        return TC.ap(std::forward<FUNCTION_IN_CONTEXT>(function),
+                     std::forward<ARGUMENT_IN_CONTEXT>(argument));
+    }
+};
+
+/** One-step contextual application: `ap(cf, cx)`. */
+inline constexpr ap_fn ap{};
+
+/** Customization-point object for Applicative's `pure`, parameterized on the
+ * context because no argument can name it.
+ *
+ * `CONTEXT` is the instantiated context type that keys the lookup, e.g.
+ * `pure<std::optional<int>>(42)`. This is the one place the deducing-CPO
+ * pattern does not reach: `pure` builds the context rather than consuming
+ * one, so the context is in the return type and never in an argument.
+ */
+template <class CONTEXT,
+          const auto &TC = applicative_typeclass<remove_cvref_t<CONTEXT>>>
+struct pure_fn {
+    /** Embeds a plain value into the applicative context. */
+    template <class VALUE>
+    constexpr auto operator()(VALUE &&value) const {
+        static_assert(
+            has_instance_v<decltype(TC)>,
+            "No Applicative instance for this type. Specialize "
+            "beman::transpose::applicative_typeclass<T> with an "
+            "object providing pure(...) plus invoke(...) or ap(...).");
+        return TC.pure(std::forward<VALUE>(value));
+    }
+};
+
+/** Embeds a value into a named applicative context: `pure<C>(value)`. */
+template <class CONTEXT>
+inline constexpr pure_fn<CONTEXT> pure{};
+
+/** Customization-point object for the derived `zip_with`. */
+struct zip_with_fn {
+    /** Lifts a binary function over two in-context arguments. */
+    template <
+        class FUNCTION, class FIRST_ARGUMENT, class SECOND_ARGUMENT,
+        const auto &TC = applicative_typeclass<remove_cvref_t<FIRST_ARGUMENT>>>
+    constexpr auto operator()(FUNCTION &&function,
+                              FIRST_ARGUMENT &&first_argument,
+                              SECOND_ARGUMENT &&second_argument) const {
+        static_assert(
+            has_instance_v<decltype(TC)>,
+            "No Applicative instance for this type. Specialize "
+            "beman::transpose::applicative_typeclass<T> with an "
+            "object providing pure(...) plus invoke(...) or ap(...).");
+        return TC.zip_with(std::forward<FUNCTION>(function),
+                           std::forward<FIRST_ARGUMENT>(first_argument),
+                           std::forward<SECOND_ARGUMENT>(second_argument));
+    }
+};
+
+/** Lifts a binary function over two in-context arguments. */
+inline constexpr zip_with_fn zip_with{};
+
+/** Customization-point object for the derived `discard_first`. */
+struct discard_first_fn {
+    /** Sequences two in-context values, keeping the second. */
+    template <
+        class FIRST_ARGUMENT, class SECOND_ARGUMENT,
+        const auto &TC = applicative_typeclass<remove_cvref_t<FIRST_ARGUMENT>>>
+    constexpr auto operator()(FIRST_ARGUMENT &&first_argument,
+                              SECOND_ARGUMENT &&second_argument) const {
+        static_assert(
+            has_instance_v<decltype(TC)>,
+            "No Applicative instance for this type. Specialize "
+            "beman::transpose::applicative_typeclass<T> with an "
+            "object providing pure(...) plus invoke(...) or ap(...).");
+        return TC.discard_first(std::forward<FIRST_ARGUMENT>(first_argument),
+                                std::forward<SECOND_ARGUMENT>(second_argument));
+    }
+};
+
+/** Sequences two in-context values, keeping the second. */
+inline constexpr discard_first_fn discard_first{};
+
+/** Customization-point object for the derived `discard_second`. */
+struct discard_second_fn {
+    /** Sequences two in-context values, keeping the first. */
+    template <
+        class FIRST_ARGUMENT, class SECOND_ARGUMENT,
+        const auto &TC = applicative_typeclass<remove_cvref_t<FIRST_ARGUMENT>>>
+    constexpr auto operator()(FIRST_ARGUMENT &&first_argument,
+                              SECOND_ARGUMENT &&second_argument) const {
+        static_assert(
+            has_instance_v<decltype(TC)>,
+            "No Applicative instance for this type. Specialize "
+            "beman::transpose::applicative_typeclass<T> with an "
+            "object providing pure(...) plus invoke(...) or ap(...).");
+        return TC.discard_second(
+            std::forward<FIRST_ARGUMENT>(first_argument),
+            std::forward<SECOND_ARGUMENT>(second_argument));
+    }
+};
+
+/** Sequences two in-context values, keeping the first. */
+inline constexpr discard_second_fn discard_second{};
+
 /** Applicative instance for std::optional: the flagship of the invoke core.
  * The trailing return type keeps invoke SFINAE-friendly so availability
  * probes fail cleanly.

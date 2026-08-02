@@ -18,6 +18,22 @@ namespace beman::transpose {
 template <class T>
 using remove_cvref_t = std::remove_cvref_t<T>;
 
+/** True when a typeclass lookup variable has been specialized away from its
+ * `std::false_type` default, i.e. the type has an instance of that typeclass.
+ *
+ * Pass `decltype(some_typeclass<T>)`; the reference and cv-qualification a
+ * `const auto &` NTTP picks up are stripped here.
+ *
+ * The customization-point objects use this to fail with a diagnostic that
+ * names the missing specialization. Without it, an unregistered type reaches
+ * the operation as `std::false_type{}` and the error is a bare "no member
+ * named 'traverse' in 'std::false_type'", pointing at library internals
+ * rather than at the specialization the caller has to write.
+ */
+template <class LOOKUP_RESULT>
+inline constexpr bool has_instance_v =
+    !std::is_same_v<remove_cvref_t<LOOKUP_RESULT>, std::false_type>;
+
 /** Trait that extracts the element type from an applicative container.
  * Primary template uses the nested `value_type` alias when present.
  */

@@ -45,6 +45,96 @@ struct Functor : protected Impl {
 template <class T>
 inline constexpr auto functor_typeclass = std::false_type{};
 
+// -- Customization-point objects --
+//
+// A fourth lookup mode, on top of implicit lookup, explicit object argument,
+// and NTTP pinning (examples/lookup_modes_example.cpp): the operation as a
+// niebloid that does the lookup itself. `fmap(f, v)` names the operation the
+// caller means, rather than the object the operation is reached through.
+//
+// Two cases motivate them. First, everything-is-local code -- a container on
+// the stack that one algorithm maps or traverses -- where naming a lookup
+// object costs a line to save nothing. Second, and the reason the pattern is
+// not merely cosmetic: a *non-template* caller can not carry the typeclass as
+// an NTTP, because there is no template parameter list to hang it on. The CPO
+// resolves the instance at the call site instead.
+//
+// Shape, uniform across every typeclass here: deduce the type that keys the
+// lookup from one designated argument, default a trailing `const auto &TC`
+// NTTP to the lookup for that type, and call through it. Pinning stays
+// available by supplying TC, and the pre-existing modes are untouched -- the
+// CPO is an addition, never a replacement.
+
+/** Customization-point object for Functor's `fmap`.
+ *
+ * The container type keys the lookup and is deduced from the second
+ * argument.
+ */
+struct fmap_fn {
+    /** Applies `function` to every element of `value`, preserving shape.
+     *
+     * @tparam TC  The Functor instance; defaults to the lookup for `T` and
+     *             may be pinned explicitly.
+     */
+    template <class F, class T,
+              const auto &TC = functor_typeclass<remove_cvref_t<T>>>
+    constexpr auto operator()(F &&function, T &&value) const {
+        static_assert(has_instance_v<decltype(TC)>,
+                      "No Functor instance for this type. Specialize "
+                      "beman::transpose::functor_typeclass<T> with an object "
+                      "providing fmap(f, container).");
+        return TC.fmap(std::forward<F>(function), std::forward<T>(value));
+    }
+};
+
+/** Maps a function over a functor: `fmap(f, container)`. */
+inline constexpr fmap_fn fmap{};
+
+/** Instance-pinned form of `fmap`, for reaching an instance other than the
+ * registered one.
+ *
+ * The trailing `TC` on `fmap_fn::operator()` is reachable in principle, but
+ * only as `fmap.operator()<F, T, TC>(...)` -- an object has no syntax for
+ * explicit template arguments, and every deduced parameter has to be
+ * respelled to get past them to the pin. Making the pin a *class* template
+ * parameter restores lookup mode 3 at its usual cost:
+ *
+ *     fmap_with<my_functor>(f, container)
+ *
+ * The `_with` suffix matches the instance-overriding operations the CRTP
+ * bases already carry (`traverse_with`, `invoke_with`, `bind_with`).
+ */
+template <const auto &TC>
+struct fmap_with_fn {
+    /** Applies `function` to every element of `value` using the pinned
+     * instance. */
+    template <class F, class T>
+    constexpr auto operator()(F &&function, T &&value) const {
+        return TC.fmap(std::forward<F>(function), std::forward<T>(value));
+    }
+};
+
+/** Maps a function over a functor using a pinned instance. */
+template <const auto &TC>
+inline constexpr fmap_with_fn<TC> fmap_with{};
+
+/** Customization-point object for Functor's derived `replace`. */
+struct replace_fn {
+    /** Replaces every element of `value` with `replacement`. */
+    template <class T, class U,
+              const auto &TC = functor_typeclass<remove_cvref_t<T>>>
+    constexpr auto operator()(T &&value, U &&replacement) const {
+        static_assert(has_instance_v<decltype(TC)>,
+                      "No Functor instance for this type. Specialize "
+                      "beman::transpose::functor_typeclass<T> with an object "
+                      "providing fmap(f, container).");
+        return TC.replace(std::forward<T>(value), std::forward<U>(replacement));
+    }
+};
+
+/** Replaces every element of a functor with one value. */
+inline constexpr replace_fn replace{};
+
 template <class VALUE_TYPE>
 struct OptionalFunctorImpl {
     template <class F>
