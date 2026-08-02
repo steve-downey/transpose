@@ -72,7 +72,8 @@ struct SimdVecApplicativeImpl {
 /** Invoke-only map: no native apply, and the base's derived apply cannot
  * instantiate for vec operands -- that non-instantiation is the point. */
 template <class T, class ABI>
-struct SimdVecApplicativeMap : Applicative<SimdVecApplicativeImpl<T, ABI>> {
+struct SimdVecApplicativeMap
+    : derive_applicative<SimdVecApplicativeImpl<T, ABI>> {
     using SimdVecApplicativeImpl<T, ABI>::invoke;
     using SimdVecApplicativeImpl<T, ABI>::pure;
 };
@@ -80,7 +81,7 @@ struct SimdVecApplicativeMap : Applicative<SimdVecApplicativeImpl<T, ABI>> {
 /** Registers the Applicative instance for std::simd::basic_vec<T, ABI>,
  * which the std::simd::vec<T, N> alias pattern-matches. */
 template <class T, class ABI>
-inline constexpr auto applicative_typeclass<std::simd::basic_vec<T, ABI>> =
+inline constexpr auto applicative<std::simd::basic_vec<T, ABI>> =
     SimdVecApplicativeMap<T, ABI>{};
 
 } // namespace beman::transpose

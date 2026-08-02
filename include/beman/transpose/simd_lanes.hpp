@@ -69,13 +69,14 @@ struct SimdLanesApplicativeImpl {
 
 /** Applicative map for simd_lanes<T, N>: the native n-ary invoke core. */
 template <class T, int N>
-struct SimdLanesApplicativeMap : Applicative<SimdLanesApplicativeImpl<T, N>> {
+struct SimdLanesApplicativeMap
+    : derive_applicative<SimdLanesApplicativeImpl<T, N>> {
     using SimdLanesApplicativeImpl<T, N>::invoke;
     using SimdLanesApplicativeImpl<T, N>::pure;
 };
 
 template <class T, int N>
-inline constexpr auto applicative_typeclass<simd_lanes<T, N>> =
+inline constexpr auto applicative<simd_lanes<T, N>> =
     SimdLanesApplicativeMap<T, N>{};
 
 } // namespace beman::transpose

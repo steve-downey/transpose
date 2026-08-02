@@ -37,8 +37,6 @@
 
 namespace beman::transpose {
 
-namespace typeclass {
-
 /** Operation object for Traversable's derived `transpose`; the
  * object form of the verb, matching `traverse`.
  */
@@ -56,12 +54,11 @@ struct transpose_fn {
      * @tparam TC  The Traversable instance, from the lookup for the keying
      * argument. Not for callers to supply; pin with mode 2.
      */
-    template <class T,
-              const auto &TC = traversable_typeclass<remove_cvref_t<T>>>
+    template <class T, const auto &TC = traversable<remove_cvref_t<T>>>
     constexpr auto operator()(T &&value) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Traversable instance for this type. Specialize "
-                      "beman::transpose::traversable_typeclass<T> with an "
+                      "beman::transpose::traversable<T> with an "
                       "object providing traverse(applicative, f, container) "
                       "and 'using element_type = ...;'.");
         return TC.transpose(std::forward<T>(value));
@@ -70,7 +67,6 @@ struct transpose_fn {
 
 /** Structure of contexts to context of structure: `transpose(structure)`. */
 inline constexpr transpose_fn transpose{};
-} // namespace typeclass
 
 } // namespace beman::transpose
 

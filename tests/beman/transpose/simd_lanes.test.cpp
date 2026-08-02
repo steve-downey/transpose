@@ -11,17 +11,16 @@
 #include <vector>
 
 namespace bt = beman::transpose;
-namespace tc = beman::transpose::typeclass;
 
 using lanes4 = bt::simd_lanes<int, 4>;
 
 TEST_CASE("simd_lanes: pure broadcasts to every lane") {
-    auto r = bt::applicative_typeclass<lanes4>.pure(7);
+    auto r = bt::applicative<lanes4>.pure(7);
     REQUIRE(r == lanes4::repeat(7));
 }
 
 TEST_CASE("simd_lanes: invoke applies lane by lane") {
-    const auto &app = bt::applicative_typeclass<lanes4>;
+    const auto &app = bt::applicative<lanes4>;
     lanes4 a{{1, 2, 3, 4}};
     lanes4 b{{10, 20, 30, 40}};
     auto sum = app.invoke([](int x, int y) { return x + y; }, a, b);
@@ -50,7 +49,7 @@ TEST_CASE("simd_lanes: applicative laws hold") {
 TEST_CASE("simd_lanes: derived ap agrees with the invoke basis") {
     // simd_lanes is invoke-basis; the secondary ap is derived and must
     // agree with the direct invoke spelling.
-    const auto &app = bt::applicative_typeclass<lanes4>;
+    const auto &app = bt::applicative<lanes4>;
     bt::simd_lanes<int (*)(int), 4> functions;
     functions.data.fill(+[](int x) { return x * x; });
     auto via_ap = app.ap(functions, lanes4{{1, 2, 3, 4}});
@@ -64,7 +63,7 @@ TEST_CASE("simd_lanes: transpose round-trips structure and lanes") {
     std::vector<lanes4> structure{lanes4{{1, 2, 3, 4}},
                                   lanes4{{10, 20, 30, 40}},
                                   lanes4{{100, 200, 300, 400}}};
-    auto transposed = tc::transpose(structure);
+    auto transposed = bt::transpose(structure);
 
     REQUIRE(transposed.width == 4);
     REQUIRE(transposed.data[0] == std::vector<int>{1, 10, 100});

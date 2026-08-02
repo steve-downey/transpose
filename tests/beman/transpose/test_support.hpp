@@ -36,8 +36,8 @@ concept has_apply_form =
  * Holds for every context, including those that cannot hold callables. */
 template <class CONTEXT>
 auto check_applicative_identity_law(const CONTEXT &value) -> bool {
-    const auto &applicative = applicative_typeclass<remove_cvref_t<CONTEXT>>;
-    auto result = applicative.map([](const auto &x) { return x; }, value);
+    const auto &applicative_map = applicative<remove_cvref_t<CONTEXT>>;
+    auto result = applicative_map.map([](const auto &x) { return x; }, value);
     return result == value;
 }
 
@@ -46,9 +46,10 @@ auto check_applicative_identity_law(const CONTEXT &value) -> bool {
 template <class CONTEXT, class FUNCTION, class... VALUES>
 auto check_applicative_homomorphism_law(const FUNCTION &function,
                                         const VALUES &...values) -> bool {
-    const auto &applicative = applicative_typeclass<remove_cvref_t<CONTEXT>>;
-    auto left = applicative.invoke(function, applicative.pure(values)...);
-    auto right = applicative.pure(std::invoke(function, values...));
+    const auto &applicative_map = applicative<remove_cvref_t<CONTEXT>>;
+    auto left =
+        applicative_map.invoke(function, applicative_map.pure(values)...);
+    auto right = applicative_map.pure(std::invoke(function, values...));
     return left == right;
 }
 
@@ -60,11 +61,12 @@ auto check_applicative_homomorphism_law(const FUNCTION &function,
 template <class FUNCTIONS_IN_CONTEXT, class VALUE>
 auto check_applicative_interchange_law(const FUNCTIONS_IN_CONTEXT &functions,
                                        const VALUE &value) -> bool {
-    const auto &applicative =
-        applicative_typeclass<remove_cvref_t<FUNCTIONS_IN_CONTEXT>>;
+    const auto &applicative_map =
+        applicative<remove_cvref_t<FUNCTIONS_IN_CONTEXT>>;
     auto call = [](const auto &f, const auto &x) { return std::invoke(f, x); };
-    auto left = applicative.invoke(call, functions, applicative.pure(value));
-    auto right = applicative.map(
+    auto left =
+        applicative_map.invoke(call, functions, applicative_map.pure(value));
+    auto right = applicative_map.map(
         [&value](const auto &f) { return std::invoke(f, value); }, functions);
     return left == right;
 }
@@ -74,13 +76,13 @@ auto check_applicative_interchange_law(const FUNCTIONS_IN_CONTEXT &functions,
 template <class CONTEXT, class F, class G>
 auto check_functor_composition_law(const F &outer, const G &inner,
                                    const CONTEXT &value) -> bool {
-    const auto &applicative = applicative_typeclass<remove_cvref_t<CONTEXT>>;
-    auto left = applicative.map(
+    const auto &applicative_map = applicative<remove_cvref_t<CONTEXT>>;
+    auto left = applicative_map.map(
         [&](const auto &x) {
             return std::invoke(outer, std::invoke(inner, x));
         },
         value);
-    auto right = applicative.map(outer, applicative.map(inner, value));
+    auto right = applicative_map.map(outer, applicative_map.map(inner, value));
     return left == right;
 }
 
@@ -135,13 +137,13 @@ struct TestIdentityApplicativeImpl {
 
 template <class VALUE_TYPE>
 struct TestIdentityApplicativeMap
-    : Applicative<TestIdentityApplicativeImpl<VALUE_TYPE>> {
+    : derive_applicative<TestIdentityApplicativeImpl<VALUE_TYPE>> {
     using TestIdentityApplicativeImpl<VALUE_TYPE>::invoke;
     using TestIdentityApplicativeImpl<VALUE_TYPE>::pure;
 };
 
 template <class VALUE_TYPE>
-inline constexpr auto applicative_typeclass<test::Identity<VALUE_TYPE>> =
+inline constexpr auto applicative<test::Identity<VALUE_TYPE>> =
     TestIdentityApplicativeMap<VALUE_TYPE>{};
 
 /** Foldable implementation for Sequence<V>: fold_map walks values
@@ -164,12 +166,12 @@ struct TestSequenceFoldableImpl {
 
 template <class VALUE_TYPE>
 struct TestSequenceFoldableMap
-    : Foldable<TestSequenceFoldableImpl<VALUE_TYPE>> {
+    : derive_foldable<TestSequenceFoldableImpl<VALUE_TYPE>> {
     using TestSequenceFoldableImpl<VALUE_TYPE>::fold_map;
 };
 
 template <class VALUE_TYPE>
-inline constexpr auto foldable_typeclass<test::Sequence<VALUE_TYPE>> =
+inline constexpr auto foldable<test::Sequence<VALUE_TYPE>> =
     TestSequenceFoldableMap<VALUE_TYPE>{};
 
 /** Traversable implementation for Identity<V>. */
@@ -178,10 +180,10 @@ struct TestIdentityTraversableImpl {
     using element_type = VALUE_TYPE;
 
     template <class APPLICATIVE, class FUNCTION>
-    auto traverse(this auto &&, const APPLICATIVE &applicative,
+    auto traverse(this auto &&, const APPLICATIVE &applicative_map,
                   FUNCTION &&function,
                   const test::Identity<VALUE_TYPE> &identity) {
-        return applicative.invoke(
+        return applicative_map.invoke(
             [](auto &&value) {
                 using U = remove_cvref_t<decltype(value)>;
                 return test::Identity<U>{std::forward<decltype(value)>(value)};
@@ -192,12 +194,12 @@ struct TestIdentityTraversableImpl {
 
 template <class VALUE_TYPE>
 struct TestIdentityTraversableMap
-    : Traversable<TestIdentityTraversableImpl<VALUE_TYPE>> {
+    : derive_traversable<TestIdentityTraversableImpl<VALUE_TYPE>> {
     using TestIdentityTraversableImpl<VALUE_TYPE>::traverse;
 };
 
 template <class VALUE_TYPE>
-inline constexpr auto traversable_typeclass<test::Identity<VALUE_TYPE>> =
+inline constexpr auto traversable<test::Identity<VALUE_TYPE>> =
     TestIdentityTraversableMap<VALUE_TYPE>{};
 
 } // namespace beman::transpose

@@ -13,7 +13,7 @@
 namespace bt = beman::transpose;
 
 int main() {
-    const auto &f = bt::foldable_typeclass<std::vector<int>>;
+    const auto &f = bt::foldable<std::vector<int>>;
     std::vector<int> xs{1, 2, 3, 4, 5};
 
     std::cout << "length: " << f.length(xs) << '\n';

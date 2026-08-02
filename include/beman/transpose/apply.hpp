@@ -131,7 +131,7 @@ constexpr auto ap(const APPLICATIVE_MAP &map, FUNCTIONS_IN_CONTEXT &&functions,
 //   availability probes fail cleanly instead of hard-erroring.
 // - Derived operations (map/lift/zip_with/discard_*) live on that object.
 // - Dispatch happens through a provided object or
-//   applicative_typeclass<Concrete>.
+//   applicative<Concrete>.
 // - Do not introduce hidden alternate semantics without a distinct map/type.
 
 /** CRTP base for Applicative instances.
@@ -142,11 +142,11 @@ constexpr auto ap(const APPLICATIVE_MAP &map, FUNCTIONS_IN_CONTEXT &&functions,
  * classic basis.
  */
 template <class Impl>
-struct Applicative : protected Impl {
+struct derive_applicative : protected Impl {
     static_assert(
         !std::is_same_v<Impl, std::false_type>,
-        "No applicative_typeclass<T> specialization found. "
-        "Specialize beman::transpose::applicative_typeclass<T> for "
+        "No beman::transpose::applicative<T> specialization found. "
+        "Specialize beman::transpose::applicative<T> for "
         "your type T and provide pure(...) plus invoke(...) or ap(...).");
     using Impl::pure;
 
@@ -333,7 +333,7 @@ struct Applicative : protected Impl {
 
 /** Typeclass lookup variable for Applicative; specialize for each type. */
 template <class T>
-inline constexpr auto applicative_typeclass = std::false_type{};
+inline constexpr auto applicative = std::false_type{};
 
 // -- Operation objects --
 //
@@ -343,8 +343,6 @@ inline constexpr auto applicative_typeclass = std::false_type{};
 // spelled as a variable template of operation objects, taking the context --
 // `pure<std::optional<int>>(42)` -- and it is the only operation in this
 // header that does not deduce.
-
-namespace typeclass {
 
 /** Operation object for Applicative's `invoke`, the user-facing
  * application verb.
@@ -359,16 +357,15 @@ struct invoke_fn {
      * @tparam TC  The Applicative instance, from the lookup for the keying
      * argument. Not for callers to supply; pin with mode 2.
      */
-    template <
-        class FUNCTION, class FIRST_ARGUMENT, class... REST_ARGUMENTS,
-        const auto &TC = applicative_typeclass<remove_cvref_t<FIRST_ARGUMENT>>>
+    template <class FUNCTION, class FIRST_ARGUMENT, class... REST_ARGUMENTS,
+              const auto &TC = applicative<remove_cvref_t<FIRST_ARGUMENT>>>
     constexpr auto operator()(FUNCTION &&function,
                               FIRST_ARGUMENT &&first_argument,
                               REST_ARGUMENTS &&...rest_arguments) const {
         static_assert(
             has_instance_v<decltype(TC)>,
             "No Applicative instance for this type. Specialize "
-            "beman::transpose::applicative_typeclass<T> with an "
+            "beman::transpose::applicative<T> with an "
             "object providing pure(...) plus invoke(...) or ap(...).");
         return TC.invoke(std::forward<FUNCTION>(function),
                          std::forward<FIRST_ARGUMENT>(first_argument),
@@ -389,14 +386,13 @@ inline constexpr invoke_fn invoke{};
 struct ap_fn {
     /** Applies a callable held in context to one argument in context. */
     template <class FUNCTION_IN_CONTEXT, class ARGUMENT_IN_CONTEXT,
-              const auto &TC =
-                  applicative_typeclass<remove_cvref_t<ARGUMENT_IN_CONTEXT>>>
+              const auto &TC = applicative<remove_cvref_t<ARGUMENT_IN_CONTEXT>>>
     constexpr auto operator()(FUNCTION_IN_CONTEXT &&function,
                               ARGUMENT_IN_CONTEXT &&argument) const {
         static_assert(
             has_instance_v<decltype(TC)>,
             "No Applicative instance for this type. Specialize "
-            "beman::transpose::applicative_typeclass<T> with an "
+            "beman::transpose::applicative<T> with an "
             "object providing pure(...) plus invoke(...) or ap(...).");
         return TC.ap(std::forward<FUNCTION_IN_CONTEXT>(function),
                      std::forward<ARGUMENT_IN_CONTEXT>(argument));
@@ -410,12 +406,11 @@ inline constexpr ap_fn ap{};
  * context because no argument can name it.
  *
  * `CONTEXT` is the instantiated context type that keys the lookup, e.g.
- * `typeclass::pure<std::optional<int>>(42)`. This is the one place the deducing
+ * `pure<std::optional<int>>(42)`. This is the one place the deducing
  * pattern does not reach: `pure` builds the context rather than consuming
  * one, so the context is in the return type and never in an argument.
  */
-template <class CONTEXT,
-          const auto &TC = applicative_typeclass<remove_cvref_t<CONTEXT>>>
+template <class CONTEXT, const auto &TC = applicative<remove_cvref_t<CONTEXT>>>
 struct pure_fn {
     /** Embeds a plain value into the applicative context. */
     template <class VALUE>
@@ -423,7 +418,7 @@ struct pure_fn {
         static_assert(
             has_instance_v<decltype(TC)>,
             "No Applicative instance for this type. Specialize "
-            "beman::transpose::applicative_typeclass<T> with an "
+            "beman::transpose::applicative<T> with an "
             "object providing pure(...) plus invoke(...) or ap(...).");
         return TC.pure(std::forward<VALUE>(value));
     }
@@ -436,16 +431,15 @@ inline constexpr pure_fn<CONTEXT> pure{};
 /** Operation object for the derived `zip_with`. */
 struct zip_with_fn {
     /** Lifts a binary function over two in-context arguments. */
-    template <
-        class FUNCTION, class FIRST_ARGUMENT, class SECOND_ARGUMENT,
-        const auto &TC = applicative_typeclass<remove_cvref_t<FIRST_ARGUMENT>>>
+    template <class FUNCTION, class FIRST_ARGUMENT, class SECOND_ARGUMENT,
+              const auto &TC = applicative<remove_cvref_t<FIRST_ARGUMENT>>>
     constexpr auto operator()(FUNCTION &&function,
                               FIRST_ARGUMENT &&first_argument,
                               SECOND_ARGUMENT &&second_argument) const {
         static_assert(
             has_instance_v<decltype(TC)>,
             "No Applicative instance for this type. Specialize "
-            "beman::transpose::applicative_typeclass<T> with an "
+            "beman::transpose::applicative<T> with an "
             "object providing pure(...) plus invoke(...) or ap(...).");
         return TC.zip_with(std::forward<FUNCTION>(function),
                            std::forward<FIRST_ARGUMENT>(first_argument),
@@ -459,15 +453,14 @@ inline constexpr zip_with_fn zip_with{};
 /** Operation object for the derived `discard_first`. */
 struct discard_first_fn {
     /** Sequences two in-context values, keeping the second. */
-    template <
-        class FIRST_ARGUMENT, class SECOND_ARGUMENT,
-        const auto &TC = applicative_typeclass<remove_cvref_t<FIRST_ARGUMENT>>>
+    template <class FIRST_ARGUMENT, class SECOND_ARGUMENT,
+              const auto &TC = applicative<remove_cvref_t<FIRST_ARGUMENT>>>
     constexpr auto operator()(FIRST_ARGUMENT &&first_argument,
                               SECOND_ARGUMENT &&second_argument) const {
         static_assert(
             has_instance_v<decltype(TC)>,
             "No Applicative instance for this type. Specialize "
-            "beman::transpose::applicative_typeclass<T> with an "
+            "beman::transpose::applicative<T> with an "
             "object providing pure(...) plus invoke(...) or ap(...).");
         return TC.discard_first(std::forward<FIRST_ARGUMENT>(first_argument),
                                 std::forward<SECOND_ARGUMENT>(second_argument));
@@ -480,15 +473,14 @@ inline constexpr discard_first_fn discard_first{};
 /** Operation object for the derived `discard_second`. */
 struct discard_second_fn {
     /** Sequences two in-context values, keeping the first. */
-    template <
-        class FIRST_ARGUMENT, class SECOND_ARGUMENT,
-        const auto &TC = applicative_typeclass<remove_cvref_t<FIRST_ARGUMENT>>>
+    template <class FIRST_ARGUMENT, class SECOND_ARGUMENT,
+              const auto &TC = applicative<remove_cvref_t<FIRST_ARGUMENT>>>
     constexpr auto operator()(FIRST_ARGUMENT &&first_argument,
                               SECOND_ARGUMENT &&second_argument) const {
         static_assert(
             has_instance_v<decltype(TC)>,
             "No Applicative instance for this type. Specialize "
-            "beman::transpose::applicative_typeclass<T> with an "
+            "beman::transpose::applicative<T> with an "
             "object providing pure(...) plus invoke(...) or ap(...).");
         return TC.discard_second(
             std::forward<FIRST_ARGUMENT>(first_argument),
@@ -498,7 +490,6 @@ struct discard_second_fn {
 
 /** Sequences two in-context values, keeping the first. */
 inline constexpr discard_second_fn discard_second{};
-} // namespace typeclass
 
 /** Applicative instance for std::optional: the flagship of the invoke core.
  * The trailing return type keeps invoke SFINAE-friendly so availability
@@ -531,14 +522,14 @@ struct OptionalApplicativeImpl {
 
 template <class VALUE_TYPE>
 struct OptionalApplicativeMap
-    : Applicative<OptionalApplicativeImpl<VALUE_TYPE>> {
+    : derive_applicative<OptionalApplicativeImpl<VALUE_TYPE>> {
     using OptionalApplicativeImpl<VALUE_TYPE>::invoke;
     using OptionalApplicativeImpl<VALUE_TYPE>::pure;
 };
 
 /** Applicative instance for `std::optional<VALUE_TYPE>`. */
 template <class VALUE_TYPE>
-inline constexpr auto applicative_typeclass<std::optional<VALUE_TYPE>> =
+inline constexpr auto applicative<std::optional<VALUE_TYPE>> =
     OptionalApplicativeMap<VALUE_TYPE>{};
 
 } // namespace beman::transpose

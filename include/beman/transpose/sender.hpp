@@ -80,15 +80,14 @@ struct SenderApplicativeImpl {
 
 /** Applicative map exposing pure and the n-ary invoke core for sender<T>. */
 template <class T>
-struct SenderApplicativeMap : Applicative<SenderApplicativeImpl<T>> {
+struct SenderApplicativeMap : derive_applicative<SenderApplicativeImpl<T>> {
     using SenderApplicativeImpl<T>::invoke;
     using SenderApplicativeImpl<T>::pure;
 };
 
 /** Registers SenderApplicativeMap as the Applicative instance for sender<T>. */
 template <class T>
-inline constexpr auto applicative_typeclass<sender<T>> =
-    SenderApplicativeMap<T>{};
+inline constexpr auto applicative<sender<T>> = SenderApplicativeMap<T>{};
 
 } // namespace beman::transpose
 

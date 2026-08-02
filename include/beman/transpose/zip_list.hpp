@@ -159,7 +159,7 @@ struct ZipListApplicativeImpl {
 
 /** Applicative map for zip_list<T>: the native n-ary invoke core. */
 template <class T>
-struct ZipListApplicativeMap : Applicative<ZipListApplicativeImpl<T>> {
+struct ZipListApplicativeMap : derive_applicative<ZipListApplicativeImpl<T>> {
     using ZipListApplicativeImpl<T>::invoke;
     using ZipListApplicativeImpl<T>::pure;
 };
@@ -167,8 +167,7 @@ struct ZipListApplicativeMap : Applicative<ZipListApplicativeImpl<T>> {
 /** Registers ZipListApplicativeMap as the Applicative instance for zip_list<T>.
  */
 template <class T>
-inline constexpr auto applicative_typeclass<zip_list<T>> =
-    ZipListApplicativeMap<T>{};
+inline constexpr auto applicative<zip_list<T>> = ZipListApplicativeMap<T>{};
 
 } // namespace beman::transpose
 

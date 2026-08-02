@@ -32,13 +32,13 @@ auto lanes_equal(const vec4 &left, const vec4 &right) -> bool {
 } // namespace
 
 TEST_CASE("simd: pure broadcasts to every lane") {
-    const auto &app = bt::applicative_typeclass<vec4>;
+    const auto &app = bt::applicative<vec4>;
     auto r = app.pure(9);
     REQUIRE(lanes_equal(r, vec4(9)));
 }
 
 TEST_CASE("simd: invoke applies a plain function lane by lane") {
-    const auto &app = bt::applicative_typeclass<vec4>;
+    const auto &app = bt::applicative<vec4>;
     vec4 a([](int lane) { return lane + 1; });        // {1, 2, 3, 4}
     vec4 b([](int lane) { return (lane + 1) * 10; }); // {10, 20, 30, 40}
     vec4 c(2);                                        // {2, 2, 2, 2}
@@ -57,7 +57,7 @@ TEST_CASE("simd: invoke applies a plain function lane by lane") {
 }
 
 TEST_CASE("simd: map and zip_with are derived from the invoke core") {
-    const auto &app = bt::applicative_typeclass<vec4>;
+    const auto &app = bt::applicative<vec4>;
     vec4 a([](int lane) { return lane; }); // {0, 1, 2, 3}
 
     auto mapped = app.map([](int x) { return x * x; }, a);
@@ -68,7 +68,7 @@ TEST_CASE("simd: map and zip_with are derived from the invoke core") {
 }
 
 TEST_CASE("simd: applicative laws hold in invoke form") {
-    const auto &app = bt::applicative_typeclass<vec4>;
+    const auto &app = bt::applicative<vec4>;
 
     // Identity: map(id, v) == v.
     vec4 v([](int lane) { return 3 * lane + 1; });
@@ -92,7 +92,7 @@ TEST_CASE("simd: ap does not exist here -- the invoke-interface proof") {
     // every nameable operand. This is the case that makes invoke the
     // user-facing interface -- ap remains a fine basis elsewhere, but an
     // ap-shaped interface would lock this domain out entirely.
-    using Map = bt::remove_cvref_t<decltype(bt::applicative_typeclass<vec4>)>;
+    using Map = bt::remove_cvref_t<decltype(bt::applicative<vec4>)>;
     STATIC_REQUIRE_FALSE(bt::test::has_apply_form<Map, vec4, vec4>);
     SUCCEED("std::simd::basic_vec participates through pure + invoke alone");
 }

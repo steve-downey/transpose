@@ -15,7 +15,6 @@
 #include <optional>
 
 namespace bt = beman::transpose;
-namespace tc = beman::transpose::typeclass;
 using example::BinaryTree;
 
 int main() {
@@ -25,7 +24,7 @@ int main() {
                                       BinaryTree<int>::leaf(5));
 
     // --- Foldable ---
-    const auto &f = bt::foldable_typeclass<BinaryTree<int>>;
+    const auto &f = bt::foldable<BinaryTree<int>>;
     std::cout << "Foldable:\n";
     std::cout << "  length: " << f.length(tree) << '\n';
     std::cout << "  sum:    " << f.fold_left(tree, 0, [](int a, int x) {
@@ -33,7 +32,7 @@ int main() {
     }) << '\n';
 
     // --- Applicative ---
-    const auto &app = bt::applicative_typeclass<BinaryTree<int>>;
+    const auto &app = bt::applicative<BinaryTree<int>>;
     auto doubled = app.invoke([](int x) { return x * 2; }, tree);
     std::cout << "Applicative:\n";
     std::cout << "  doubled sum: " << f.fold_left(doubled, 0, [](int a, int x) {
@@ -48,8 +47,8 @@ int main() {
     auto neg_tree = BinaryTree<int>::node(-1, BinaryTree<int>::leaf(2),
                                           BinaryTree<int>::leaf(3));
 
-    auto all_positive = tc::traverse(non_negative, tree);
-    auto has_negative = tc::traverse(non_negative, neg_tree);
+    auto all_positive = bt::traverse(non_negative, tree);
+    auto has_negative = bt::traverse(non_negative, neg_tree);
 
     std::cout << "Traversable:\n";
     std::cout << "  all positive: " << (all_positive ? "has value" : "empty")
