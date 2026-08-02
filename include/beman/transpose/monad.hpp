@@ -30,10 +30,10 @@ namespace beman::transpose {
  * applicative operation once `invoke` is synthesized from `bind` + `pure`.
  */
 template <class Impl>
-struct Monad : protected Impl {
+struct derive_monad : protected Impl {
     static_assert(!std::is_same_v<Impl, std::false_type>,
-                  "No monad_typeclass<T> specialization found. "
-                  "Specialize beman::transpose::monad_typeclass<T> for your "
+                  "No beman::transpose::monad<T> specialization found. "
+                  "Specialize beman::transpose::monad<T> for your "
                   "type T and provide pure(...) and bind(...) operations.");
 
     using Impl::bind;
@@ -104,10 +104,10 @@ struct Monad : protected Impl {
 
 /** Typeclass lookup variable for Monad; specialize for each type. */
 template <class T>
-inline constexpr auto monad_typeclass = std::false_type{};
+inline constexpr auto monad = std::false_type{};
 
 // -- std::optional monad instance --
-// Delegates pure to the existing applicative_typeclass.
+// Delegates pure to the existing applicative.
 
 template <class VALUE_TYPE>
 struct OptionalMonadImpl {
@@ -116,7 +116,7 @@ struct OptionalMonadImpl {
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
         -> std::optional<remove_cvref_t<VALUE>> {
-        return applicative_typeclass<std::optional<VALUE_TYPE>>.pure(
+        return applicative<std::optional<VALUE_TYPE>>.pure(
             std::forward<VALUE>(value));
     }
 
@@ -130,14 +130,14 @@ struct OptionalMonadImpl {
 };
 
 template <class VALUE_TYPE>
-struct OptionalMonadMap : Monad<OptionalMonadImpl<VALUE_TYPE>> {
+struct OptionalMonadMap : derive_monad<OptionalMonadImpl<VALUE_TYPE>> {
     using OptionalMonadImpl<VALUE_TYPE>::bind;
     using OptionalMonadImpl<VALUE_TYPE>::pure;
 };
 
 /** Monad instance for `std::optional<VALUE_TYPE>`. */
 template <class VALUE_TYPE>
-inline constexpr auto monad_typeclass<std::optional<VALUE_TYPE>> =
+inline constexpr auto monad<std::optional<VALUE_TYPE>> =
     OptionalMonadMap<VALUE_TYPE>{};
 
 // -- Operation objects --
@@ -152,11 +152,9 @@ inline constexpr auto monad_typeclass<std::optional<VALUE_TYPE>> =
 // It also settles a naming question the free-function API had ducked. `bind`
 // could not be a function template here without reading as a competitor to
 // std::bind; the old spelling was `mbind`, a wart adopted to dodge exactly
-// that. An object needs no such dodge: `typeclass::bind` is a variable, it is
+// that. An object needs no such dodge: `bind` is a variable, it is
 // never found by ADL, and it never enters overload resolution with std::bind.
 // The typeclass operation gets its real name.
-
-namespace typeclass {
 
 /** Operation object for Monad's `bind` primitive.
  *
@@ -168,12 +166,11 @@ struct bind_fn {
      * @tparam TC  The Monad instance, from the lookup for the keying argument.
      * Not for callers to supply; pin with mode 2.
      */
-    template <class MA, class F,
-              const auto &TC = monad_typeclass<remove_cvref_t<MA>>>
+    template <class MA, class F, const auto &TC = monad<remove_cvref_t<MA>>>
     constexpr auto operator()(MA &&ma, F &&f) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Monad instance for this type. Specialize "
-                      "beman::transpose::monad_typeclass<T> with an object "
+                      "beman::transpose::monad<T> with an object "
                       "providing pure(...) and bind(ma, f).");
         return TC.bind(std::forward<MA>(ma), std::forward<F>(f));
     }
@@ -185,11 +182,11 @@ inline constexpr bind_fn bind{};
 /** Operation object for Monad's derived `join`. */
 struct join_fn {
     /** Flattens a nested monadic value; equivalent to `bind(mma, id)`. */
-    template <class MMA, const auto &TC = monad_typeclass<remove_cvref_t<MMA>>>
+    template <class MMA, const auto &TC = monad<remove_cvref_t<MMA>>>
     constexpr auto operator()(MMA &&mma) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Monad instance for this type. Specialize "
-                      "beman::transpose::monad_typeclass<T> with an object "
+                      "beman::transpose::monad<T> with an object "
                       "providing pure(...) and bind(ma, f).");
         return TC.join(std::forward<MMA>(mma));
     }
@@ -206,15 +203,14 @@ inline constexpr join_fn join{};
  * out of the deducing pattern this way, and they are exactly the two that
  * produce a context instead of consuming one.
  */
-template <class CONTEXT,
-          const auto &TC = monad_typeclass<remove_cvref_t<CONTEXT>>>
+template <class CONTEXT, const auto &TC = monad<remove_cvref_t<CONTEXT>>>
 struct kleisli_fn {
     /** Forward Kleisli composition: `(f >=> g) a = f a >>= g`. */
     template <class F, class G>
     constexpr auto operator()(F &&f, G &&g) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Monad instance for this type. Specialize "
-                      "beman::transpose::monad_typeclass<T> with an object "
+                      "beman::transpose::monad<T> with an object "
                       "providing pure(...) and bind(ma, f).");
         return TC.kleisli(std::forward<F>(f), std::forward<G>(g));
     }
@@ -234,7 +230,6 @@ template <class MA, class F>
 auto mbind(MA &&ma, F &&f) {
     return bind(std::forward<MA>(ma), std::forward<F>(f));
 }
-} // namespace typeclass
 
 } // namespace beman::transpose
 

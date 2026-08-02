@@ -55,13 +55,13 @@ struct ArrayApplicativeImpl {
 
 /** Applicative map for std::array<T, N>: the native n-ary invoke core. */
 template <class T, std::size_t N>
-struct ArrayApplicativeMap : Applicative<ArrayApplicativeImpl<T, N>> {
+struct ArrayApplicativeMap : derive_applicative<ArrayApplicativeImpl<T, N>> {
     using ArrayApplicativeImpl<T, N>::invoke;
     using ArrayApplicativeImpl<T, N>::pure;
 };
 
 template <class T, std::size_t N>
-inline constexpr auto applicative_typeclass<std::array<T, N>> =
+inline constexpr auto applicative<std::array<T, N>> =
     ArrayApplicativeMap<T, N>{};
 
 namespace detail {
@@ -70,7 +70,7 @@ template <std::size_t N, class... Ts, std::size_t... Is>
 auto transpose_tuple_impl(const std::tuple<std::array<Ts, N>...> &soa,
                           std::index_sequence<Is...>)
     -> std::array<std::tuple<Ts...>, N> {
-    const auto &app = applicative_typeclass<std::array<std::tuple<Ts...>, N>>;
+    const auto &app = applicative<std::array<std::tuple<Ts...>, N>>;
     return app.invoke([](const Ts &...elems) { return std::tuple{elems...}; },
                       std::get<Is>(soa)...);
 }

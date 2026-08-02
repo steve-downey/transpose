@@ -48,13 +48,13 @@ struct VectorFoldableImpl {
 };
 
 template <class VALUE_TYPE>
-struct VectorFoldableMap : Foldable<VectorFoldableImpl<VALUE_TYPE>> {
+struct VectorFoldableMap : derive_foldable<VectorFoldableImpl<VALUE_TYPE>> {
     using VectorFoldableImpl<VALUE_TYPE>::fold_map;
 };
 
 /** Foldable instance for `std::vector<VALUE_TYPE>`. */
 template <class VALUE_TYPE>
-inline constexpr auto foldable_typeclass<std::vector<VALUE_TYPE>> =
+inline constexpr auto foldable<std::vector<VALUE_TYPE>> =
     VectorFoldableMap<VALUE_TYPE>{};
 
 /** Traversable instance for std::vector.
@@ -87,13 +87,14 @@ struct VectorTraversableImpl {
 };
 
 template <class VALUE_TYPE>
-struct VectorTraversableMap : Traversable<VectorTraversableImpl<VALUE_TYPE>> {
+struct VectorTraversableMap
+    : derive_traversable<VectorTraversableImpl<VALUE_TYPE>> {
     using VectorTraversableImpl<VALUE_TYPE>::traverse;
 };
 
 /** Traversable instance for `std::vector<VALUE_TYPE>`. */
 template <class VALUE_TYPE>
-inline constexpr auto traversable_typeclass<std::vector<VALUE_TYPE>> =
+inline constexpr auto traversable<std::vector<VALUE_TYPE>> =
     VectorTraversableMap<VALUE_TYPE>{};
 
 } // namespace beman::transpose

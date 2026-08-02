@@ -198,9 +198,9 @@ struct Monoid<detail::First<VALUE_TYPE>> {
 };
 
 // Foldable pattern invariants:
-// - Generic entry point is fold_map(F, T) via foldable_typeclass<T>.
+// - Generic entry point is fold_map(F, T) via foldable<T>.
 // - Instances provide an object with fold_map(F, T) and specialize
-//   foldable_typeclass<Concrete>.
+//   foldable<Concrete>.
 // - Derived APIs (length, fold_left, fold_right, combine_all, any_of, all_of,
 //   empty, to_vector, find_first) live on the same looked-up object.
 // - Traversal order is instance-defined but must be coherent per instance.
@@ -211,11 +211,11 @@ struct Monoid<detail::First<VALUE_TYPE>> {
  * primitive.
  */
 template <class Impl>
-struct Foldable : protected Impl {
+struct derive_foldable : protected Impl {
     static_assert(
         !std::is_same_v<Impl, std::false_type>,
-        "No foldable_typeclass<T> specialization found. "
-        "Specialize beman::transpose::foldable_typeclass<T> for your "
+        "No beman::transpose::foldable<T> specialization found. "
+        "Specialize beman::transpose::foldable<T> for your "
         "type T and provide fold_map(F, T) or fold_right(T, STATE, F) "
         "+ element_type.");
     // Alternate-core: Impl provides either fold_map or fold_right as primitive.
@@ -370,16 +370,15 @@ struct Foldable : protected Impl {
 /** Typeclass lookup variable for Foldable; specialize for each container type.
  */
 template <class T>
-inline constexpr auto foldable_typeclass = std::false_type{};
+inline constexpr auto foldable = std::false_type{};
 
 // -- Operation objects --
 //
-// See functor.hpp for the shape, the motivation, and why the namespace is
-// nested. Foldable is the widest of the typeclasses -- one primitive and nine
-// derived operations -- and it supplies most of the names that made nesting
-// worth doing: `empty`, `length`, `to_vector`, `any_of` and `all_of` all have
-// namespace-std counterparts with related meanings, and `typeclass::empty`
-// against `std::empty` is the worst of them.
+// See functor.hpp for the shape, the motivation, and why every typeclass
+// operation shares one namespace. Foldable is the widest of the typeclasses
+// -- one primitive and nine derived operations -- and it supplies most of the
+// names with namespace-std counterparts: `empty`, `length`, `to_vector`,
+// `any_of` and `all_of`, of which `empty` against `std::empty` is the worst.
 //
 // `empty` stays the predicate here, which is the C++ reading (std::empty,
 // std::ranges::empty, container .empty()) and the reverse of the FP one --
@@ -394,8 +393,6 @@ inline constexpr auto foldable_typeclass = std::false_type{};
 // `fold` (the alias of combine_all) gets no object: an alias does not need a
 // second name.
 
-namespace typeclass {
-
 /** Operation object for Foldable's `fold_map` primitive.
  *
  * The container type keys the lookup and is deduced from the second
@@ -408,12 +405,11 @@ struct fold_map_fn {
      * @tparam TC  The Foldable instance, from the lookup for the keying
      * argument. Not for callers to supply; pin with mode 2.
      */
-    template <class F, class T,
-              const auto &TC = foldable_typeclass<remove_cvref_t<T>>>
+    template <class F, class T, const auto &TC = foldable<remove_cvref_t<T>>>
     constexpr auto operator()(F &&function, T &&value) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable_typeclass<T> with an object "
+                      "beman::transpose::foldable<T> with an object "
                       "providing fold_map(f, container).");
         return TC.fold_map(std::forward<F>(function), std::forward<T>(value));
     }
@@ -426,12 +422,12 @@ inline constexpr fold_map_fn fold_map{};
 struct fold_left_fn {
     /** Left-associative fold in the instance's traversal order. */
     template <class T, class STATE, class F,
-              const auto &TC = foldable_typeclass<remove_cvref_t<T>>>
+              const auto &TC = foldable<remove_cvref_t<T>>>
     constexpr auto operator()(T &&value, STATE initial_state,
                               F &&function) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable_typeclass<T> with an object "
+                      "beman::transpose::foldable<T> with an object "
                       "providing fold_map(f, container).");
         return TC.fold_left(std::forward<T>(value), std::move(initial_state),
                             std::forward<F>(function));
@@ -445,12 +441,12 @@ inline constexpr fold_left_fn fold_left{};
 struct fold_right_fn {
     /** Right-associative fold in reverse traversal order. */
     template <class T, class STATE, class F,
-              const auto &TC = foldable_typeclass<remove_cvref_t<T>>>
+              const auto &TC = foldable<remove_cvref_t<T>>>
     constexpr auto operator()(T &&value, STATE initial_state,
                               F &&function) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable_typeclass<T> with an object "
+                      "beman::transpose::foldable<T> with an object "
                       "providing fold_map(f, container).");
         return TC.fold_right(std::forward<T>(value), std::move(initial_state),
                              std::forward<F>(function));
@@ -463,11 +459,11 @@ inline constexpr fold_right_fn fold_right{};
 /** Operation object for the derived `length`. */
 struct length_fn {
     /** Number of elements in the container. */
-    template <class T, const auto &TC = foldable_typeclass<remove_cvref_t<T>>>
+    template <class T, const auto &TC = foldable<remove_cvref_t<T>>>
     constexpr auto operator()(T &&value) const -> std::size_t {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable_typeclass<T> with an object "
+                      "beman::transpose::foldable<T> with an object "
                       "providing fold_map(f, container).");
         return TC.length(std::forward<T>(value));
     }
@@ -479,11 +475,11 @@ inline constexpr length_fn length{};
 /** Operation object for the derived `combine_all`. */
 struct combine_all_fn {
     /** Combines all elements using the Monoid of the element type. */
-    template <class T, const auto &TC = foldable_typeclass<remove_cvref_t<T>>>
+    template <class T, const auto &TC = foldable<remove_cvref_t<T>>>
     constexpr auto operator()(T &&value) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable_typeclass<T> with an object "
+                      "beman::transpose::foldable<T> with an object "
                       "providing fold_map(f, container).");
         return TC.combine_all(std::forward<T>(value));
     }
@@ -496,11 +492,11 @@ inline constexpr combine_all_fn combine_all{};
 struct any_of_fn {
     /** True when any element satisfies `predicate`. */
     template <class T, class PREDICATE,
-              const auto &TC = foldable_typeclass<remove_cvref_t<T>>>
+              const auto &TC = foldable<remove_cvref_t<T>>>
     constexpr auto operator()(T &&value, PREDICATE &&predicate) const -> bool {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable_typeclass<T> with an object "
+                      "beman::transpose::foldable<T> with an object "
                       "providing fold_map(f, container).");
         return TC.any_of(std::forward<T>(value),
                          std::forward<PREDICATE>(predicate));
@@ -514,11 +510,11 @@ inline constexpr any_of_fn any_of{};
 struct all_of_fn {
     /** True when every element satisfies `predicate`. */
     template <class T, class PREDICATE,
-              const auto &TC = foldable_typeclass<remove_cvref_t<T>>>
+              const auto &TC = foldable<remove_cvref_t<T>>>
     constexpr auto operator()(T &&value, PREDICATE &&predicate) const -> bool {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable_typeclass<T> with an object "
+                      "beman::transpose::foldable<T> with an object "
                       "providing fold_map(f, container).");
         return TC.all_of(std::forward<T>(value),
                          std::forward<PREDICATE>(predicate));
@@ -533,11 +529,11 @@ inline constexpr all_of_fn all_of{};
  */
 struct empty_fn {
     /** True when the container holds no elements. */
-    template <class T, const auto &TC = foldable_typeclass<remove_cvref_t<T>>>
+    template <class T, const auto &TC = foldable<remove_cvref_t<T>>>
     constexpr auto operator()(T &&value) const -> bool {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable_typeclass<T> with an object "
+                      "beman::transpose::foldable<T> with an object "
                       "providing fold_map(f, container).");
         return TC.empty(std::forward<T>(value));
     }
@@ -549,11 +545,11 @@ inline constexpr empty_fn empty{};
 /** Operation object for the derived `to_vector`. */
 struct to_vector_fn {
     /** Collects every element into a `std::vector` in traversal order. */
-    template <class T, const auto &TC = foldable_typeclass<remove_cvref_t<T>>>
+    template <class T, const auto &TC = foldable<remove_cvref_t<T>>>
     constexpr auto operator()(T &&value) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable_typeclass<T> with an object "
+                      "beman::transpose::foldable<T> with an object "
                       "providing fold_map(f, container).");
         return TC.to_vector(std::forward<T>(value));
     }
@@ -566,11 +562,11 @@ inline constexpr to_vector_fn to_vector{};
 struct find_first_fn {
     /** First element satisfying `predicate`, or an empty optional. */
     template <class T, class PREDICATE,
-              const auto &TC = foldable_typeclass<remove_cvref_t<T>>>
+              const auto &TC = foldable<remove_cvref_t<T>>>
     constexpr auto operator()(T &&value, PREDICATE &&predicate) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable_typeclass<T> with an object "
+                      "beman::transpose::foldable<T> with an object "
                       "providing fold_map(f, container).");
         return TC.find_first(std::forward<T>(value),
                              std::forward<PREDICATE>(predicate));
@@ -579,7 +575,6 @@ struct find_first_fn {
 
 /** First matching element, or empty: `find_first(container, pred)`. */
 inline constexpr find_first_fn find_first{};
-} // namespace typeclass
 
 } // namespace beman::transpose
 

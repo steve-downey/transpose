@@ -17,12 +17,12 @@ namespace beman::transpose {
 // - transpose is a derived object operation implemented from
 //   traverse(identity).
 // - Dispatch happens through a provided object or
-//   traversable_typeclass<Concrete>.
+//   traversable<Concrete>.
 // - Traversal must preserve container shape while transposing structure and
 //   context.
 
 /** CRTP base for Traversable instances.
- * `Impl` must provide `traverse(applicative, f, container)` and declare
+ * `Impl` must provide `traverse(applicative_map, f, container)` and declare
  * `element_type`. All other operations (`transpose`, `for_each`,
  * `traverse_with`, `transpose_with`) are derived.
  *
@@ -35,12 +35,12 @@ namespace beman::transpose {
  * never a requirement.
  */
 template <class Impl>
-struct Traversable : protected Impl {
+struct derive_traversable : protected Impl {
     static_assert(!std::is_same_v<Impl, std::false_type>,
-                  "No traversable_typeclass<T> specialization found. "
-                  "Specialize beman::transpose::traversable_typeclass<T> for "
+                  "No beman::transpose::traversable<T> specialization found. "
+                  "Specialize beman::transpose::traversable<T> for "
                   "your type T, "
-                  "provide traverse(applicative, F, T), and declare 'using "
+                  "provide traverse(applicative_map, F, T), and declare 'using "
                   "element_type = T;'.");
     static_assert(
         requires { typename Impl::element_type; },
@@ -58,8 +58,8 @@ struct Traversable : protected Impl {
     auto for_each(this auto &&self, T &&value, F &&function) {
         using Context =
             remove_cvref_t<std::invoke_result_t<F, const element_type &>>;
-        const auto &applicative = applicative_typeclass<Context>;
-        return self.traverse(applicative, std::forward<F>(function),
+        const auto &applicative_map = applicative<Context>;
+        return self.traverse(applicative_map, std::forward<F>(function),
                              std::forward<T>(value));
     }
 
@@ -70,9 +70,10 @@ struct Traversable : protected Impl {
     template <class T>
     auto transpose(this auto &&self, T &&value) {
         using Context = element_type;
-        const auto &applicative = applicative_typeclass<Context>;
+        const auto &applicative_map = applicative<Context>;
         return self.traverse(
-            applicative, [](auto &&x) { return std::forward<decltype(x)>(x); },
+            applicative_map,
+            [](auto &&x) { return std::forward<decltype(x)>(x); },
             std::forward<T>(value));
     }
 
@@ -84,9 +85,9 @@ struct Traversable : protected Impl {
                        F &&function, T &&value) {
         using Context = remove_cvref_t<std::invoke_result_t<
             F, const typename remove_cvref_t<TRAVERSABLE_MAP>::element_type &>>;
-        const auto &applicative = applicative_typeclass<Context>;
-        return traversable_map.traverse(applicative, std::forward<F>(function),
-                                        std::forward<T>(value));
+        const auto &applicative_map = applicative<Context>;
+        return traversable_map.traverse(
+            applicative_map, std::forward<F>(function), std::forward<T>(value));
     }
 
     /** Traverses using explicit traversable and applicative instances. */
@@ -114,7 +115,7 @@ struct Traversable : protected Impl {
 /** Typeclass lookup variable for Traversable; specialize for each container
  * type. */
 template <class T>
-inline constexpr auto traversable_typeclass = std::false_type{};
+inline constexpr auto traversable = std::false_type{};
 
 // -- Operation objects --
 //
@@ -122,10 +123,8 @@ inline constexpr auto traversable_typeclass = std::false_type{};
 // nested. `traverse` was already a free function template doing exactly this
 // lookup-and-call; it becomes an object in `typeclass`, which suppresses ADL
 // and makes it non-overloadable. Callers move from `traverse(f, v)` to
-// `typeclass::traverse(f, v)`; whether the proposed verbs should pay that is a
+// `traverse(f, v)`; whether the proposed verbs should pay that is a
 // naming-review question, not one this header can settle.
-
-namespace typeclass {
 
 /** Operation object for Traversable's `traverse`.
  *
@@ -145,14 +144,14 @@ struct traverse_fn {
      * @tparam TC  The Traversable instance, from the lookup for the keying
      * argument. Not for callers to supply; pin with mode 2.
      */
-    template <class F, class T,
-              const auto &TC = traversable_typeclass<remove_cvref_t<T>>>
+    template <class F, class T, const auto &TC = traversable<remove_cvref_t<T>>>
     constexpr auto operator()(F &&function, T &&value) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Traversable instance for this type. Specialize "
-                      "beman::transpose::traversable_typeclass<T> with an "
-                      "object providing traverse(applicative, f, container) "
-                      "and 'using element_type = ...;'.");
+        static_assert(
+            has_instance_v<decltype(TC)>,
+            "No Traversable instance for this type. Specialize "
+            "beman::transpose::traversable<T> with an "
+            "object providing traverse(applicative_map, f, container) "
+            "and 'using element_type = ...;'.");
         return TC.for_each(std::forward<T>(value), std::forward<F>(function));
     }
 };
@@ -164,7 +163,6 @@ inline constexpr traverse_fn traverse{};
 // with the arguments the other way round, and `for_each` at namespace scope
 // would sit next to std::for_each / std::ranges::for_each with a different
 // return contract -- one name, two meanings, is worse than one spelling.
-} // namespace typeclass
 
 } // namespace beman::transpose
 

@@ -26,7 +26,7 @@ namespace detail {
 // validate_impl: inherits the Traversable typeclass for T.
 // The typeclass operations (traverse, for_each) are available as unqualified
 // member calls through `this->`.
-template <class T, const auto &TC = beman::transpose::traversable_typeclass<
+template <class T, const auto &TC = beman::transpose::traversable<
                        beman::transpose::remove_cvref_t<T>>>
 struct validate_impl : beman::transpose::remove_cvref_t<decltype(TC)> {
     template <class Pred>
@@ -47,9 +47,9 @@ struct validate_impl : beman::transpose::remove_cvref_t<decltype(TC)> {
 // Demonstrates multi-typeclass composition — Foldable gives length,
 // Traversable gives for_each. Both base classes are empty.
 template <class T,
-          const auto &FC = beman::transpose::foldable_typeclass<
-              beman::transpose::remove_cvref_t<T>>,
-          const auto &TC = beman::transpose::traversable_typeclass<
+          const auto &FC =
+              beman::transpose::foldable<beman::transpose::remove_cvref_t<T>>,
+          const auto &TC = beman::transpose::traversable<
               beman::transpose::remove_cvref_t<T>>>
 struct transform_if_large_impl
     : beman::transpose::remove_cvref_t<decltype(FC)>,

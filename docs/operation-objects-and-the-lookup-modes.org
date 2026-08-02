@@ -30,7 +30,7 @@ Every way of reaching a typeclass operation so far starts by naming the instance
 An operation object starts by naming the operation, and works out the instance itself.
 I tried it across all five typeclasses in beman.transpose, including the Monad nobody is proposing, and it does what I wanted in the two cases I wanted it for.
 It also takes something away, which took me a compile error to notice.
-They live in one nested namespace for the whole family, which in the standard would be =std::typeclass=.
+One namespace holds the whole family, which in the standard would be =std::typeclass=.
 #+end_abstract
 
 {{{TEASER_END}}}
@@ -41,20 +41,20 @@ They live in one nested namespace for the whole family, which in the standard wo
 Implicit lookup through the variable template:
 
 #+begin_src cpp
-const auto& functor = bt::functor_typeclass<std::optional<int>>;
+const auto& functor = bt::functor<std::optional<int>>;
 auto result = functor.fmap([](int x) { return x + 1; }, value);
 #+end_src
 
 The instance as an ordinary argument, for algorithms that take one:
 
 #+begin_src cpp
-auto result = fmap_with(bt::functor_typeclass<std::optional<int>>, value);
+auto result = fmap_with(bt::functor<std::optional<int>>, value);
 #+end_src
 
 And NTTP pinning, where the instance is fixed at the point the enclosing template is instantiated:
 
 #+begin_src cpp
-template <class CONTEXT, const auto& FUNCTOR = bt::functor_typeclass<CONTEXT>>
+template <class CONTEXT, const auto& FUNCTOR = bt::functor<CONTEXT>>
 auto fmap_plus_one(const CONTEXT& value) {
     return FUNCTOR.fmap([](int x) { return x + 1; }, value);
 }
@@ -72,7 +72,7 @@ It's been moderately useful there, which is a weak enough claim that it seemed w
 #+begin_src cpp
 struct fmap_fn {
     template <class F, class T,
-              const auto &TC = functor_typeclass<remove_cvref_t<T>>>
+              const auto &TC = typeclass::functor<remove_cvref_t<T>>>
     constexpr auto operator()(F &&function, T &&value) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Functor instance for this type. ...");
@@ -83,7 +83,6 @@ struct fmap_fn {
 inline constexpr fmap_fn fmap{};
 #+end_src
 
-all inside =namespace typeclass=.
 One designated argument keys the lookup; a trailing =const auto &TC= defaults to the lookup for that type; the body calls through it.
 The default template argument can go last and nowhere else, because it depends on a parameter that has to be deduced first.
 Remember that; it comes back.
@@ -101,7 +100,7 @@ Something calling itself a customization point object, added to that library, re
 
 It doesn't, because these aren't customization points.
 Nothing here is a hook.
-There's no ADL path into =fmap=, no =tag_invoke=, nothing an instance author can specialize that would make =fmap= mean anything other than what =functor_typeclass<T>= says it means.
+There's no ADL path into =fmap=, no =tag_invoke=, nothing an instance author can specialize that would make =fmap= mean anything other than what =typeclass::functor<T>= says it means.
 Customization is still bundled, still in one place, and still opted into whole.
 The object is a fixed spelling sitting on top of it.
 
@@ -118,8 +117,8 @@ A container on the stack, one function that folds it and traverses it, nothing e
 Naming a lookup object per typeclass costs a line each and buys nothing:
 
 #+begin_src cpp
-const auto& foldable    = bt::foldable_typeclass<BinaryTree<T>>;
-const auto& traversable = bt::traversable_typeclass<BinaryTree<T>>;
+const auto& foldable    = bt::foldable<BinaryTree<T>>;
+const auto& traversable = bt::traversable<BinaryTree<T>>;
 
 auto checked = traversable.for_each(tree, in_range);
 return checked ? foldable.length(tree) : 0;
@@ -165,7 +164,7 @@ tc::fmap<decltype(double_it)&, const std::vector<int>&, head_only_functor>(
 #+end_src
 
 Of course.
-=typeclass::fmap= is an object.
+=fmap= is an object.
 Objects don't take explicit template arguments, and the parameters live on =operator()=, so the only syntax that reaches them is
 
 #+begin_src cpp
@@ -224,25 +223,49 @@ The CRTP bases already carry that message, but they only fire if you instantiate
 Every operation given an object claims a name, and Foldable alone has ten.
 =empty=, =length=, =to_vector=, =any_of=, =all_of=, =invoke=; all of them exist in namespace std with related meanings, and =empty= is the bad one, because =std::empty= means very nearly the same thing.
 Nearly is worse than not at all.
-So: a nested namespace, the way the range algorithms are in =ranges=, and getting bitten now takes two using-directives and asking for it.
 
-That's the tidying argument, and it's the weaker one.
+I spent a while on a nested =beman::transpose::ops= for that.
+Wrong problem.
+=beman::transpose= is already a namespace scoped to this facility alone, and nobody drags it into scope by accident; nesting again just made every call site longer for a collision that was never going to happen.
+In the standard the namespace is =std::typeclass=, and =beman::transpose= is what maps onto it.
 
-The real reason for /one/ namespace rather than one per typeclass is coherence.
+The reason for /one/ namespace rather than one per typeclass is coherence, and that part is the design.
 A name in there means one thing across the whole family.
-=fmap= is Functor's map whichever instance hands it to you, which is exactly what lets Applicative provide the Functor names without anyone having to check which =fmap= they got.
+=fmap= is Functor's map whichever instance hands it to you, which is what lets Applicative provide the Functor names without anyone having to check which =fmap= they got.
 That commitment already does work elsewhere: it's why an algorithm can inherit from two typeclass instances at once and call both surfaces unqualified.
 Collecting the operations in one place makes it checkable in one place.
 Split them per typeclass and =fmap= can quietly mean two things.
-
-A namespace per typeclass is also just too many namespaces, for a facility whose whole point is that the vocabulary is shared.
-In the standard this would be =std::typeclass=.
 
 Three operations still get no object:
 
 - =for_each= is =traverse= with the arguments swapped, and =std::ranges::for_each= means something else with a different return contract.
 - =map= and =lift= are spelled =fmap= and =pure=. An alias doesn't need a second name.
 - =fold= is an alias of =combine_all=, same reasoning.
+
+* The lookup variables get the good names
+
+=functor_typeclass<T>= was a name working around a collision that shouldn't have been resolved in its favour.
+It's the user-facing surface; it should be =functor<T>=.
+So the lookup variables are =functor<T>=, =applicative<T>=, =foldable<T>=, =traversable<T>= and =monad<T>=, and the thing that collides gets the longer, more descriptive name instead.
+
+What collided was the CRTP bases, which were =Functor<Impl>= and friends, distinguished from the lookup variables only by a capital letter.
+That's not a distinction to build on.
+They're now =derive_functor<Impl>=, =derive_applicative<Impl>=, and so on, which says what they actually do: derive the rest of a typeclass from whatever primitives an instance supplies.
+
+#+begin_src cpp
+template <class VALUE_TYPE>
+struct VectorFunctorMap : derive_functor<VectorFunctorImpl<VALUE_TYPE>> {
+    using VectorFunctorImpl<VALUE_TYPE>::fmap;
+};
+
+template <class VALUE_TYPE>
+inline constexpr auto functor<std::vector<VALUE_TYPE>> =
+    VectorFunctorMap<VALUE_TYPE>{};
+#+end_src
+
+One thing the rename cost, which the compiler found for me: a local named =applicative= now shadows =applicative<T>=, and three functions had exactly that.
+They hold a looked-up instance, so they're =applicative_map= now, matching the =traversable_map= and =monad_map= parameters that were already there.
+Cheap, but it'll happen to anyone adopting the plain names, so it should be said out loud rather than left to be discovered.
 
 * The one name that's genuinely contested
 
@@ -290,7 +313,7 @@ The paper delta is small: D3200R0 already promises to discuss "the three lookup 
 What I'm still not sure about:
 
 - whether =ops= is the right name for the namespace, or whether something less generic reads better in the wording;
-- whether the two proposed verbs should really move — =traverse(f, structure)= is the spelling in the paper, and =typeclass::traverse= is a change to it that naming review may not want;
+- whether the two proposed verbs should really move — =traverse(f, structure)= is the spelling in the paper, and =traverse= is a change to it that naming review may not want;
 - whether =zero= is the right name for Alternative's identity, given three languages call it =empty=.
 
 None of those are blocked on code.

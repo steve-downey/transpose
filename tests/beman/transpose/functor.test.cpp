@@ -11,7 +11,7 @@
 namespace bt = beman::transpose;
 
 TEST_CASE("functor: fmap over optional") {
-    const auto &f = bt::functor_typeclass<std::optional<int>>;
+    const auto &f = bt::functor<std::optional<int>>;
     REQUIRE(f.fmap([](int x) { return x + 1; }, std::optional<int>{41}) ==
             std::optional<int>{42});
     REQUIRE(f.fmap([](int x) { return x + 1; }, std::optional<int>{}) ==
@@ -19,13 +19,13 @@ TEST_CASE("functor: fmap over optional") {
 }
 
 TEST_CASE("functor: fmap over vector") {
-    const auto &f = bt::functor_typeclass<std::vector<int>>;
+    const auto &f = bt::functor<std::vector<int>>;
     REQUIRE(f.fmap([](int x) { return x * 2; }, std::vector<int>{1, 2, 3}) ==
             std::vector<int>{2, 4, 6});
 }
 
 TEST_CASE("functor: replace is derived from fmap") {
-    const auto &f = bt::functor_typeclass<std::vector<int>>;
+    const auto &f = bt::functor<std::vector<int>>;
     REQUIRE(f.replace(std::vector<int>{1, 2, 3}, 0) ==
             std::vector<int>{0, 0, 0});
 }
