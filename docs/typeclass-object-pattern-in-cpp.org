@@ -164,11 +164,11 @@ No macro.
 No ~friend~ declaration.
 The variable template lives in the ~beman::transpose~ namespace; the type it adapts is in ~std~.
 
-* Three Lookup Modes
+* Four Lookup Modes
 
 This is what distinguishes the pattern from a plain specialization.
 The looked-up object is a /value/.
-You can use it three ways.
+You can use it three ways, and there's a fourth that doesn't use it at all.
 
 ** Implicit Lookup
 
@@ -216,6 +216,33 @@ This matters in generic code.
 The lookup is bound once, at template instantiation.
 It does not depend on ADL, overload resolution, or the call site's namespace.
 If someone specializes the variable template later, existing instantiations are unaffected.
+
+** The Operation Object
+
+The three modes above all name the instance before they name the operation.
+That's the right order when the instance is the interesting part.
+Often it isn't.
+
+Every typeclass operation is also available as an object that does the lookup itself:
+
+#+begin_src cpp
+auto mapped = beman::transpose::fmap([](int x) { return x + 1; }, value);
+#+end_src
+
+~fmap~ deduces ~std::optional<int>~ from its second argument, resolves ~functor<std::optional<int>>~, and calls through it.
+The call site says what it wants done and says nothing about who does it.
+
+Two situations want that.
+Code where everything is local, and a container on the stack gets folded and traversed by one function with no other interest in the instances.
+And non-template callers: a plain function over concrete types has no template parameter list to hang mode 3 on, so before this it either opened with a block of lookup declarations or became a template for no reason of its own.
+
+The cost is mode 3 itself.
+An object takes no explicit template arguments, so there's nowhere to put the pin, and ~fmap<..., my_functor>(f, v)~ doesn't parse.
+Pinning falls back to the explicit object argument, which was shorter anyway.
+
+One thing these are not is customization points, whatever the shape suggests.
+Customization still happens once, at ~functor<T>~.
+There is no hook on ~fmap~, no ADL path into it, and nothing to specialize that would make it mean anything other than what the instance says.
 
 * How It Differs From Standard Approaches
 
@@ -365,7 +392,7 @@ It is not decorative boilerplate.
 
 * Algorithm Objects: Inheriting from the Typeclass
 
-The three lookup modes above let generic code /call/ typeclass operations.
+The lookup modes above let generic code /call/ typeclass operations.
 But when I am writing an algorithm that /composes/ several operations --- checking a precondition with Foldable, then transforming via Traversable --- I want those names available without qualifying through a separate lookup object on every call.
 
 The solution is to inherit from the typeclass instance.

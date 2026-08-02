@@ -35,7 +35,7 @@ This repository uses one implementation surface:
 
 ## Lookup modes (important)
 
-The typeclass implementation object is, true to its name, an object — and should be usable in three ways:
+The typeclass implementation object is, true to its name, an object — and should be usable in four ways:
 
 1. Implicit lookup by variable template.
 
@@ -48,6 +48,13 @@ The typeclass implementation object is, true to its name, an object — and shou
 1. Non-type template parameter (NTTP) pinning.
 
 - A generic function can bind the looked-up typeclass object as an NTTP default and use it directly.
+
+1. The operation object, which names no instance at all.
+
+- `fmap(f, value)` deduces the type that keys the lookup, resolves `functor<T>`, and calls through it.
+- Use it where the instance is not the interesting part of the call, and in non-template functions, which have no template parameter list to carry mode 3.
+- It gives up mode 3 in exchange: an object takes no explicit template arguments. Pin with mode 2 instead, which is shorter.
+- These are not customization points. Customization stays at `functor<T>` and its siblings; the operation object is a fixed spelling over a customizable bundle.
 
 This is not a cosmetic detail.
 It keeps instance selection explicit, testable, and overridable while preserving static dispatch.
