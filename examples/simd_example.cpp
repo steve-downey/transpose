@@ -19,6 +19,7 @@
 #include <vector>
 
 namespace bt = beman::transpose;
+namespace tc = beman::transpose::typeclass;
 
 int main() {
     constexpr int W = 4;
@@ -43,7 +44,7 @@ int main() {
     }
 
     std::vector<bt::simd_lanes<int, W>> structure{lane_a, lane_b, lane_c};
-    auto transposed = bt::ops::transpose(structure);
+    auto transposed = tc::transpose(structure);
 
     std::cout << "transpose: " << structure.size() << " simd_lanes<int," << W
               << "> -> " << transposed.width << " lanes of vector<int>\n";
@@ -72,7 +73,7 @@ int main() {
         return result;
     };
 
-    auto scaled = bt::ops::traverse(scale_by_lane, coefficients);
+    auto scaled = tc::traverse(scale_by_lane, coefficients);
 
     std::cout << "\ntraverse: scaled " << coefficients.size()
               << " coefficients across " << W << " SIMD lanes\n";

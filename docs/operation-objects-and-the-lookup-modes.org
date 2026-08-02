@@ -30,7 +30,7 @@ Every way of reaching a typeclass operation so far starts by naming the instance
 An operation object starts by naming the operation, and works out the instance itself.
 I tried it across all five typeclasses in beman.transpose, including the Monad nobody is proposing, and it does what I wanted in the two cases I wanted it for.
 It also takes something away, which took me a compile error to notice.
-They live in a nested namespace, =beman::transpose::ops=, for the same reason =ranges= is a namespace.
+They live in one nested namespace for the whole family, which in the standard would be =std::typeclass=.
 #+end_abstract
 
 {{{TEASER_END}}}
@@ -83,7 +83,7 @@ struct fmap_fn {
 inline constexpr fmap_fn fmap{};
 #+end_src
 
-all inside =namespace ops=.
+all inside =namespace typeclass=.
 One designated argument keys the lookup; a trailing =const auto &TC= defaults to the lookup for that type; the body calls through it.
 The default template argument can go last and nowhere else, because it depends on a parameter that has to be deduced first.
 Remember that; it comes back.
@@ -107,7 +107,7 @@ The object is a fixed spelling sitting on top of it.
 
 So "customization point object" is the wrong name for these, however standard the term has got.
 It's the term I've used everywhere in the branch, because it's what compile-time-scheme calls them and I wasn't going to invent vocabulary mid-experiment.
-So they're operation objects, and the namespace is =ops=.
+So they're operation objects, and the namespace says so.
 
 * Where it helps
 
@@ -128,8 +128,8 @@ return checked ? foldable.length(tree) : 0;
 against
 
 #+begin_src cpp
-auto checked = bt::traverse(in_range, tree);
-return checked ? bt::length(tree) : 0;
+auto checked = tc::traverse(in_range, tree);
+return checked ? tc::length(tree) : 0;
 #+end_src
 
 This is the weak case.
@@ -141,11 +141,11 @@ Mode 3 is unavailable, and it isn't a matter of taste:
 
 #+begin_src cpp
 auto total_valid_readings(const std::vector<int>& readings) -> int {
-    if (bt::empty(readings))
+    if (tc::empty(readings))
         return 0;
-    if (!bt::all_of(readings, [](int x) { return x >= 0 && x < 1000; }))
+    if (!tc::all_of(readings, [](int x) { return x >= 0 && x < 1000; }))
         return -1;
-    return bt::fold_left(readings, 0, [](int a, int x) { return a + x; });
+    return tc::fold_left(readings, 0, [](int a, int x) { return a + x; });
 }
 #+end_src
 
@@ -160,16 +160,16 @@ Both cases are in [[file:../examples/cpo_example.cpp][=examples/cpo_example.cpp=
 I wrote the pinning test the obvious way and it didn't compile.
 
 #+begin_src cpp
-bt::ops::fmap<decltype(double_it)&, const std::vector<int>&, head_only_functor>(
+tc::fmap<decltype(double_it)&, const std::vector<int>&, head_only_functor>(
     double_it, values);   // error: expected primary-expression before 'decltype'
 #+end_src
 
 Of course.
-=ops::fmap= is an object.
+=typeclass::fmap= is an object.
 Objects don't take explicit template arguments, and the parameters live on =operator()=, so the only syntax that reaches them is
 
 #+begin_src cpp
-bt::ops::fmap.operator()<decltype(double_it)&, const std::vector<int>&,
+tc::fmap.operator()<decltype(double_it)&, const std::vector<int>&,
                          head_only_functor>(double_it, values);
 #+end_src
 
@@ -219,18 +219,24 @@ The =static_assert= in each CPO fires first and says which variable template to 
 The CRTP bases already carry that message, but they only fire if you instantiate =Traversable<std::false_type>=, and lookup failure doesn't do that.
 =has_instance_v= in =detail/typeclass_base.hpp= is the check.
 
-* Names, and why there's a namespace
+* One namespace, and why it's the design and not the tidying
 
 Every operation given an object claims a name, and Foldable alone has ten.
 =empty=, =length=, =to_vector=, =any_of=, =all_of=, =invoke=; all of them exist in namespace std with related meanings, and =empty= is the bad one, because =std::empty= means very nearly the same thing.
 Nearly is worse than not at all.
+So: a nested namespace, the way the range algorithms are in =ranges=, and getting bitten now takes two using-directives and asking for it.
 
-So they're in =beman::transpose::ops=, the way the range algorithms are in =ranges=.
-=beman::transpose= itself stays clean, and a header that pulls in the typeclass declarations no longer drags in a competitor to =std::empty=.
-Getting bitten now takes two using-directives and asking for it.
+That's the tidying argument, and it's the weaker one.
 
-Collisions /inside/ the family are already ruled out: the typeclass operation names are disjoint by design, which is what lets an algorithm inherit from two instances at once and call both surfaces unqualified.
-One namespace holding all of them is safe for the same reason.
+The real reason for /one/ namespace rather than one per typeclass is coherence.
+A name in there means one thing across the whole family.
+=fmap= is Functor's map whichever instance hands it to you, which is exactly what lets Applicative provide the Functor names without anyone having to check which =fmap= they got.
+That commitment already does work elsewhere: it's why an algorithm can inherit from two typeclass instances at once and call both surfaces unqualified.
+Collecting the operations in one place makes it checkable in one place.
+Split them per typeclass and =fmap= can quietly mean two things.
+
+A namespace per typeclass is also just too many namespaces, for a facility whose whole point is that the vocabulary is shared.
+In the standard this would be =std::typeclass=.
 
 Three operations still get no object:
 
@@ -243,6 +249,7 @@ Three operations still get no object:
 =empty= is Foldable's "holds nothing" here.
 It's also Alternative's identity (the unit of =<|>=), and compile-time-scheme's =alternative.hpp= already spells that one =empty=.
 transpose has no Alternative yet, which is the only reason there's no clash today.
+It would be a clash in the one namespace whose job is to make clashes impossible, so it should be settled now rather than when Alternative shows up.
 
 I went and looked at what the languages that have both typeclasses do, and they agree with each other and disagree with me:
 
@@ -283,7 +290,7 @@ The paper delta is small: D3200R0 already promises to discuss "the three lookup 
 What I'm still not sure about:
 
 - whether =ops= is the right name for the namespace, or whether something less generic reads better in the wording;
-- whether the two proposed verbs should really move — =traverse(f, structure)= is the spelling in the paper, and =ops::traverse= is a change to it that naming review may not want;
+- whether the two proposed verbs should really move — =traverse(f, structure)= is the spelling in the paper, and =typeclass::traverse= is a change to it that naming review may not want;
 - whether =zero= is the right name for Alternative's identity, given three languages call it =empty=.
 
 None of those are blocked on code.

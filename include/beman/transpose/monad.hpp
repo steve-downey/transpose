@@ -152,11 +152,11 @@ inline constexpr auto monad_typeclass<std::optional<VALUE_TYPE>> =
 // It also settles a naming question the free-function API had ducked. `bind`
 // could not be a function template here without reading as a competitor to
 // std::bind; the old spelling was `mbind`, a wart adopted to dodge exactly
-// that. An object needs no such dodge: `ops::bind` is a variable, it is never
-// found by ADL, and it never enters overload resolution with std::bind. The
-// typeclass operation gets its real name.
+// that. An object needs no such dodge: `typeclass::bind` is a variable, it is
+// never found by ADL, and it never enters overload resolution with std::bind.
+// The typeclass operation gets its real name.
 
-namespace ops {
+namespace typeclass {
 
 /** Operation object for Monad's `bind` primitive.
  *
@@ -234,7 +234,7 @@ template <class MA, class F>
 auto mbind(MA &&ma, F &&f) {
     return bind(std::forward<MA>(ma), std::forward<F>(f));
 }
-} // namespace ops
+} // namespace typeclass
 
 } // namespace beman::transpose
 

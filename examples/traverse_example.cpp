@@ -12,6 +12,7 @@
 #include <vector>
 
 namespace bt = beman::transpose;
+namespace tc = beman::transpose::typeclass;
 
 // Parse-like validation: succeed only for non-negative inputs.
 static auto checked_double(int x) -> std::optional<int> {
@@ -19,10 +20,10 @@ static auto checked_double(int x) -> std::optional<int> {
 }
 
 int main() {
-    auto good = bt::ops::traverse(checked_double, std::vector<int>{1, 2, 3});
+    auto good = tc::traverse(checked_double, std::vector<int>{1, 2, 3});
     std::cout << "all valid: " << (good ? "yes" : "no") << '\n';
 
-    auto bad = bt::ops::traverse(checked_double, std::vector<int>{1, -2, 3});
+    auto bad = tc::traverse(checked_double, std::vector<int>{1, -2, 3});
     std::cout << "one invalid: " << (bad ? "yes" : "no") << '\n';
 
     return 0;
