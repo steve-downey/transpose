@@ -344,7 +344,7 @@ inline constexpr auto applicative_typeclass = std::false_type{};
 // `pure<std::optional<int>>(42)` -- and it is the only operation in this
 // header that does not deduce.
 
-namespace ops {
+namespace typeclass {
 
 /** Operation object for Applicative's `invoke`, the user-facing
  * application verb.
@@ -410,7 +410,7 @@ inline constexpr ap_fn ap{};
  * context because no argument can name it.
  *
  * `CONTEXT` is the instantiated context type that keys the lookup, e.g.
- * `ops::pure<std::optional<int>>(42)`. This is the one place the deducing
+ * `typeclass::pure<std::optional<int>>(42)`. This is the one place the deducing
  * pattern does not reach: `pure` builds the context rather than consuming
  * one, so the context is in the return type and never in an argument.
  */
@@ -498,7 +498,7 @@ struct discard_second_fn {
 
 /** Sequences two in-context values, keeping the first. */
 inline constexpr discard_second_fn discard_second{};
-} // namespace ops
+} // namespace typeclass
 
 /** Applicative instance for std::optional: the flagship of the invoke core.
  * The trailing return type keeps invoke SFINAE-friendly so availability

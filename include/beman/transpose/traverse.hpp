@@ -120,12 +120,12 @@ inline constexpr auto traversable_typeclass = std::false_type{};
 //
 // See functor.hpp for the shape, the motivation, and why the namespace is
 // nested. `traverse` was already a free function template doing exactly this
-// lookup-and-call; it becomes an object in `ops`, which suppresses ADL and
-// makes it non-overloadable. Callers move from `traverse(f, v)` to
-// `ops::traverse(f, v)`; whether the proposed verbs should pay that is a
+// lookup-and-call; it becomes an object in `typeclass`, which suppresses ADL
+// and makes it non-overloadable. Callers move from `traverse(f, v)` to
+// `typeclass::traverse(f, v)`; whether the proposed verbs should pay that is a
 // naming-review question, not one this header can settle.
 
-namespace ops {
+namespace typeclass {
 
 /** Operation object for Traversable's `traverse`.
  *
@@ -164,7 +164,7 @@ inline constexpr traverse_fn traverse{};
 // with the arguments the other way round, and `for_each` at namespace scope
 // would sit next to std::for_each / std::ranges::for_each with a different
 // return contract -- one name, two meanings, is worse than one spelling.
-} // namespace ops
+} // namespace typeclass
 
 } // namespace beman::transpose
 

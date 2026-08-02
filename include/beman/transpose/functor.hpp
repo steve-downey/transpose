@@ -47,13 +47,14 @@ inline constexpr auto functor_typeclass = std::false_type{};
 
 // -- Operation objects --
 //
-// This comment is the reference for the `ops` namespace; the other typeclass
-// headers point back to it.
+// This comment is the reference for the `typeclass` namespace; the other
+// typeclass headers point back to it.
 //
 // A fourth lookup mode, on top of implicit lookup, explicit object argument,
 // and NTTP pinning (examples/lookup_modes_example.cpp): the operation as an
-// object that does the lookup itself. `ops::fmap(f, v)` names the operation
-// the caller means, rather than the object the operation is reached through.
+// object that does the lookup itself. `typeclass::fmap(f, v)` names the
+// operation the caller means, rather than the object the operation is reached
+// through.
 //
 // Two cases motivate them. First, everything-is-local code -- a container on
 // the stack that one algorithm maps or traverses -- where naming a lookup
@@ -74,25 +75,36 @@ inline constexpr auto functor_typeclass = std::false_type{};
 // from one designated argument, default a trailing `const auto &TC` NTTP to
 // the lookup for that type, and call through it.
 //
-// WHY A NESTED NAMESPACE. Every operation given an object claims a name, and
-// the family wants `empty`, `length`, `invoke`, `to_vector`, `any_of` and
-// `all_of` -- all of which exist in namespace std with related meanings.
-// `ops` keeps them out of beman::transpose itself, the way `ranges` does,
-// so that a header pulling in the typeclass declarations does not also pull
-// in a competitor to std::empty. Collisions *within* the family are already
-// ruled out: the typeclass operation names are disjoint by design, which is
-// what lets an algorithm inherit from two instances at once (see
-// examples/algorithm_object_example.cpp). One namespace for all of them is
-// therefore safe.
+// WHY ONE NESTED NAMESPACE. `typeclass` is where the whole operation
+// vocabulary lives -- every typeclass, not one namespace per typeclass. The
+// standard spelling this mirrors is `std::typeclass`.
 //
-// The one name where that guarantee is under real strain is `empty`, which
-// means Foldable's "holds nothing" here and Alternative's "identity of alt"
-// in the sibling compile-time-scheme tree. Adding Alternative would claim it
-// twice. The three languages with both typeclasses all give `empty` to
-// Alternative and name the Foldable predicate something else -- `null` in
-// Haskell (Data.Foldable) and PureScript (which re-exports Control.Plus's
-// `empty` from the same module, so the split is load-bearing there),
-// `isEmpty` in Cats, whose Alternative gets `empty` from MonoidK.
+// The first reason is coherence, and it is part of the design rather than a
+// consequence of it. A name in here means one thing across the entire family:
+// `fmap` is Functor's map whichever instance supplies it, and Applicative is
+// free to provide the Functor names because they can not mean anything else.
+// That commitment is already load-bearing elsewhere -- it is what lets an
+// algorithm inherit from two typeclass instances at once and call both
+// unqualified (see examples/algorithm_object_example.cpp). Collecting the
+// operations in one namespace makes the commitment checkable in one place. A
+// namespace per typeclass would let `fmap` mean two things and hide it.
+//
+// The second reason is std. Every operation given an object claims a name,
+// and the family wants `empty`, `length`, `invoke`, `to_vector`, `any_of`
+// and `all_of` -- all of which exist in namespace std with related meanings.
+// Nesting keeps them out of the library's own namespace, the way `ranges`
+// does, so a header declaring the typeclasses does not also declare a
+// competitor to std::empty. Getting bitten now takes two using-directives.
+//
+// The one name where coherence is under real strain is `empty`, which means
+// Foldable's "holds nothing" here and Alternative's "identity of alt" in the
+// sibling compile-time-scheme tree. Adding Alternative would claim it twice,
+// in the one namespace that is supposed to make that impossible. The three
+// languages with both typeclasses all give `empty` to Alternative and name
+// the Foldable predicate something else -- `null` in Haskell (Data.Foldable)
+// and PureScript (which re-exports Control.Plus's `empty` from the same
+// module, so the split is load-bearing there), `isEmpty` in Cats, whose
+// Alternative gets `empty` from MonoidK.
 //
 // C++ points the other way: std::empty, std::ranges::empty and every
 // container's .empty() are the *predicate*, and the language has no
@@ -106,10 +118,10 @@ inline constexpr auto functor_typeclass = std::false_type{};
 // is shorter than any spelling routed through these objects. An operation
 // object takes no explicit template arguments, so mode 3 is not available on
 // it -- the trailing TC above is reachable only as
-// `ops::fmap.operator()<F, T, TC>(...)`, which is a curiosity, not an API.
-// The earlier lookup modes are all untouched; `ops` is an addition.
+// `typeclass::fmap.operator()<F, T, TC>(...)`, which is a curiosity, not an
+// API. The earlier lookup modes are all untouched; `typeclass` is an addition.
 
-namespace ops {
+namespace typeclass {
 
 /** Operation object for Functor's `fmap`.
  *
@@ -152,7 +164,7 @@ struct replace_fn {
 
 /** Replaces every element of a functor with one value. */
 inline constexpr replace_fn replace{};
-} // namespace ops
+} // namespace typeclass
 
 template <class VALUE_TYPE>
 struct OptionalFunctorImpl {

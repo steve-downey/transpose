@@ -15,6 +15,7 @@
 #include <optional>
 
 namespace bt = beman::transpose;
+namespace tc = beman::transpose::typeclass;
 using example::BinaryTree;
 
 int main() {
@@ -47,8 +48,8 @@ int main() {
     auto neg_tree = BinaryTree<int>::node(-1, BinaryTree<int>::leaf(2),
                                           BinaryTree<int>::leaf(3));
 
-    auto all_positive = bt::ops::traverse(non_negative, tree);
-    auto has_negative = bt::ops::traverse(non_negative, neg_tree);
+    auto all_positive = tc::traverse(non_negative, tree);
+    auto has_negative = tc::traverse(non_negative, neg_tree);
 
     std::cout << "Traversable:\n";
     std::cout << "  all positive: " << (all_positive ? "has value" : "empty")

@@ -376,10 +376,10 @@ inline constexpr auto foldable_typeclass = std::false_type{};
 //
 // See functor.hpp for the shape, the motivation, and why the namespace is
 // nested. Foldable is the widest of the typeclasses -- one primitive and nine
-// derived operations -- and it is what forced the nesting: `empty`, `length`,
-// `to_vector`, `any_of` and `all_of` all have namespace-std counterparts with
-// related meanings, and `ops::empty` against `std::empty` was the worst of
-// them. Inside `ops` the clash needs two using-directives to bite.
+// derived operations -- and it supplies most of the names that made nesting
+// worth doing: `empty`, `length`, `to_vector`, `any_of` and `all_of` all have
+// namespace-std counterparts with related meanings, and `typeclass::empty`
+// against `std::empty` is the worst of them.
 //
 // `empty` stays the predicate here, which is the C++ reading (std::empty,
 // std::ranges::empty, container .empty()) and the reverse of the FP one --
@@ -394,7 +394,7 @@ inline constexpr auto foldable_typeclass = std::false_type{};
 // `fold` (the alias of combine_all) gets no object: an alias does not need a
 // second name.
 
-namespace ops {
+namespace typeclass {
 
 /** Operation object for Foldable's `fold_map` primitive.
  *
@@ -579,7 +579,7 @@ struct find_first_fn {
 
 /** First matching element, or empty: `find_first(container, pred)`. */
 inline constexpr find_first_fn find_first{};
-} // namespace ops
+} // namespace typeclass
 
 } // namespace beman::transpose
 

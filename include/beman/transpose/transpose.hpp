@@ -37,7 +37,7 @@
 
 namespace beman::transpose {
 
-namespace ops {
+namespace typeclass {
 
 /** Operation object for Traversable's derived `transpose`; the
  * object form of the verb, matching `traverse`.
@@ -70,7 +70,7 @@ struct transpose_fn {
 
 /** Structure of contexts to context of structure: `transpose(structure)`. */
 inline constexpr transpose_fn transpose{};
-} // namespace ops
+} // namespace typeclass
 
 } // namespace beman::transpose
 
