@@ -27,7 +27,7 @@ TEST_CASE("monad: join flattens nested optional") {
 }
 
 TEST_CASE("monad: invoke synthesized from bind and pure") {
-    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    const auto &m = bt::monad<std::optional<int>>;
     auto add3 = [](int a, int b, int c) { return a + b + c; };
 
     REQUIRE(m.invoke(add3, std::optional<int>{1}, std::optional<int>{2},
@@ -37,8 +37,8 @@ TEST_CASE("monad: invoke synthesized from bind and pure") {
 }
 
 TEST_CASE("monad: invoke coheres with the applicative invoke") {
-    const auto &monad = bt::monad_typeclass<std::optional<int>>;
-    const auto &applicative = bt::applicative_typeclass<std::optional<int>>;
+    const auto &monad = bt::monad<std::optional<int>>;
+    const auto &applicative = bt::applicative<std::optional<int>>;
     auto add = [](int a, int b) { return a + b; };
 
     REQUIRE(

@@ -24,7 +24,7 @@ int main() {
                                       BinaryTree<int>::leaf(5));
 
     // --- Foldable ---
-    const auto &f = bt::foldable_typeclass<BinaryTree<int>>;
+    const auto &f = bt::foldable<BinaryTree<int>>;
     std::cout << "Foldable:\n";
     std::cout << "  length: " << f.length(tree) << '\n';
     std::cout << "  sum:    " << f.fold_left(tree, 0, [](int a, int x) {
@@ -32,7 +32,7 @@ int main() {
     }) << '\n';
 
     // --- Applicative ---
-    const auto &app = bt::applicative_typeclass<BinaryTree<int>>;
+    const auto &app = bt::applicative<BinaryTree<int>>;
     auto doubled = app.invoke([](int x) { return x * 2; }, tree);
     std::cout << "Applicative:\n";
     std::cout << "  doubled sum: " << f.fold_left(doubled, 0, [](int a, int x) {

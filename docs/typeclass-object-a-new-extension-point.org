@@ -94,7 +94,7 @@ A typeclass object has three layers.
 
 #+begin_src cpp
 template <class T>
-inline constexpr auto foldable_typeclass = std::false_type{};
+inline constexpr auto foldable = std::false_type{};
 #+end_src
 
 Default: no instance.
@@ -102,7 +102,7 @@ A type opts in by specializing:
 
 #+begin_src cpp
 template <>
-inline constexpr auto foldable_typeclass<example::BinaryTree<int>> =
+inline constexpr auto foldable<example::BinaryTree<int>> =
     BinaryTreeFoldableMap{};
 #+end_src
 
@@ -129,7 +129,7 @@ The CRTP base derives everything else from that one function:
 
 #+begin_src cpp
 template <class Impl>
-struct Foldable : protected Impl {
+struct derive_foldable : protected Impl {
     using Impl::fold_map;
 
     template <class T>
@@ -148,7 +148,7 @@ Get ~length~, ~to_vector~, ~fold_left~, ~fold_right~, ~any_of~, ~all_of~, ~empty
 ** Layer 3: The Map (Connecting Impl to Base)
 
 #+begin_src cpp
-struct BinaryTreeFoldableMap : Foldable<BinaryTreeFoldableImpl> {
+struct BinaryTreeFoldableMap : derive_foldable<BinaryTreeFoldableImpl> {
     using BinaryTreeFoldableImpl::fold_map;
 };
 #+end_src
@@ -161,7 +161,7 @@ A different type might provide ~fold_right~ instead of ~fold_map~ as its core --
 ~std::numeric_limits<T>~ is a class template.
 Every specialization is still a ~numeric_limits~.
 
-~foldable_typeclass<vector<int>>~ and ~foldable_typeclass<example::BinaryTree<int>>~ can be completely different types.
+~foldable<vector<int>>~ and ~foldable<example::BinaryTree<int>>~ can be completely different types.
 One might be ~VectorFoldableMap~.
 The other is ~BinaryTreeFoldableMap~.
 The variable template does not constrain the specialization's type.
@@ -170,17 +170,17 @@ This matters because a variable template specialization is an object.
 I can take a reference to it, pass it as an NTTP, or override it locally.
 A class template specialization is a type --- I can instantiate it, but I cannot hand it around as a value.
 
-* Three Lookup Modes
+* Four Lookup Modes
 
 The looked-up object is a value.
-This gives three ways to use it.
+This gives three ways to use it, and a fourth that skips it.
 
 ** Implicit
 
 Look up by type, call operations:
 
 #+begin_src cpp
-const auto& foldable = beman::transpose::foldable_typeclass<Expr>;
+const auto& foldable = beman::transpose::foldable<Expr>;
 foldable.length(tree);
 #+end_src
 
@@ -200,7 +200,7 @@ Bind the lookup as a default non-type template parameter:
 
 #+begin_src cpp
 template <class T,
-          const auto& FOLDABLE = beman::transpose::foldable_typeclass<T>>
+          const auto& FOLDABLE = beman::transpose::foldable<T>>
 auto count_elements(const T& structure) {
     return FOLDABLE.length(structure);
 }
@@ -210,6 +210,22 @@ Lookup is fixed at instantiation.
 It does not depend on ADL, overload resolution, or the call site's namespace.
 Callers can override the default for testing or policy reasons.
 Existing instantiations are unaffected if someone specializes the variable template later.
+
+** The Operation Object
+
+The three modes above name the instance first.
+The fourth doesn't name it:
+
+#+begin_src cpp
+auto n = beman::transpose::length(tree);
+#+end_src
+
+~length~ deduces ~T~, resolves ~foldable<T>~, and calls through it.
+This is the mode for calls where the instance isn't the interesting part, and the only one available to a non-template function, which has no template parameter list to carry a pin.
+
+It trades mode 3 for the deduction.
+An object takes no explicit template arguments, so pinning falls back to the explicit object argument, which was shorter anyway.
+The object is a spelling and not a hook; customization still happens only at ~foldable<T>~.
 
 * Comparison
 
@@ -235,12 +251,12 @@ The ~using~ declaration in the Map struct selects the core:
 
 #+begin_src cpp
 // fold_map as primitive
-struct FoldMapSequenceMap : Foldable<FoldMapSequenceImpl> {
+struct FoldMapSequenceMap : derive_foldable<FoldMapSequenceImpl> {
     using FoldMapSequenceImpl::fold_map;
 };
 
 // fold_right as primitive
-struct FoldRightSequenceMap : Foldable<FoldRightSequenceImpl> {
+struct FoldRightSequenceMap : derive_foldable<FoldRightSequenceImpl> {
     using FoldRightSequenceImpl::fold_right;
 };
 #+end_src
@@ -254,7 +270,7 @@ The choice is local to the instance, not global to the concept.
 * Real Usage
 
 This pattern is not theoretical in this codebase.
-The same ~foldable_typeclass~, ~traversable_typeclass~, and ~applicative_typeclass~ variable templates dispatch for:
+The same ~foldable~, ~traversable~, and ~applicative~ variable templates dispatch for:
 
 - ~std::optional<T>~ --- Functor, Applicative, Monad
 - ~std::vector<T>~ --- Functor, Foldable, Traversable
@@ -280,7 +296,7 @@ If the type is wrong or unregistered, you get a compile error, not a runtime cra
 This is not a replacement for concepts.
 C++20 concepts still constrain templates.
 The typeclass object /dispatches/ --- it is the implementation behind the constraint.
-The two compose naturally: a concept can require that ~foldable_typeclass<T>~ is not ~false_type~.
+The two compose naturally: a concept can require that ~foldable<T>~ is not ~false_type~.
 
 This is not a framework.
 There is no base class for your types to inherit from, no macro to invoke, no code generation step.

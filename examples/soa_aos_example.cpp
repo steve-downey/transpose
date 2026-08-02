@@ -55,7 +55,7 @@ int main() {
     }
 
     // --- The array applicative also works standalone for lanewise computation.
-    const auto &app = bt::applicative_typeclass<std::array<int, 4>>;
+    const auto &app = bt::applicative<std::array<int, 4>>;
     std::array<int, 4> xs{1, 2, 3, 4};
     std::array<int, 4> ys{10, 20, 30, 40};
     auto sums = app.invoke([](int x, int y) { return x + y; }, xs, ys);

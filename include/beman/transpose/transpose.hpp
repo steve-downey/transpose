@@ -17,6 +17,7 @@
 
 #include <beman/transpose/apply.hpp>
 #include <beman/transpose/array.hpp>
+#include <beman/transpose/detail/typeclass_base.hpp>
 #include <beman/transpose/dual_monoid.hpp>
 #include <beman/transpose/fold.hpp>
 #include <beman/transpose/functor.hpp>
@@ -36,22 +37,36 @@
 
 namespace beman::transpose {
 
-/** @brief Transposes a structure of contextual values into a contextual
- *         structure, preserving shape: `structure<context<T>>` becomes
- *         `context<structure<T>>`.
- *
- * Equivalent to `traverse(identity, value)`; the applicative context is
- * inferred from the structure's element type.
- *
- * @param value  A traversable structure whose elements are an applicative
- *               context (e.g. `std::vector<std::optional<T>>`).
- * @return       The single outer context holding the structure.
+/** Operation object for Traversable's derived `transpose`; the
+ * object form of the verb, matching `traverse`.
  */
-template <class T>
-auto transpose(T &&value) {
-    const auto &map = traversable_typeclass<remove_cvref_t<T>>;
-    return map.transpose(std::forward<T>(value));
-}
+struct transpose_fn {
+    /** @brief Transposes a structure of contextual values into a contextual
+     *         structure, preserving shape: `structure<context<T>>` becomes
+     *         `context<structure<T>>`.
+     *
+     * Equivalent to `traverse(identity, value)`; the applicative context is
+     * inferred from the structure's element type.
+     *
+     * @param value  A traversable structure whose elements are an applicative
+     *               context (e.g. `std::vector<std::optional<T>>`).
+     * @return       The single outer context holding the structure.
+     * @tparam TC  The Traversable instance, from the lookup for the keying
+     * argument. Not for callers to supply; pin with mode 2.
+     */
+    template <class T, const auto &TC = traversable<remove_cvref_t<T>>>
+    constexpr auto operator()(T &&value) const {
+        static_assert(has_instance_v<decltype(TC)>,
+                      "No Traversable instance for this type. Specialize "
+                      "beman::transpose::traversable<T> with an "
+                      "object providing traverse(applicative, f, container) "
+                      "and 'using element_type = ...;'.");
+        return TC.transpose(std::forward<T>(value));
+    }
+};
+
+/** Structure of contexts to context of structure: `transpose(structure)`. */
+inline constexpr transpose_fn transpose{};
 
 } // namespace beman::transpose
 

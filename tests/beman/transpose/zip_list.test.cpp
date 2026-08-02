@@ -12,13 +12,13 @@
 namespace bt = beman::transpose;
 
 TEST_CASE("zip_list: pure repeats infinitely") {
-    auto r = bt::applicative_typeclass<bt::zip_list<int>>.pure(7);
+    auto r = bt::applicative<bt::zip_list<int>>.pure(7);
     REQUIRE(r.is_repeating());
     REQUIRE(r.repeated == 7);
 }
 
 TEST_CASE("zip_list: apply zips positionally and truncates to shortest") {
-    const auto &app = bt::applicative_typeclass<bt::zip_list<int>>;
+    const auto &app = bt::applicative<bt::zip_list<int>>;
     auto result =
         app.invoke([](int a, int b) { return a + b; },
                    bt::zip_list<int>{{1, 2, 3}}, bt::zip_list<int>{{10, 20}});
@@ -26,7 +26,7 @@ TEST_CASE("zip_list: apply zips positionally and truncates to shortest") {
 }
 
 TEST_CASE("zip_list: pure operand acts as identity for truncation") {
-    const auto &app = bt::applicative_typeclass<bt::zip_list<int>>;
+    const auto &app = bt::applicative<bt::zip_list<int>>;
     auto result =
         app.invoke([](int a, int b) { return a * b; },
                    bt::zip_list<int>{{1, 2, 3}}, bt::zip_list<int>::repeat(10));
@@ -55,7 +55,7 @@ TEST_CASE("zip_list: applicative laws hold") {
 TEST_CASE("zip_list: derived ap agrees with the invoke basis") {
     // zip_list is invoke-basis; the secondary ap is derived as
     // invoke(eval, fs, xs) and must agree with the direct spelling.
-    const auto &app = bt::applicative_typeclass<bt::zip_list<int>>;
+    const auto &app = bt::applicative<bt::zip_list<int>>;
     auto add_ten = [](int x) { return x + 10; };
     bt::zip_list<decltype(add_ten)> functions;
     functions.data = {add_ten, add_ten, add_ten};

@@ -14,7 +14,7 @@
 namespace bt = beman::transpose;
 
 TEST_CASE("apply: optional invoke combines effectful arguments") {
-    const auto &app = bt::applicative_typeclass<std::optional<int>>;
+    const auto &app = bt::applicative<std::optional<int>>;
     auto add = [](int a, int b, int c) { return a + b + c; };
     REQUIRE(app.invoke(add, std::optional<int>{1}, std::optional<int>{2},
                        std::optional<int>{3}) == std::optional<int>{6});
@@ -26,7 +26,7 @@ TEST_CASE("apply: ap is a supported basis and secondary operation") {
     // invoke is the user-facing interface; ap -- one-step application of a
     // callable-in-context -- is the classic basis, derived here from
     // optional's invoke basis and available as a secondary operation.
-    const auto &app = bt::applicative_typeclass<std::optional<int>>;
+    const auto &app = bt::applicative<std::optional<int>>;
     auto lifted = app.pure([](int x) { return x * 10; });
     REQUIRE(app.ap(lifted, std::optional<int>{5}) == std::optional<int>{50});
     REQUIRE(app.ap(app.pure([](int x) { return x * 10; }),
@@ -85,8 +85,8 @@ TEST_CASE("apply: laws hold for the Identity context") {
 }
 
 TEST_CASE("apply: invoke_with delegates to another applicative map") {
-    const auto &optional_map = bt::applicative_typeclass<std::optional<int>>;
-    const auto &zip_map = bt::applicative_typeclass<bt::zip_list<int>>;
+    const auto &optional_map = bt::applicative<std::optional<int>>;
+    const auto &zip_map = bt::applicative<bt::zip_list<int>>;
     auto result = optional_map.invoke_with(
         zip_map, [](int a, int b) { return a + b; },
         bt::zip_list<int>{{1, 2, 3}}, bt::zip_list<int>{{10, 20, 30}});

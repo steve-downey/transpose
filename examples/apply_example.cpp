@@ -12,7 +12,7 @@
 namespace bt = beman::transpose;
 
 int main() {
-    const auto &app = bt::applicative_typeclass<std::optional<int>>;
+    const auto &app = bt::applicative<std::optional<int>>;
     auto sum3 = [](int a, int b, int c) { return a + b + c; };
 
     auto ok = app.invoke(sum3, std::optional<int>{1}, std::optional<int>{2},
