@@ -215,7 +215,7 @@ error: no member named 'traverse' in 'std::false_type'
 
 which points at the library instead of at the specialization the caller has to write.
 The =static_assert= in each CPO fires first and says which variable template to specialize and what to put in it.
-The CRTP bases already carry that message, but they only fire if you instantiate =Traversable<std::false_type>=, and lookup failure doesn't do that.
+The CRTP bases already carry that message, but they only fire if you instantiate =derive_traversable<std::false_type>=, and lookup failure doesn't do that.
 =has_instance_v= in =detail/typeclass_base.hpp= is the check.
 
 * One namespace, and why it's the design and not the tidying
