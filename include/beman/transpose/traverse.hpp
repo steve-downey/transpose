@@ -116,23 +116,68 @@ struct Traversable : protected Impl {
 template <class T>
 inline constexpr auto traversable_typeclass = std::false_type{};
 
-/** @brief Maps `function` over `value`, traverses effects left-to-right,
- *         and preserves container shape.
+// -- Customization-point objects --
+//
+// See functor.hpp for the shape and the motivation. `traverse` was already a
+// free function template doing exactly this lookup-and-call; it is now the
+// object form, so the whole proposed surface reads the same way. The call
+// syntax is unchanged, and the object additionally suppresses ADL and cannot
+// be overloaded -- the properties that make a lookup-based verb predictable.
+
+/** Customization-point object for Traversable's `traverse`.
  *
- * @param function  A callable returning an applicative effect for each element.
- * @param value     The traversable container to process.
- * @return          The container shape transposed into the applicative effect.
+ * The structure keys the Traversable lookup and is deduced from the second
+ * argument; the applicative context is then inferred from what `function`
+ * returns for one element, exactly as the derived `for_each` does.
  */
-template <class F, class T>
-auto traverse(F &&function, T &&value) {
-    const auto &map = traversable_typeclass<remove_cvref_t<T>>;
-    using element_type = typename remove_cvref_t<decltype(map)>::element_type;
-    using Context =
-        remove_cvref_t<std::invoke_result_t<F, const element_type &>>;
-    const auto &applicative = applicative_typeclass<Context>;
-    return map.traverse(applicative, std::forward<F>(function),
-                        std::forward<T>(value));
-}
+struct traverse_fn {
+    /** @brief Maps `function` over `value`, traverses effects left-to-right,
+     *         and preserves container shape.
+     *
+     * @param function  A callable returning an applicative effect for each
+     *                  element.
+     * @param value     The traversable container to process.
+     * @return          The container shape transposed into the applicative
+     *                  effect.
+     * @tparam TC       The Traversable instance; defaults to the lookup for
+     *                  `T` and may be pinned explicitly.
+     */
+    template <class F, class T,
+              const auto &TC = traversable_typeclass<remove_cvref_t<T>>>
+    constexpr auto operator()(F &&function, T &&value) const {
+        static_assert(has_instance_v<decltype(TC)>,
+                      "No Traversable instance for this type. Specialize "
+                      "beman::transpose::traversable_typeclass<T> with an "
+                      "object providing traverse(applicative, f, container) "
+                      "and 'using element_type = ...;'.");
+        return TC.for_each(std::forward<T>(value), std::forward<F>(function));
+    }
+};
+
+/** Shape-preserving effectful traversal: `traverse(f, structure)`. */
+inline constexpr traverse_fn traverse{};
+
+/** Instance-pinned form of `traverse`; see `fmap_with` in functor.hpp for why
+ * the pin has to be a class template parameter to stay reachable.
+ */
+template <const auto &TC>
+struct traverse_with_fn {
+    /** Traverses `value` with `function` using the pinned Traversable
+     * instance. */
+    template <class F, class T>
+    constexpr auto operator()(F &&function, T &&value) const {
+        return TC.for_each(std::forward<T>(value), std::forward<F>(function));
+    }
+};
+
+/** Shape-preserving effectful traversal using a pinned instance. */
+template <const auto &TC>
+inline constexpr traverse_with_fn<TC> traverse_with{};
+
+// `for_each` gets no CPO. The derived operation is `traverse`
+// with the arguments the other way round, and `for_each` at namespace scope
+// would sit next to std::for_each / std::ranges::for_each with a different
+// return contract -- one name, two meanings, is worse than one spelling.
 
 } // namespace beman::transpose
 

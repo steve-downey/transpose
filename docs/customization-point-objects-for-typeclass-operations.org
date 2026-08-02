@@ -1,0 +1,264 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
+#+options: html5-fancy:t
+#+TITLE: Customization Point Objects for Typeclass Operations
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@gmail.com
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+DESCRIPTION:
+#+KEYWORDS:
+#+SUBTITLE: A Fourth Lookup Mode, and What It Costs
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+#+STARTUP: showall
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+#+HTML_LINK_HOME:
+#+HTML_LINK_UP:
+#+HTML_MATHJAX:
+#+HTML_HEAD:
+#+HTML_HEAD_EXTRA:
+#+INFOJS_OPT:
+
+#+begin_abstract
+Every way of reaching a typeclass operation so far starts by naming the instance.
+A customization point object starts by naming the operation, and works out the instance itself.
+I tried it across all five typeclasses in beman.transpose, including the Monad nobody is proposing, and it does what I wanted in the two cases I wanted it for.
+It also takes something away, which took me a compile error to notice.
+#+end_abstract
+
+{{{TEASER_END}}}
+
+* Three modes, and the one that isn't there
+
+[[file:../examples/lookup_modes_example.cpp][=examples/lookup_modes_example.cpp=]] lays out the three ways to reach an operation through a typeclass object.
+Implicit lookup through the variable template:
+
+#+begin_src cpp
+const auto& functor = bt::functor_typeclass<std::optional<int>>;
+auto result = functor.fmap([](int x) { return x + 1; }, value);
+#+end_src
+
+The instance as an ordinary argument, for algorithms that take one:
+
+#+begin_src cpp
+auto result = fmap_with(bt::functor_typeclass<std::optional<int>>, value);
+#+end_src
+
+And NTTP pinning, where the instance is fixed at the point the enclosing template is instantiated:
+
+#+begin_src cpp
+template <class CONTEXT, const auto& FUNCTOR = bt::functor_typeclass<CONTEXT>>
+auto fmap_plus_one(const CONTEXT& value) {
+    return FUNCTOR.fmap([](int x) { return x + 1; }, value);
+}
+#+end_src
+
+All three name the instance first and the operation second.
+That's the right order when the instance is the interesting part.
+Often it isn't.
+
+I got the fourth mode from the [[https://github.com/steve-downey/compile-time-scheme][compile-time-scheme]] tree, where the Common Lisp substrate has =fmap=, =fold_map=, =fold_left= and friends as plain objects that do the lookup themselves, q.v. =src/smd/cl/foundation/=.
+It's been moderately useful there, which is a weak enough claim that it seemed worth checking against the whole typeclass set instead of one or two operations.
+
+* The shape
+
+#+begin_src cpp
+struct fmap_fn {
+    template <class F, class T,
+              const auto &TC = functor_typeclass<remove_cvref_t<T>>>
+    constexpr auto operator()(F &&function, T &&value) const {
+        static_assert(has_instance_v<decltype(TC)>,
+                      "No Functor instance for this type. ...");
+        return TC.fmap(std::forward<F>(function), std::forward<T>(value));
+    }
+};
+
+inline constexpr fmap_fn fmap{};
+#+end_src
+
+One designated argument keys the lookup; a trailing =const auto &TC= defaults to the lookup for that type; the body calls through it.
+The default template argument can go last and nowhere else, because it depends on a parameter that has to be deduced first.
+Remember that; it comes back.
+
+Every operation on all five typeclasses got one of these, twenty-odd in all, and the three earlier modes are untouched.
+
+* They are not customization points
+
+I only noticed this writing the paper section, and it matters more than the code does.
+
+D3200R0 argues against one-CPO-per-operation customization: that's half of why the mechanism is bundled in the first place.
+Something calling itself a customization point object, added to that library, reads like the paper contradicting itself.
+
+It doesn't, because these aren't customization points.
+Nothing here is a hook.
+There's no ADL path into =fmap=, no =tag_invoke=, nothing an instance author can specialize that would make =fmap= mean anything other than what =functor_typeclass<T>= says it means.
+Customization is still bundled, still in one place, and still opted into whole.
+The object is a fixed spelling sitting on top of it.
+
+So "customization point object" is the wrong name for these, however standard the term has got.
+It's the term I've used everywhere in the branch, because it's what compile-time-scheme calls them and I wasn't going to invent vocabulary mid-experiment.
+It should probably be "operation object" before any of this is proposed.
+
+* Where it helps
+
+Two situations, and I want to be honest that they're the only two I've found.
+
+The first is code where everything is local.
+A container on the stack, one function that folds it and traverses it, nothing else in scope that cares which instance is in play.
+Naming a lookup object per typeclass costs a line each and buys nothing:
+
+#+begin_src cpp
+const auto& foldable    = bt::foldable_typeclass<BinaryTree<T>>;
+const auto& traversable = bt::traversable_typeclass<BinaryTree<T>>;
+
+auto checked = traversable.for_each(tree, in_range);
+return checked ? foldable.length(tree) : 0;
+#+end_src
+
+against
+
+#+begin_src cpp
+auto checked = bt::traverse(in_range, tree);
+return checked ? bt::length(tree) : 0;
+#+end_src
+
+This is the weak case.
+It's two lines and a matter of taste, and I'd not have bothered for it alone.
+
+The second one is the reason I did bother.
+A non-template function has no template parameter list, so there is nowhere to hang a =const auto &TC=.
+Mode 3 is unavailable, and it isn't a matter of taste:
+
+#+begin_src cpp
+auto total_valid_readings(const std::vector<int>& readings) -> int {
+    if (bt::empty(readings))
+        return 0;
+    if (!bt::all_of(readings, [](int x) { return x >= 0 && x < 1000; }))
+        return -1;
+    return bt::fold_left(readings, 0, [](int a, int x) { return a + x; });
+}
+#+end_src
+
+Before, this function either opened with a block of lookup declarations, or became a template for no reason of its own beyond carrying the instances.
+Neither is terrible.
+Making a function generic to get at a customization mechanism is the kind of thing that spreads, though, and =std::vector<int>= is exactly the case where the instances were never going to vary.
+
+Both cases are in [[file:../examples/cpo_example.cpp][=examples/cpo_example.cpp=]].
+
+* What it costs
+
+I wrote the pinning test the obvious way and it didn't compile.
+
+#+begin_src cpp
+bt::fmap<decltype(double_it)&, const std::vector<int>&, head_only_functor>(
+    double_it, values);   // error: expected primary-expression before 'decltype'
+#+end_src
+
+Of course.
+=bt::fmap= is an object.
+Objects don't take explicit template arguments, and the parameters live on =operator()=, so the only syntax that reaches them is
+
+#+begin_src cpp
+bt::fmap.operator()<decltype(double_it)&, const std::vector<int>&,
+                    head_only_functor>(double_it, values);
+#+end_src
+
+which works and which nobody is going to write.
+The trailing NTTP is there, and it's unreachable in practice.
+So the fourth mode isn't free: it's mode 3 traded for the deduction, on any operation where the parameter that keys the lookup has to be deduced.
+
+The repair is to make the pin a parameter of the CPO /type/ rather than of its call operator:
+
+#+begin_src cpp
+template <const auto &TC>
+struct fmap_with_fn {
+    template <class F, class T>
+    constexpr auto operator()(F &&function, T &&value) const {
+        return TC.fmap(std::forward<F>(function), std::forward<T>(value));
+    }
+};
+
+template <const auto &TC>
+inline constexpr fmap_with_fn<TC> fmap_with{};
+#+end_src
+
+=fmap_with<my_functor>(f, container)=.
+I've done this for the five primitives (=fmap=, =invoke=, =traverse=, =fold_map=, =bind=) and left the derived operations without one; the =_with= suffix already means "override the instance" on the CRTP bases, so at least the name was decided.
+Whether the derived operations need it is a real question and I don't know the answer yet.
+
+* The two operations that can't deduce
+
+=pure= builds a context instead of consuming one.
+There is no in-context argument, so nothing at the call site says which instance to look up, and the context has to be named:
+
+#+begin_src cpp
+bt::pure<std::optional<int>>(42);
+#+end_src
+
+so it is a variable template of CPO types instead of a single object.
+=kleisli= is the same story for the same reason: it composes two functions that each return a monadic value, and neither of its arguments is in context.
+
+These are the two operations in the family that produce a context, and they're the two the deducing form doesn't reach.
+That's tidy enough that I don't think it's a coincidence.
+It also means their pin is an ordinary template argument already, so they never needed a =_with= form.
+
+* Diagnostics, which I hadn't expected to improve
+
+An unregistered type currently reaches the operation as =std::false_type{}=, and the compiler says
+
+#+begin_example
+error: no member named 'traverse' in 'std::false_type'
+#+end_example
+
+which points at the library instead of at the specialization the caller has to write.
+The =static_assert= in each CPO fires first and says which variable template to specialize and what to put in it.
+The CRTP bases already carry that message, but they only fire if you instantiate =Traversable<std::false_type>=, and lookup failure doesn't do that.
+=has_instance_v= in =detail/typeclass_base.hpp= is the check.
+
+* Names
+
+This is where the bill comes due.
+Every derived operation that gets a CPO also claims a name at namespace scope, and Foldable has nine of them.
+=beman::transpose::empty= collides with =std::empty= for anyone with both namespaces unqualified, and the two mean nearly the same thing, which is worse than meaning different things.
+=length= and =to_vector= are the same class of problem one notch quieter.
+
+I've left =empty= in and flagged it in the header rather than quietly renaming it, because the collision is the finding.
+Qualified calls are fine, so this is not a defect in the mechanism.
+It is a cost the CPO layer has and the lookup-object layer doesn't, and it should go to naming review before any of it becomes wording.
+
+Three operations got no CPO at all:
+
+- =for_each= is =traverse= with the arguments swapped, and =std::ranges::for_each= means something else with a different return contract.
+- =map= and =lift= are spelled =fmap= and =pure=. An alias doesn't need a second name at namespace scope.
+- =fold= is an alias of =combine_all=, same reasoning.
+
+* Monad, which nobody is proposing
+
+=monad.hpp= is evidence in this repo, not proposed wording, and D3200R0 says why.
+I gave it the full CPO treatment anyway.
+If the pattern only worked for the operations that happen to be proposed, that would suggest it had been fitted to those operations instead of to the mechanism, and the whole argument in "Why not Monad" is that the mechanism carries Monad without strain.
+
+It settled one thing on the way.
+The free-function API had =mbind=, because =bind= as a function template in this namespace reads as a competitor to =std::bind=.
+An object needs no such dodge: it's a variable, ADL never finds it, and it never enters overload resolution with =std::bind=.
+So the operation gets its actual name, and =mbind= stays as a one-line forwarder for anything that already calls it.
+
+* Where this leaves things
+
+Everything above is on a branch, with 79 tests passing.
+The paper delta is small: D3200R0 already promises to discuss "the three lookup modes" in a section that is currently a placeholder, so it becomes four modes and a paragraph on the trade.
+
+What I'm not sure about:
+
+- whether the derived operations should have CPOs at all, or whether the primitives are enough and the rest stay on the lookup object;
+- whether =_with= for the five primitives is the right cut, or whether it should be all of them or none;
+- what to do about =empty=.
+
+The first one is really a question about how much of the operation set is API and how much is a convenience the instance author gets for free.
+I don't have a principled answer for that yet.
