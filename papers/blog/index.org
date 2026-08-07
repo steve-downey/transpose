@@ -26,7 +26,7 @@ Read it in order, or jump to the part you need.
 * Contents
 
 1. [[file:transposing-structure-and-context.org][Transposing Structure and Context]] --- one operation hiding inside a loop you have written a dozen times.
-2. [[file:how-traverse-and-transpose-work.org][Context is Applicative, Structure is Traversable]] --- the two typeclasses behind the front door.
+2. [[file:how-traverse-and-transpose-work.org][Context is Applicative, Structure is Traversable]] --- the two typeclasses behind the one verb.
 3. [[file:adapting-a-type-to-a-typeclass.org][Adapting a Type to a Typeclass]] --- three lines to opt in, and you never reopen anyone's class.
 4. [[file:writing-algorithms-with-typeclass-objects.org][Writing Algorithms with Typeclass Objects]] --- one algorithm, every instance, no ADL and no registry.
 5. [[file:prior-art-typeclasses-in-cpp.org][Prior Art: How Others Have Brought Typeclasses to C++]] --- FC++, ~cat~, libfn, Flux, and the customization point that keeps getting reinvented.

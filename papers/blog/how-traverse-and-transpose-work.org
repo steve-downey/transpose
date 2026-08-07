@@ -9,7 +9,7 @@
 #+LANGUAGE: en
 #+SELECT_TAGS: export
 #+EXCLUDE_TAGS: noexport
-#+SUBTITLE: How traverse and transpose work --- the two typeclasses behind the front door
+#+SUBTITLE: How traverse and transpose work --- the two typeclasses under one verb
 #+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
 #+STARTUP: showall
 #+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
@@ -91,7 +91,7 @@ You get a friendlier surface for free, because everything else falls out of ~pur
 - ~apply(cf, cx)~ --- the textbook primitive, a function /already inside the context/ applied to an argument inside the context, ~C<(T -> U)>, C<T> -> C<U>~ --- is ~invoke~ of "evaluate": ~invoke([](f, x){ return f(x); }, cf, cx)~.
 
 That last line deserves a pause, because the classic literature runs it the other way around --- ~apply~ as the primitive, everything derived from it.
-Both presentations are equivalent when the context can hold a function, and a type may supply whichever core is natural (part three shows the machinery).
+Both presentations are equivalent when the context can hold a function, and a type may supply whichever core is natural (part three shows how).
 But ~invoke~ is the more /general/ shape: it never needs a function to sit inside the context at all.
 Some contexts --- a hardware SIMD register is the concrete one --- can hold numbers but not callables, so ~apply~ for them cannot even be spelled, while ~invoke~ is perfectly well-defined.
 That is why ~invoke~ is the core here, and ~apply~ the derived convenience that exists where it can.
