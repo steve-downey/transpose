@@ -27,7 +27,6 @@
 #+HTML_HEAD_EXTRA:
 #+SUBTITLE:
 #+INFOJS_OPT:
-#+BIBLIOGRAPHY: ./references.bib
 
 #+begin_abstract
 Open extension with static dispatch, using variable templates as concept maps.
@@ -324,7 +323,8 @@ struct TestSequenceFoldableMap
 An alternate Impl can use ~fold_right~ as primitive instead.
 The CRTP base ~Foldable<Impl>~ detects this via the ~using~ declaration and derives ~fold_map~ from ~fold_right~ automatically.
 
-From [[file:../tests/beman/transpose/fold.test.cpp][=tests/beman/transpose/fold.test.cpp=]]:
+From [[file:../include/beman/transpose/fold.hpp][=include/beman/transpose/fold.hpp=]]: an ~Impl~ must provide either ~fold_map(f, container)~ or ~fold_right~ plus ~element_type~; the base derives whichever is missing.
+Sketched out, a ~fold_right~-primitive core for the test ~Sequence~ type would look like this:
 
 #+begin_src cpp
 template <class VALUE_TYPE>
@@ -349,16 +349,8 @@ struct RightFoldSequenceMap : Foldable<RightFoldSequenceImpl<VALUE_TYPE>> {
 };
 #+end_src
 
-Both produce identical results.
-The tests verify this:
-
-#+begin_src cpp
-const auto& fold_map_foldable = beman::transpose::foldable_typeclass<Sequence>;
-const auto& fold_right_foldable = right_fold_sequence_map<int>;
-
-CHECK(fold_map_foldable.length(seq) == fold_right_foldable.length(seq));
-CHECK(fold_map_foldable.to_vector(seq) == fold_right_foldable.to_vector(seq));
-#+end_src
+This is illustrative, not code lifted from the test suite --- ~tests/beman/transpose/fold.test.cpp~ exercises the ~fold_map~-primitive core shown above, not a ~fold_right~-primitive one.
+But the CRTP base treats the two cores symmetrically: whichever primitive the ~using~ declaration selects, the same battery of derived operations (~length~, ~to_vector~, ~fold_left~, ~fold_right~, ~any_of~, ~all_of~, ~empty~, ~find_first~, ~combine_all~, ~fold~) comes out the other end, and both cores would produce identical results for the same data.
 
 The ~using~ declaration is the mechanism.
 It is not decorative boilerplate.
@@ -496,7 +488,7 @@ The implementer surface is deliberately small:
 |-------------+------------------------+----------------------------------------------------------|
 | Functor     | ~fmap~                 | ~replace~                                                |
 | Foldable    | ~fold_map~ (or ~fold_right~) | ~length~, ~to_vector~, ~fold_left~, ~fold_right~, ~any_of~, ~all_of~, ~empty~, ~find_first~, ~combine_all~, ~fold~ |
-| Applicative | ~pure~ + ~apply~       | ~invoke~, ~map~, ~lift~, ~ap~, ~zip_with~, ~discard_first~, ~discard_second~ |
+| Applicative | ~pure~ + ~invoke~ (or ~pure~ + ~ap~) | ~invoke~, ~map~, ~lift~, ~ap~, ~zip_with~, ~discard_first~, ~discard_second~ |
 | Traversable | ~traverse~             | ~transpose~, ~for_each~, ~traverse_with~, ~transpose_with~ |
 
 Write one or two functions.
@@ -513,7 +505,7 @@ In this repository, it dispatches for:
 - ~zip_list<T>~ --- Applicative (zip semantics)
 - ~sender<T>~ --- Applicative (deferred computation)
 - ~std::array<T, N>~ --- Applicative
-- ~simd_lanes<T, N>~ --- Applicative (conditional on ~<simd>~ header)
+- ~simd_lanes<T, N>~ --- Applicative (the standalone header is unconditional; it is only exposed through the umbrella ~transpose.hpp~ conditionally, gated on ~__has_include(<simd>)~ alongside ~simd.hpp~)
 
 See ~examples/binary_tree.hpp~ for a worked example adding ~BinaryTree<T>~ with Foldable, Applicative, and Traversable as a standalone example.
 
@@ -527,5 +519,3 @@ No monkey-patching, no reopening classes, no central registry.
 
 If the language eventually gets better generic facilities --- pattern matching, richer concept maps --- this API should get simpler.
 It should not need to be replaced.
-
-#+print_bibliography:

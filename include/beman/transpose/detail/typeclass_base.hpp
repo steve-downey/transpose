@@ -6,6 +6,18 @@
 #include <optional>
 #include <type_traits>
 
+// beman.transpose is built on the C++23 typeclass-object pattern, whose base
+// classes use 'deducing this' (explicit object parameters, P0847). Fail loudly
+// and early on a compiler that lacks the feature (e.g. GCC 13) instead of
+// emitting thousands of parser errors at every `this auto&& self` member.
+#ifndef __cpp_explicit_this_parameter
+#error "beman.transpose requires C++23 'deducing this' (explicit object parameters, P0847). Compile with GCC 14+ or another conforming C++23 compiler; GCC 13 is unsupported."
+#endif
+static_assert(__cpp_explicit_this_parameter >= 202110L,
+              "beman.transpose requires C++23 'deducing this' (explicit object "
+              "parameters, P0847). Compile with GCC 14+ or another conforming "
+              "C++23 compiler.");
+
 namespace beman::transpose {
 
 // Design invariants for the typeclass object pattern:

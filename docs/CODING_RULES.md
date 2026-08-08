@@ -92,7 +92,9 @@ When older slideware guidance conflicts with these defaults, this file wins.
 ## Applicative Rules
 
 - The public surface is `invoke(f, ax, ay, ...)`.
-- Implementor-facing primitives may be `pure` and `apply`.
+- Implementor-facing primitives are `pure` plus either `invoke` or `ap`
+  (dual basis; `invoke` is the user-facing interface, `ap` the classic
+  one-step secondary basis, and the base derives whichever is missing).
 - Tree Applicative semantics must be explicit.
 - Alternate semantics that flatten, duplicate, expand, or reorder structure may exist as alternate maps, not silent replacements for the default.
 

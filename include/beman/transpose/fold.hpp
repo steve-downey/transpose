@@ -23,24 +23,6 @@
 
 namespace beman::transpose::detail {
 
-// Identity function for fold composition - no type erasure needed
-template <class STATE>
-struct IdentityFoldFunc {
-    constexpr auto operator()(STATE s) const -> STATE { return s; }
-};
-
-// Compose two fold functions without type erasure
-template <class F1, class F2>
-struct ComposedFoldFunc {
-    F1 d_f1;
-    F2 d_f2;
-
-    template <class STATE>
-    auto operator()(STATE s) const -> STATE {
-        return d_f2(d_f1(std::move(s)));
-    }
-};
-
 // Left fold composition (same order as f1 then f2)
 template <class STATE>
 struct LeftFoldProgram {
@@ -51,32 +33,10 @@ struct LeftFoldProgram {
     }
 };
 
-// Template-based version that avoids type erasure - used internally
-template <class F>
-struct LeftFoldProgramT {
-    F d_run;
-
-    template <class STATE>
-    auto operator()(STATE state) const -> STATE {
-        return d_run(std::move(state));
-    }
-};
-
 template <class STATE>
 struct RightFoldProgram {
     std::function<STATE(STATE)> d_run;
 
-    auto operator()(STATE state) const -> STATE {
-        return d_run(std::move(state));
-    }
-};
-
-// Template-based version that avoids type erasure - used internally
-template <class F>
-struct RightFoldProgramT {
-    F d_run;
-
-    template <class STATE>
     auto operator()(STATE state) const -> STATE {
         return d_run(std::move(state));
     }
@@ -113,24 +73,6 @@ struct Monoid<detail::LeftFoldProgram<STATE>> {
     }
 };
 
-// Template specialization for LeftFoldProgramT - avoids type erasure
-template <class F>
-struct Monoid<detail::LeftFoldProgramT<F>> {
-    auto identity() const
-        -> detail::LeftFoldProgramT<detail::IdentityFoldFunc<int>> {
-        return detail::LeftFoldProgramT<detail::IdentityFoldFunc<int>>{
-            detail::IdentityFoldFunc<int>{}};
-    }
-
-    template <class G>
-    auto combine(const detail::LeftFoldProgramT<F> &lhs,
-                 const detail::LeftFoldProgramT<G> &rhs) const
-        -> detail::LeftFoldProgramT<detail::ComposedFoldFunc<F, G>> {
-        return detail::LeftFoldProgramT<detail::ComposedFoldFunc<F, G>>{
-            detail::ComposedFoldFunc<F, G>{lhs.d_run, rhs.d_run}};
-    }
-};
-
 template <class STATE>
 struct Monoid<detail::RightFoldProgram<STATE>> {
     auto identity() const -> detail::RightFoldProgram<STATE> {
@@ -142,24 +84,6 @@ struct Monoid<detail::RightFoldProgram<STATE>> {
         -> detail::RightFoldProgram<STATE> {
         return detail::RightFoldProgram<STATE>{
             [lhs, rhs](STATE s) { return lhs(rhs(std::move(s))); }};
-    }
-};
-
-// Template specialization for RightFoldProgramT - avoids type erasure
-template <class F>
-struct Monoid<detail::RightFoldProgramT<F>> {
-    auto identity() const
-        -> detail::RightFoldProgramT<detail::IdentityFoldFunc<int>> {
-        return detail::RightFoldProgramT<detail::IdentityFoldFunc<int>>{
-            detail::IdentityFoldFunc<int>{}};
-    }
-
-    template <class G>
-    auto combine(const detail::RightFoldProgramT<F> &lhs,
-                 const detail::RightFoldProgramT<G> &rhs) const
-        -> detail::RightFoldProgramT<detail::ComposedFoldFunc<F, G>> {
-        return detail::RightFoldProgramT<detail::ComposedFoldFunc<F, G>>{
-            detail::ComposedFoldFunc<F, G>{lhs.d_run, rhs.d_run}};
     }
 };
 

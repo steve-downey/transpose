@@ -1,9 +1,9 @@
 include_guard(GLOBAL)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 26)
 
 set(CMAKE_CXX_FLAGS
-    "-Wall -Wextra -std=gnu++23 -Wno-maybe-uninitialized"
+    "-Wall -Wextra -std=gnu++26 -Wno-maybe-uninitialized"
     CACHE STRING
     "CXX_FLAGS"
     FORCE

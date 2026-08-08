@@ -1,14 +1,11 @@
-# $schema: https://mrdocs.com/docs/mrdocs/develop/_attachments/mrdocs.schema.json
-# yaml-language-server: $schema=https://mrdocs.com/docs/mrdocs/develop/_attachments/mrdocs.schema.json
-
 ---
 source-root: ..
 input:
   - ../include
 exclude:
-  - ../include/beman/optional/detail
+  - ../include/beman/transpose/detail
 exclude-patterns:
-  - ../include/beman/optional/detail/**
+  - ../include/beman/transpose/detail/**
   - ../tests/**
   - ../examples/**
 includes:
@@ -16,9 +13,9 @@ includes:
 file-patterns:
   - '*.hpp'
 include-symbols:
-  - 'beman::optional::**'
+  - 'beman::transpose::**'
 implementation-defined:
-  - 'beman::optional::detail'
+  - 'beman::transpose::detail'
 multipage: true
 generator: adoc
 output: adoc

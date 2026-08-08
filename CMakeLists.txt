@@ -35,7 +35,7 @@ configure_file(
 add_library(beman.transpose INTERFACE)
 add_library(beman::transpose ALIAS beman.transpose)
 
-target_compile_features(beman.transpose INTERFACE cxx_std_23)
+target_compile_features(beman.transpose INTERFACE cxx_std_26)
 
 target_sources(
     beman.transpose

@@ -5,10 +5,12 @@
 
 // Applicative instance for std::simd::basic_vec (P1928, C++26): the context
 // that PROVES the invoke core. A vec<T> holds only vectorizable scalars, so
-// vec<callable> is not a type: the classic `apply` (a callable held inside
-// the context) could never be spelled here -- which is why this library has
-// no apply anywhere, only the n-ary invoke. pure is the broadcast
-// constructor; invoke is the lane-wise generator constructor.
+// vec<callable> is not a type: the classic one-step `ap` (a callable held
+// inside the context) could never be spelled here -- which is why the n-ary
+// `invoke` is the user-facing interface. `ap` remains a fine secondary basis
+// for contexts that can hold callables, but is simply unspellable for vec.
+// pure is the broadcast constructor; invoke is the lane-wise generator
+// constructor.
 //
 // NOTE: this is an applicative instance only -- NOT a traversal context for
 // rebuilding structures (a vec cannot hold a vector<T> either). It is the
