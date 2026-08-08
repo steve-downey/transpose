@@ -190,12 +190,12 @@ struct transform_if_large_impl
 - The NTTP defaults pin the typeclass lookup; callers can override if needed.
 - Working example: see `examples/algorithm_object_example.cpp`.
 
-## Applicative: Derived invoke via terminating partial application
+## Applicative: dual basis, invoke derived from ap via terminating partial application
 
-In Haskell, Applicative is minimal (`pure` and `(<*>)`).
+In Haskell, Applicative is minimal (`pure` and `((<*>) | liftA2)`).
 `sequenceA` and `traverse` style usage is naturally expressed by applying pure functions to effectful arguments.
 
-In this C++ codebase, we model the same intent by deriving `invoke` from `pure` and `apply` using a terminating partial-application adapter:
+In this C++ codebase, an instance opts in with `pure` plus *either* the n-ary `invoke` — the user-facing application verb that papers, examples, and teaching lead with — *or* the one-step `ap` (classic `<*>`, a callable-in-context applied to one argument-in-context). The CRTP base derives whichever basis the instance does not supply. When `invoke` is derived from `ap`, it goes through a terminating partial-application adapter:
 
 ```text
 invoke(f, a, b, c) == ap(ap(ap(pure(partial(f)), a), b), c)
@@ -208,9 +208,9 @@ That gives us a practical equivalent of Ben Deane's terminating partial-applicat
 
 Contract summary:
 
-- Minimal required operations for Applicative impl are `pure` and `apply`.
-- `invoke` is provided by the base `Applicative<Impl>`.
-- Implementations may still override `invoke` for custom semantics or performance, for example shape-aware structures.
+- Minimal required operations for an Applicative impl are `pure` plus either `invoke` or `ap`.
+- Whichever of `invoke` / `ap` an instance omits is provided by the base `Applicative<Impl>`.
+- Implementations may still override `invoke` (or `ap`) for custom semantics or performance, for example shape-aware structures.
 
 ## Traps and corrections from tree-instance implementation
 
@@ -231,7 +231,7 @@ Contract summary:
 
 1. Distinguish required operations from convenience operations.
 
-- Applicative contract is `pure` plus `apply`.
+- Applicative contract is `pure` plus either `invoke` or `ap` (dual basis; the base derives whichever is missing).
 - Everything else is derived unless explicitly overridden.
 - Do not silently add alternative dispatch paths, for example ADL customizations, that bypass lookup objects.
 

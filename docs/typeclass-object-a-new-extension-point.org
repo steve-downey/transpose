@@ -261,7 +261,7 @@ The same ~foldable_typeclass~, ~traversable_typeclass~, and ~applicative_typecla
 - ~zip_list<T>~ --- Applicative (with zip semantics, not the list Applicative)
 - ~sender<T>~ --- Applicative (deferred computation)
 - ~std::array<T, N>~ --- Applicative
-- ~simd_lanes<T, N>~ --- Applicative (conditional on ~<simd>~ header)
+- ~simd_lanes<T, N>~ --- Applicative (the standalone header is unconditional; it is only exposed through the umbrella ~transpose.hpp~ conditionally, gated on ~__has_include(<simd>)~ alongside ~simd.hpp~)
 
 See ~examples/binary_tree.hpp~ for a worked example adding ~BinaryTree<T>~ with Foldable, Applicative, and Traversable as a standalone example.
 

@@ -32,6 +32,11 @@ EMACS := $(shell command -v emacs 2> /dev/null)
 
 CONFIG ?= Asan
 
+# beman.transpose requires C++23 'deducing this' and C++26 <simd>; default to
+# the gcc-16 toolchain (etc/gcc-16-toolchain.cmake) rather than the host's bare
+# cc/c++, which may be an unsupported compiler (e.g. GCC 13).
+TOOLCHAIN ?= gcc-16
+
 export
 
 ifeq ($(strip $(TOOLCHAIN)),)

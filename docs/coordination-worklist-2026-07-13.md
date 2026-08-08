@@ -128,6 +128,17 @@ updated on next talk revision; the fixpoint evidence repo may sweep
 opportunistically (non-gating). tree_algorithms is unaffected — it has
 no applicative surface.
 
+**SUPERSEDED (current code):** the current code reintroduced `ap` as a
+live secondary operation rather than removing it. `Applicative` is a
+dual basis with a single user-facing interface: an instance supplies
+`pure` plus either `invoke` or `ap`, and the base derives whichever one
+is missing. `invoke` is the user-facing verb that papers, examples, and
+teaching lead with; `ap` (classic `<*>`) stays available, and
+`detail::terminating_partial` stays as the invoke-from-ap currying
+derivation. This item's "remove from the public surface" plan below did
+not ship as written; treat it as historical record of the ruling, not
+the current state.
+
 ## 6. BinaryTree example cross-check (standing item)
 
 `examples/binary_tree.hpp` here and

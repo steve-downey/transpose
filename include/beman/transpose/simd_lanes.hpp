@@ -47,7 +47,12 @@ struct SimdLanesApplicativeImpl {
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value) {
         using U = remove_cvref_t<VALUE>;
-        return simd_lanes<U, N>::repeat(U(std::forward<VALUE>(value)));
+        // Aggregate-construct every lane from a copy of value, so U need not
+        // be default-constructible (no default-construct-then-assign).
+        return [&]<std::size_t... Is>(std::index_sequence<Is...>)
+                   -> simd_lanes<U, N> {
+            return {{(static_cast<void>(Is), U(value))...}};
+        }(std::make_index_sequence<N>{});
     }
 
     template <class FUNCTION, class FIRST, class... REST>
@@ -58,12 +63,17 @@ struct SimdLanesApplicativeImpl {
                                  const typename REST::value_type &...>;
         using U = remove_cvref_t<Result>;
 
-        simd_lanes<U, N> result;
-        for (int i = 0; i < N; ++i) {
-            result.data[i] =
-                std::invoke(function, first.data[i], rest.data[i]...);
-        }
-        return result;
+        // Aggregate-construct each lane in order, so U need not be
+        // default-constructible. Braced-init guarantees left-to-right eval.
+        // A single-index helper keeps the operand pack (rest) and the lane
+        // pack (Is) in separate expansions.
+        auto lane = [&](std::size_t i) -> U {
+            return std::invoke(function, first.data[i], rest.data[i]...);
+        };
+        return [&]<std::size_t... Is>(std::index_sequence<Is...>)
+                   -> simd_lanes<U, N> {
+            return {{lane(Is)...}};
+        }(std::make_index_sequence<N>{});
     }
 };
 

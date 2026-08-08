@@ -68,3 +68,28 @@ TEST_CASE("sender: a lifted callable applied through invoke stays deferred") {
     REQUIRE(combined.get() == 42);
     REQUIRE(*runs == 1);
 }
+
+TEST_CASE("sender: work may own a move-only resource, sender stays copyable") {
+    // The move_only_function storage lets a sender wrap a closure that owns a
+    // move-only resource; the sender itself remains copyable (shared work).
+    auto resource = std::make_unique<int>(42);
+    bt::sender<int> s{[owned = std::move(resource)]() -> int { return *owned; }};
+
+    auto copy = s; // copyable despite the move-only capture
+    REQUIRE(s.get() == 42);
+    REQUIRE(copy.get() == 42);
+}
+
+TEST_CASE("sender: invoke composes senders whose work owns move-only state") {
+    const auto &app = bt::applicative_typeclass<bt::sender<int>>;
+
+    auto make = [](int v) {
+        auto owned = std::make_unique<int>(v);
+        return bt::sender<int>{
+            [owned = std::move(owned)]() -> int { return *owned; }};
+    };
+
+    auto combined =
+        app.invoke([](int a, int b) { return a + b; }, make(3), make(4));
+    REQUIRE(combined.get() == 7);
+}
