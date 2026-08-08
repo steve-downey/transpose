@@ -86,6 +86,17 @@ Applicative's single core is `pure` + n-ary `invoke`; the law suite is
 stated in invoke form, and tests pin the *absence* of apply forms on every
 instance. See D3200R0 "Why not `apply`".
 
+**Superseded (current code):** `ap` was reintroduced as a live secondary
+operation. `Applicative` now has a dual basis with a single user-facing
+interface: an instance opts in with `pure` plus either the n-ary `invoke`
+(the user-facing verb — papers, examples, and teaching lead with it) or
+the one-step `ap` (classic `<*>`), and the CRTP base derives whichever
+basis the instance does not supply. `detail::terminating_partial`
+(`apply.hpp`) is the currying helper behind the invoke-from-ap
+derivation, and `tests/beman/transpose/apply.test.cpp` exercises `ap`
+directly rather than pinning its absence. See `apply.hpp` for the
+current basis.
+
 At the same time, unproposed repo surface was labeled explicitly (repo
 surface ≠ paper surface): `fold.hpp` carries the fold family, proposed by
 the recursive-tree-algorithms companion paper, not by D3200R0; `monad.hpp`

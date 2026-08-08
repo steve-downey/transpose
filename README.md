@@ -22,13 +22,7 @@ C++ has many vocabulary types and computational contexts that are individually
 well understood, but no uniform way to traverse a structure while producing
 contextual results and then *transpose* the result into a single outer context:
 
-### Build
-
-You can build transpose using a CMake workflow preset:
-
-```bash
-cmake --workflow --preset gcc-release
-```
+```text
 structure<context<T>>  ->  context<structure<T>>
 ```
 
@@ -88,12 +82,23 @@ make ctest      # run tests on the current build
 ```
 
 Tooling (CMake, Catch2, etc.) is provisioned via `uv` into a local `.venv`.
-`make TOOLCHAIN=gcc-15` selects `etc/gcc-15-toolchain.cmake`; `CONFIG=RelWithDebInfo`
-selects a non-sanitized configuration. CMake presets (`gcc-debug`, `llvm-debug`,
-...) are also provided for Beman tooling.
+The default toolchain is `gcc-16` (`etc/gcc-16-toolchain.cmake`); GCC 16 is the
+primary development compiler and GCC 14+ is the supported floor (`deducing this`
+and C++26 `<simd>` are required). `make TOOLCHAIN=gcc-15` selects a different
+toolchain, and `CONFIG=RelWithDebInfo` selects a non-sanitized configuration.
+
+Alternatively, a CMake workflow preset configures, builds, and tests in one
+step:
+
+```bash
+cmake --workflow --preset gcc-release
+```
+
+CMake presets (`gcc-debug`, `gcc-release`, `llvm-debug`, ...) are also provided
+for Beman tooling.
 
 The library is header-only (`beman::transpose` is an `INTERFACE` target requiring
-C++23) and consumable via `find_package`/`add_subdirectory`.
+C++26) and consumable via `find_package`/`add_subdirectory`.
 
 ## Provenance
 

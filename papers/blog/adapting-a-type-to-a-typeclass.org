@@ -19,7 +19,7 @@
 #+BIBLIOGRAPHY: ./references.bib
 
 #+begin_abstract
-Part one ended on a puzzle: ~optional~, a ~std::execution~ sender, and a lanewise SIMD value share no base class, no common header, no member named ~transpose~ --- yet each plugs into the same front door.
+Part one ended on a puzzle: ~optional~, a ~std::execution~ sender, and a lanewise SIMD value share no base class, no common header, no member named ~transpose~ --- yet each answers to the same call.
 This is how, from the side that matters most to you if you own a type: what does it cost to make /your/ type join in?
 The answer is about three lines, and you never reopen a class you don't own.
 #+end_abstract
@@ -182,7 +182,7 @@ Here is the whole implementer surface, across the four typeclasses this design u
 
 Write one or two functions.
 Get a full API.
-That is the trade, and it is the whole reason adapting a type is cheap enough to actually do.
+That is the trade, and it is why adapting a type is cheap enough to actually do.
 
 * The technique is optional; the contract is not
 
@@ -253,7 +253,7 @@ Deriving ~invoke~ from ~apply~ --- the compatibility path, still fully supported
 And so ~std::simd::vec~ is a /registered instance/.
 Its map supplies ~pure~ (broadcast to every lane) and ~invoke~ (the lane-wise generator), and nothing else; ~apply~ and ~ap~ simply do not exist for it --- not by fiat but by constraint, since the derivation needs a ~vec<callable>~ that cannot be formed.
 The trade is real but small: an invoke-only context gives up partial application --- there is no in-context function to feed arguments one at a time --- and partial application was never the C++ idiom anyway.
-~simd_lanes~, the array-of-lanes type, remains the lanewise context that goes through ~transpose~ (an array /can/ hold a vector, or a callable --- it supplies both cores); ~std::simd::vec~ is the hardware that computes what those lanes hold, and now participates in ~map~ and ~zip_with~ through the same front door as everything else.
+~simd_lanes~, the array-of-lanes type, remains the lanewise context that goes through ~transpose~ (an array /can/ hold a vector, or a callable --- it supplies both cores); ~std::simd::vec~ is the hardware that computes what those lanes hold, and now participates in ~map~ and ~zip_with~ through the same mechanism as everything else.
 
 The adapter's takeaway is smaller and concrete.
 Because the operations are /bundled/ and the base derives the many from the few, you write one or two primitives and inherit a full surface --- and, as Foldable shows, the bundle can even accept /either/ of two cores and fill in the other.

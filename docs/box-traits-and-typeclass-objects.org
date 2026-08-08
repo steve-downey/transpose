@@ -567,7 +567,7 @@ It models the algebraic hierarchy above it:
 
 - ~Functor~: ~fmap~
 - ~Foldable~: ~fold_map~
-- ~Applicative~: ~pure~ + ~apply~
+- ~Applicative~: ~pure~ + ~invoke~ (or ~pure~ + ~ap~)
 - ~Traversable~: ~traverse~
 
 These are the structural typeclasses.
