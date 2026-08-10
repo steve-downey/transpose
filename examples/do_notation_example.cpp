@@ -77,7 +77,7 @@ struct World {
 /// IO a: a computation that, given the world, produces an `a`.
 template <class VALUE_TYPE>
 struct IO {
-    std::function<VALUE_TYPE(World&)> run;
+    std::function<VALUE_TYPE(World &)> run;
 };
 
 /// Monad instance for IO: pure produces the value and leaves the world
@@ -88,14 +88,15 @@ struct IOMonadImpl {
     using element_type = VALUE_TYPE;
 
     template <class VALUE>
-    auto pure(this auto&&, VALUE&& value) -> IO<std::remove_cvref_t<VALUE>> {
-        return {[value = std::forward<VALUE>(value)](World&) { return value; }};
+    auto pure(this auto &&, VALUE &&value) -> IO<std::remove_cvref_t<VALUE>> {
+        return {
+            [value = std::forward<VALUE>(value)](World &) { return value; }};
     }
 
     template <class A, class F>
-    auto bind(this auto&&, IO<A> ma, F&& f) -> std::invoke_result_t<F&, A> {
-        using MB = std::invoke_result_t<F&, A>;
-        return MB{[ma = std::move(ma), f = std::forward<F>(f)](World& world) {
+    auto bind(this auto &&, IO<A> ma, F &&f) -> std::invoke_result_t<F &, A> {
+        using MB = std::invoke_result_t<F &, A>;
+        return MB{[ma = std::move(ma), f = std::forward<F>(f)](World &world) {
             return std::invoke(f, ma.run(world)).run(world);
         }};
     }
@@ -112,7 +113,8 @@ struct IOMonadMap : beman::transpose::Monad<IOMonadImpl<VALUE_TYPE>> {
 namespace beman::transpose {
 /// Register the instance so mbind and the generic machinery find it.
 template <class VALUE_TYPE>
-inline constexpr auto monad_typeclass<IO<VALUE_TYPE>> = IOMonadMap<VALUE_TYPE>{};
+inline constexpr auto monad_typeclass<IO<VALUE_TYPE>> =
+    IOMonadMap<VALUE_TYPE>{};
 } // namespace beman::transpose
 
 namespace {
@@ -122,14 +124,14 @@ namespace bt = beman::transpose;
 // -- The Prelude, one name at a time --
 
 IO<Unit> putStr(std::string text) {
-    return {[text = std::move(text)](World&) {
+    return {[text = std::move(text)](World &) {
         std::cout << text;
         return Unit{};
     }};
 }
 
 IO<Unit> putStrLn(std::string line) {
-    return {[line = std::move(line)](World&) {
+    return {[line = std::move(line)](World &) {
         std::cout << line << '\n';
         return Unit{};
     }};
@@ -137,7 +139,7 @@ IO<Unit> putStrLn(std::string line) {
 
 /// Consumes the next scripted line, echoing it as the terminal would.
 IO<std::string> getLine() {
-    return {[](World& world) {
+    return {[](World &world) {
         std::string line = std::move(world.input.front());
         world.input.pop_front();
         std::cout << line << '\n';
@@ -156,7 +158,7 @@ IO<VALUE> pure(VALUE value) {
 template <class A, class B>
 IO<B> then(IO<A> action, IO<B> continuation) {
     return bt::mbind(std::move(action),
-                     [continuation = std::move(continuation)](const A&) {
+                     [continuation = std::move(continuation)](const A &) {
                          return continuation;
                      });
 }
@@ -177,8 +179,7 @@ IO<Unit> nameReturnAndCarryOn() {
                     auto full = first + " " + last;
                     return then(
                         putStrLn("Pleased to meet you, " + full + "!"),
-                        then(pure(full),
-                             putStrLn("I am not finished yet!")));
+                        then(pure(full), putStrLn("I am not finished yet!")));
                 }));
         }));
 }
