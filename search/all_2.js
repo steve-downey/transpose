@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['typeclass_2dobject_2dpattern_0',['typeclass-object-pattern',['../md_docs_typeclass_object_pattern.html',1,'']]],
-  ['typeclass_2dobject_2dpattern_2emd_1',['typeclass-object-pattern.md',['../typeclass-object-pattern_8md.html',1,'']]]
+  ['grading_20in_20beman_2etranspose_20—_20contextful_20evolution_20plan_0',['Grading in beman.transpose — Contextful Evolution Plan',['../md_docs_transpose_grading_plan.html',1,'']]]
 ];
