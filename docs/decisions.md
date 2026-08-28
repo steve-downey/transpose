@@ -259,7 +259,28 @@ official grade registration?
 instance come from — its own stage before
 [graded-deduction](transpose-grading-plan.md#graded-deduction), or does
 grading introduce `expected` to this library already graded?
-**Status:** OPEN
+**Status:** DECIDED 2026-08-28
+**Decision:** Ungraded first, as its own stage. `std::expected<T,E>` is
+registered as an ordinary applicative and monad — one pinned error type per
+instance object, so mixing `E1` with `E2` remains ill-formed — and folded into
+the golden deduction matrix, before any grade machinery reaches it. Placed
+immediately after [baseline-capture](transpose-grading-plan.md#baseline-capture)
+as stage [expected-instance](transpose-grading-plan.md#expected-instance),
+earlier than the "before graded-deduction" minimum the question asked for.
+**Why:** Without an ungraded before-state the no-spontaneous-singletons
+corollary of [grading-footprint](#grading-footprint) has nothing to be true
+*of*: "unmixed pipelines never become `expected<T, error_set<E>>`" would be an
+assertion about a type that never existed, unfalsifiable by the goldens that
+exist to falsify exactly that. Registering it before
+[grade-concept](transpose-grading-plan.md#grade-concept) rather than after
+also puts `expected<T,E>` into the matrix that stage must classify as
+∅-graded, which is a far sharper test of the ∅-default-for-unrecognized-types
+mechanism than `optional` alone — `expected` is precisely the type a leaky
+structural detector would misclassify, and its tripwire should fire on the
+hard case. Keeping one error type per instance object is what holds the
+previously-ill-formed territory closed until
+[graded-deduction](transpose-grading-plan.md#graded-deduction) opens it
+deliberately.
 **Log:**
 - 2026-08-28 — Raised by stage
   [baseline-capture](transpose-grading-plan.md#baseline-capture). No stage in
@@ -278,6 +299,8 @@ grading introduce `expected` to this library already graded?
   no `pure` of its own — which is exactly the bare-value promotion that stage
   [crtp-absorption](transpose-grading-plan.md#crtp-absorption) absorbs, and it
   arrives earlier than the plan's ordering suggests.
+- 2026-08-28 — Answered: ungraded first, as a new stage placed directly after
+  baseline-capture. Divergence closed; work resumed.
 
 ---
 
@@ -285,7 +308,18 @@ grading introduce `expected` to this library already graded?
 
 **Question:** How are the grade-algebra operations spelled, given that `join`
 in this library already means monadic join?
-**Status:** OPEN
+**Status:** DECIDED 2026-08-28
+**Decision:** `grade_`-prefixed free verbs — `grade_join`, `grade_bottom`,
+`grade_subsume` — dispatching through the grade model. Monadic `join` keeps
+its name unqualified and unchanged.
+**Why:** This is the library's own established shape one level up:
+`monoid_combine` and `monoid_identity` are free verbs dispatching to
+`Monoid<T>`, and the grade semilattice is the same kind of object. It keeps
+the free-verb surface every other operation in the library presents, keeps
+lookup static and explicit per the typeclass-object invariants in
+`detail/typeclass_base.hpp`, and resolves the collision without introducing a
+namespace level the library does not otherwise use. The prefix also reads
+correctly at the call site, where the operand is a grade and not a monad.
 **Log:**
 - 2026-08-28 — Raised by the vocabulary audit of stage
   [baseline-capture](transpose-grading-plan.md#baseline-capture)
@@ -299,3 +333,5 @@ in this library already means monadic join?
   or members of the `grade_semilattice` model rather than free functions.
   Nothing else collides: `grade`, `semilattice`, `bottom`, `subsume`, and
   `lattice` return zero hits on the public surface.
+- 2026-08-28 — Answered: `grade_`-prefixed free verbs, on the
+  `monoid_combine` precedent. Divergence closed; work resumed.

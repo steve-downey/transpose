@@ -90,6 +90,12 @@ client. The agent should know their one-line forms cold:
   recover-narrowed grades are annotated and checked, not inferred.
 - [grade-generality](decisions.md#grade-generality) — `error_set` is one model
   of a `grade_semilattice` concept; non-idempotent grades excluded.
+- [expected-instance-introduction](decisions.md#expected-instance-introduction)
+  — `expected` is registered ungraded first, one pinned error type per
+  instance object, before any grade machinery reaches it.
+- [grade-operation-spelling](decisions.md#grade-operation-spelling) — the
+  grade algebra is spelled `grade_join` / `grade_bottom` / `grade_subsume`;
+  unqualified `join` remains the monadic join.
 
 ## 3. Work plan — beman.transpose {#work-plan}
 
@@ -111,7 +117,30 @@ Tripwire: if current behavior already violates a standing decision (e.g.
 something already normalizes eagerly), STOP — the plan assumed a baseline
 that isn't there.
 
-### Stage 1 — [error-set-type](#error-set-type) {#error-set-type}
+### Stage 1 — [expected-instance](#expected-instance) {#expected-instance}
+Added 2026-08-28 by
+[expected-instance-introduction](decisions.md#expected-instance-introduction);
+stage numbers below shifted by one, slugs unchanged.
+Deliverables: `std::expected<T,E>` registered as an ordinary Applicative and
+Monad instance, ungraded, with ONE pinned error type per instance object —
+`invoke` accepts operands sharing that `E`, so mixing `E1` with `E2` stays
+ill-formed. Golden matrix extended with the resulting deductions, and with
+negative tests pinning the mixed case as still ill-formed.
+Why: this is the before-state the compatibility claim needs. Without it, the
+no-spontaneous-singletons corollary of
+[grading-footprint](decisions.md#grading-footprint) is an assertion about a
+type that never existed; with it, stage [graded-deduction](#graded-deduction)
+has something to preserve and the goldens can sense a regression. Holding
+mixed `E` ill-formed here is what keeps the previously-ill-formed territory
+closed until graded-deduction opens it on purpose.
+Acceptance: stage [baseline-capture](#baseline-capture) goldens still green;
+new goldens deduce `expected<T,E>` for unmixed pipelines with no `error_set`
+anywhere; mixed-`E` combinations fail to compile (negative tests).
+Tripwire: any deduced result mentioning `error_set` at this stage → STOP;
+nothing in this stage may reference the grade machinery, which does not exist
+yet.
+
+### Stage 2 — [error-set-type](#error-set-type) {#error-set-type}
 Deliverables: `error_set<Es...>` per
 [error-set-identity](decisions.md#error-set-identity): invariant-enforcing
 construction (sorted/deduped by type ordering); semilattice ops as native
@@ -126,7 +155,7 @@ Tripwires: normalization requiring type ordering on types outside the
 documented fallback restrictions → STOP (P2830 dependency risk). Any
 non-subset conversion compiling → STOP.
 
-### Stage 2 — [grade-concept](#grade-concept) {#grade-concept}
+### Stage 3 — [grade-concept](#grade-concept) {#grade-concept}
 Deliverables: `grade_semilattice` concept; `grade_of`, `rebind_grade`,
 `subsume` with structural defaults per
 [grade-machinery-home](decisions.md#grade-machinery-home); `error_set`
@@ -141,7 +170,7 @@ identity path → STOP. This is the datum-vs-grade hazard;
 it — if it didn't, the nominal fence has a hole. See also
 [datum-entry-point](decisions.md#datum-entry-point).
 
-### Stage 3 — [crtp-absorption](#crtp-absorption) {#crtp-absorption}
+### Stage 4 — [crtp-absorption](#crtp-absorption) {#crtp-absorption}
 Deliverables: promotion of bare values at ∅, ap-from-bind, defaulted subsume
 in the CRTP base; constrained to SFINAE away cleanly.
 Why: the ergonomics invariant of
@@ -152,7 +181,7 @@ minimal test instance (the "couple of functions" registration) works with
 zero grade awareness.
 Tripwire: any existing instance needs edits to compile → STOP.
 
-### Stage 4 — [graded-deduction](#graded-deduction) {#graded-deduction}
+### Stage 5 — [graded-deduction](#graded-deduction) {#graded-deduction}
 Deliverables: traverse/combinators deduce joined grades at genuine mixing
 points; lazy join per [grading-footprint](decisions.md#grading-footprint);
 graded/ungraded paths mutually exclusive by constraint.
@@ -165,7 +194,7 @@ bare side at ∅ inside the framework only.
 Tripwire: any golden test changes → STOP. Do not update a golden to make a
 stage pass; that inverts the sensor.
 
-### Stage 5 — [accumulating-object](#accumulating-object) {#accumulating-object}
+### Stage 6 — [accumulating-object](#accumulating-object) {#accumulating-object}
 Deliverables: separate NTTP-pinned accumulating applicative object; traverse
 policy parameter defaulted to the monad-derived object
 (surface per [traverse-policy-surface](decisions.md#traverse-policy-surface));
@@ -176,7 +205,7 @@ Acceptance: accumulating traverse collects all errors at the joined grade;
 attempting bind on it is a clear compile error whose message names the
 value-flow reason.
 
-### Stage 6 — [recover-narrowing](#recover-narrowing) {#recover-narrowing}
+### Stage 7 — [recover-narrowing](#recover-narrowing) {#recover-narrowing}
 Deliverables: `recover` with set-difference grade; annotated-and-checked
 grade at fold boundaries per
 [recover-grade-inference](decisions.md#recover-grade-inference).
@@ -185,7 +214,7 @@ demonstrating the annotate-and-check path.
 Tripwire: implementation pressure to infer via lattice fixpoint → STOP and
 discuss (compile-time cost vs spec complexity).
 
-### Stage 7 — [law-harness](#law-harness) {#law-harness}
+### Stage 8 — [law-harness](#law-harness) {#law-harness}
 Deliverables:
 - `laws.hpp` consumed only by test targets: `consteval bool
   check_graded_laws<Obj>()` usable as `static_assert(...)`.
@@ -211,7 +240,7 @@ don't patch around it.
 Acceptance: harness green on both models; harness written against the
 concept, instantiated with the models.
 
-### Stage 8 — [paper-revision](#paper-revision) {#paper-revision}
+### Stage 9 — [paper-revision](#paper-revision) {#paper-revision}
 Deliverables: P3200 rationale sections — coherence argument (nominal
 `error_set`, subset-only conversions, sorted normalization as
 names-not-positions); compatibility section (three sentences: pure paths
