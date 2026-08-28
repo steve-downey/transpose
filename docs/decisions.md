@@ -33,6 +33,11 @@ trade for an open boundary.
 without the user writing it violates this decision.
 **Log:**
 - 2026-08-28 — Adopted in planning discussion (graded monads thread).
+- 2026-08-28 — Sentinel partially mechanized by stage
+  [baseline-capture](transpose-grading-plan.md#baseline-capture): bare `int`
+  is pinned as an *unregistered* context in the golden tests, so promotion at
+  ∅ (stage [crtp-absorption](transpose-grading-plan.md#crtp-absorption))
+  cannot arrive by quietly registering bare values as a carrier.
 
 ---
 
@@ -58,6 +63,23 @@ deductions on previously-valid code are not tolerated.
 **Log:**
 - 2026-08-28 — Adopted; mechanized as the golden deduction tests in stage
   [baseline-capture](transpose-grading-plan.md#baseline-capture).
+- 2026-08-28 — DIVERGENCE, raised by
+  [baseline-capture](transpose-grading-plan.md#baseline-capture); awaiting
+  resolution. *Plan said:* the baseline matrix includes unmixed
+  `expected<T,E>`, and the newly-well-formed territory is "mixing
+  `expected<T,E1>` with `expected<T,E2>`". *Reality:* `std::expected` appears
+  nowhere in the repository — not registered as an applicative, monad, or
+  functor — so neither the unmixed nor the mixed case deduces anything today.
+  Both are ill-formed, and for the same reason: no instance, rather than no
+  join. *Assessment:* the Why is unharmed and arguably strengthened. For
+  `expected` the graded framework claims entirely new territory, so additive
+  compatibility there is trivially satisfied; the real compatibility burden
+  falls on the optional / vector / sender / zip_list / array paths, which the
+  goldens now pin. *Proposed resolution:* keep this decision as written;
+  capture the baseline over the carriers that exist; pin `expected`'s
+  non-registration as an explicit negative golden so a later stage flipping it
+  is deliberate; and settle where the ungraded instance comes from under
+  [expected-instance-introduction](#expected-instance-introduction).
 
 ---
 
@@ -110,6 +132,12 @@ graded spelling to diverge into.
 contains a bare/graded mixed-case overload, means the factoring has leaked.
 **Log:**
 - 2026-08-28 — Adopted.
+- 2026-08-28 — Spelling snag found by
+  [baseline-capture](transpose-grading-plan.md#baseline-capture): `join` in
+  this library already means monadic join. Deferred to
+  [grade-operation-spelling](#grade-operation-spelling); does not disturb the
+  decision, which is about where the operations live, not what they are
+  called.
 
 ---
 
@@ -222,3 +250,52 @@ official grade registration?
 - 2026-08-28 — Raised during planning. Note: shipping it quietly unifies
   optional and expected under one framework and likely belongs in the paper's
   rationale either way.
+
+---
+
+## expected-instance-introduction
+
+**Question:** Where does the *ungraded* `std::expected` applicative/monad
+instance come from — its own stage before
+[graded-deduction](transpose-grading-plan.md#graded-deduction), or does
+grading introduce `expected` to this library already graded?
+**Status:** OPEN
+**Log:**
+- 2026-08-28 — Raised by stage
+  [baseline-capture](transpose-grading-plan.md#baseline-capture). No stage in
+  the plan registers `expected` at all, graded or otherwise, yet
+  [graded-deduction](transpose-grading-plan.md#graded-deduction) and
+  [recover-narrowing](transpose-grading-plan.md#recover-narrowing) both assume
+  the carrier is present. Two consequences worth weighing before answering.
+  *First,* sequencing: only an ungraded-first introduction gives the
+  no-spontaneous-singletons corollary of
+  [grading-footprint](#grading-footprint) something to be true *of* — with no
+  ungraded `expected<T,E>` ever in the library, "unmixed pipelines never
+  become `expected<T, error_set<E>>`" has no before-state to preserve and
+  degrades from a compatibility guarantee into an assertion about a type that
+  never existed. *Second,* `pure`: an `expected` instance can only name an
+  error type by taking it from the pinned instance object, so the ∅ grade has
+  no `pure` of its own — which is exactly the bare-value promotion that stage
+  [crtp-absorption](transpose-grading-plan.md#crtp-absorption) absorbs, and it
+  arrives earlier than the plan's ordering suggests.
+
+---
+
+## grade-operation-spelling
+
+**Question:** How are the grade-algebra operations spelled, given that `join`
+in this library already means monadic join?
+**Status:** OPEN
+**Log:**
+- 2026-08-28 — Raised by the vocabulary audit of stage
+  [baseline-capture](transpose-grading-plan.md#baseline-capture)
+  ([baseline-vocabulary-audit.md](baseline-vocabulary-audit.md)).
+  `beman::transpose::join(MMA&&)` and `Monad::join` are the monadic join,
+  `join mma = mma >>= id`; [grade-machinery-home](#grade-machinery-home) gives
+  the grade algebra an operation also named `join`, in the same namespace.
+  Shallow — a spelling question, not a design one — but cheapest to settle
+  before stage [grade-concept](transpose-grading-plan.md#grade-concept) writes
+  the name down. Candidates: a nested `grades::` namespace, a `grade_` prefix,
+  or members of the `grade_semilattice` model rather than free functions.
+  Nothing else collides: `grade`, `semilattice`, `bottom`, `subsume`, and
+  `lattice` return zero hits on the public surface.
