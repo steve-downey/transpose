@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 set(transpose_tests
+    baseline_deduction
     monoid
     dual_monoid
     functor
