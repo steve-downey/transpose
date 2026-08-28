@@ -10,6 +10,7 @@ target_sources(
                 apply.hpp
                 array.hpp
                 dual_monoid.hpp
+                expected.hpp
                 fold.hpp
                 functor.hpp
                 monad.hpp

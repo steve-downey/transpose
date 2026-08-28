@@ -4,18 +4,28 @@
 // GOLDEN DEDUCTION TESTS -- stage baseline-capture of the grading plan
 // (docs/transpose-grading-plan.md#baseline-capture).
 //
-// Every assertion below pins the EXACT type deduced by the ungraded library
-// as it stands before any grading work. These are sensors, not obstacles:
-// the additive-compatibility claim of
+// This file holds two kinds of assertion, and they are kept apart on
+// purpose, because a failure has to mean one unambiguous thing.
+//
+// GOLDENS (sections 1-8) pin the EXACT type deduced by the library, and are
+// expected to hold unchanged through every remaining stage. What makes a
+// golden gold is precisely that nothing in the plan will legitimately change
+// it: the additive-compatibility claim of
 // docs/decisions.md#grading-footprint -- "for any input combination that
 // deduces a type today, the graded framework deduces the same type" -- is
-// proved by keeping this file green, not by argument. A later stage that
-// changes one of these types has changed a deduction on previously-valid
-// code, which grading-footprint does not tolerate. Do not update a golden
-// to make a stage pass; that inverts the sensor.
+// proved by keeping them green, not by argument. A golden that fails is a
+// regression. Never update one to make a stage pass; that inverts the
+// sensor (divergence protocol rule 4).
+//
+// SCHEDULED ASSERTIONS (section 9) record facts that a NAMED later stage is
+// planned to reverse. They are ordinary tests with an expiry date, not
+// goldens -- a golden with a scheduled flip is a to-do wearing a sensor's
+// clothes, and it teaches the reader to treat a red build as routine. Each
+// one names the stage that retires it. When that stage lands, flipping the
+// assertion is the expected outcome, not a caught regression.
 //
 // Everything here lives in unevaluated context, so the file is a
-// compile-time artifact: if it compiles, the baseline holds.
+// compile-time artifact: if it compiles, the assertions hold.
 
 #include <beman/transpose/transpose.hpp>
 
@@ -230,23 +240,22 @@ static_assert(
                    std::array<std::tuple<int, double>, 2>>);
 
 // =========================================================================
-// 7. The registration frontier -- what is NOT a context today.
+// 7. The registration frontier.
 //
-// These negative assertions are the honest half of the baseline. The plan's
-// matrix names unmixed `expected<T,E>`, but no expected instance exists in
-// this library: expected is not a registered applicative, monad, or functor,
-// so no expression over it deduces anything today. Recorded as a divergence
-// under docs/decisions.md#grading-footprint and as the open question
-// docs/decisions.md#expected-instance-introduction.
-//
-// Flipping any of these from false to true is a deliberate act by a later
-// stage, not an accident -- which is exactly why they are pinned here.
+// At stage baseline-capture all three of these read `!registered`: expected
+// appeared nowhere in the library, so no expression over it deduced anything.
+// Stage expected-instance
+// (docs/transpose-grading-plan.md#expected-instance) flipped the applicative
+// and monad deliberately, which is what the pin was here to make visible --
+// the goldens failed on exactly these two lines when the instance landed.
+// Functor is untouched and stays unregistered: the stage's scope is
+// Applicative and Monad, and widening it silently is what the pin prevents.
 // =========================================================================
 
 using exp_int = std::expected<int, std::errc>;
 
-static_assert(!applicative_registered<exp_int>);
-static_assert(!monad_registered<exp_int>);
+static_assert(applicative_registered<exp_int>);
+static_assert(monad_registered<exp_int>);
 static_assert(!functor_registered<exp_int>);
 
 // The bare value carries no applicative registration either. Under
@@ -277,6 +286,95 @@ static_assert(applicative_registered<ident_int>);
 static_assert(monad_registered<opt_int>);
 static_assert(functor_registered<opt_int>);
 static_assert(functor_registered<vec_int>);
+
+// =========================================================================
+// 8. Stage expected-instance -- the ungraded before-state.
+//
+// These are the deductions the graded framework must reproduce
+// character-for-character. Read them as the statement that
+// docs/decisions.md#grading-footprint's no-spontaneous-singletons corollary
+// is measurable: every result below is `expected<T, E>` with a bare error
+// type, and not one of them is `expected<T, error_set<E>>`. A later stage
+// that turns any of these into a singleton error_set has manufactured a
+// grade out of an unmixed pipeline, which is the thing the corollary forbids.
+// =========================================================================
+
+/** A second, unrelated error type -- the other side of a mixing point. */
+enum class other_errc { boom };
+
+auto exp_of(const int &x) -> exp_int { return exp_int{x}; }
+auto exp_double_of(const int &x) -> std::expected<double, std::errc> {
+    return std::expected<double, std::errc>{static_cast<double>(x)};
+}
+auto exp_other_of(const int &x) -> std::expected<double, other_errc> {
+    return std::expected<double, other_errc>{static_cast<double>(x)};
+}
+
+inline constexpr const auto &exp_app = bt::applicative_typeclass<exp_int>;
+inline constexpr const auto &exp_monad = bt::monad_typeclass<exp_int>;
+
+static_assert(std::is_same_v<decltype(exp_app.pure(std::declval<int>())),
+                             std::expected<int, std::errc>>);
+static_assert(
+    std::is_same_v<decltype(exp_app.invoke(add, std::declval<const exp_int &>(),
+                                           std::declval<const exp_int &>())),
+                   std::expected<int, std::errc>>);
+static_assert(std::is_same_v<
+              decltype(exp_app.map(to_double, std::declval<const exp_int &>())),
+              std::expected<double, std::errc>>);
+static_assert(std::is_same_v<
+              decltype(exp_app.discard_first(std::declval<const exp_int &>(),
+                                             std::declval<const exp_int &>())),
+              std::expected<int, std::errc>>);
+static_assert(
+    std::is_same_v<decltype(exp_monad.bind(std::declval<const exp_int &>(),
+                                           exp_double_of)),
+                   std::expected<double, std::errc>>);
+static_assert(std::is_same_v<decltype(bt::mbind(std::declval<const exp_int &>(),
+                                                exp_double_of)),
+                             std::expected<double, std::errc>>);
+static_assert(std::is_same_v<
+              decltype(bt::join(
+                  std::declval<const std::expected<exp_int, std::errc> &>())),
+              std::expected<int, std::errc>>);
+static_assert(std::is_same_v<
+              decltype(bt::traverse(exp_of, std::declval<const vec_int &>())),
+              std::expected<std::vector<int>, std::errc>>);
+static_assert(std::is_same_v<decltype(bt::transpose(
+                                 std::declval<const std::vector<exp_int> &>())),
+                             std::expected<std::vector<int>, std::errc>>);
+
+// -- The mixing frontier, which stays closed until graded-deduction. -------
+// One pinned error type per instance object, so an operand carrying a
+// different one fails deduction on the Impl basis. The probes are named
+// concepts for the usual reason: a bare requires-expression at block scope
+// would hard-error rather than yield false.
+
+template <class MAP, class FUNCTION, class... OPERANDS>
+concept invocable_through =
+    requires(const MAP &map, FUNCTION function, const OPERANDS &...operands) {
+        map.invoke(function, operands...);
+    };
+
+template <class MAP, class MA, class FUNCTION>
+concept bindable_through =
+    requires(const MAP &map, const MA &ma, FUNCTION function) {
+        map.bind(ma, function);
+    };
+
+using exp_app_t = std::remove_cvref_t<decltype(exp_app)>;
+using exp_monad_t = std::remove_cvref_t<decltype(exp_monad)>;
+using exp_other = std::expected<int, other_errc>;
+
+// Same error type on every operand: fine.
+static_assert(invocable_through<exp_app_t, decltype(add), exp_int, exp_int>);
+// Mixing two error types: ill-formed, and cleanly so.
+static_assert(!invocable_through<exp_app_t, decltype(add), exp_int, exp_other>);
+static_assert(!invocable_through<exp_app_t, decltype(add), exp_other, exp_int>);
+
+// Same for bind: the continuation must return the instance's error type.
+static_assert(bindable_through<exp_monad_t, exp_int, decltype(exp_double_of)>);
+static_assert(!bindable_through<exp_monad_t, exp_int, decltype(exp_other_of)>);
 
 } // namespace
 
