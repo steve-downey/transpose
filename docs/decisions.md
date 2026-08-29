@@ -91,10 +91,21 @@ structural sum?
 **Decision:** Nominal. `error_set<Es...>` is its own type: canonicalization
 (sorted, deduplicated via type ordering) is a class invariant enforced at
 construction; converting constructors encode exactly the `⊆` widenings and
-nothing else; the data-facing API is deliberately impoverished (visitation and
-membership for `recover`; not a variant competitor). May share storage/visit
-machinery with a structural sum by composition or private inheritance; the
-public identity never slices into the structural world.
+nothing else; the data-facing API is deliberately impoverished **but Regular**
+(visitation and membership for `recover`, plus equality and copy/move; not a
+variant competitor). May share storage/visit machinery with a structural sum
+by composition or private inheritance; the public identity never slices into
+the structural world.
+
+**Value-level invariant (amended 2026-08-29, see
+[accumulation-evidence](#accumulation-evidence)):** a value holds a *non-empty
+witnessed subset* of its grade — for each raised type, at most one witness.
+The type says *may raise*; the value says *did raise*, and did-raise is a
+subset of may-raise. Storage is per-type slots bounded by |grade|, not a
+one-of union: no allocation, constexpr-clean. Equality is "same present set,
+and equal witnesses". "Impoverished" was always about not competing with
+`variant` — no monostate conveniences, no assignment gymnastics — never about
+irregularity.
 **Why:** Type as semantics. A sum of types is representation; "the set of
 errors this computation may raise" is an interpretation, and interpretations
 need names. Nominality makes structural grade detection sound (it conscripts
@@ -119,6 +130,20 @@ normalization = names-not-positions; inclusions unique). Precedents:
   with `variant` — it exposes no alternative, no index, and no storage. It is
   defaulted, so it is deleted rather than ill-formed when an alternative is
   not comparable.
+- 2026-08-29 — Ruling (Steve): keep the `operator==`, and amend the decision
+  rather than the code. "Impoverished" meant not a variant competitor — no
+  monostate conveniences, no assignment gymnastics — not irregular. Regularity
+  is table stakes and was already half-present via copy/move. Decision text
+  above now reads "impoverished but Regular".
+- 2026-08-29 — AMENDMENT at the value level, from
+  [accumulation-evidence](#accumulation-evidence): the invariant moves from
+  "exactly one alternative" to "at least one", storage from a one-of union to
+  per-type slots, and equality to "same present set, equal witnesses". Note
+  for whoever reads this slug next: this is the second amendment to it in a
+  week, and both times the cause was the same — value semantics left
+  underspecified relative to type semantics. Worth suspecting that pattern
+  anywhere else the log states a type-level rule without saying what the
+  values do.
 
 ---
 
@@ -248,20 +273,34 @@ divergence proves otherwise?
 **Question:** How is the traverse applicative-object policy spelled at call
 sites — NTTP object parameter or tag type?
 **Status:** DECIDED 2026-08-29
-**Decision:** The policy is the NTTP-pinned applicative object itself, passed
-as a **trailing defaulted value parameter** — the shape `std::ranges`
-algorithms use for `comp = {}, proj = {}`. The parameter is constrained. No
-tag types.
+**Decision:** The policy is *the existing NTTP-pinned applicative object
+itself* — not a new type — passed as a **trailing defaulted value parameter**,
+the shape `std::ranges` algorithms use for `comp = {}, proj = {}`. POLICY is
+constrained by a concept ("is an applicative object for this carrier"). No tag
+types.
+The constraint is load-bearing twice over: a stray third argument — someone's
+extra container — fails loudly instead of being silently swallowed as a
+policy, and it is the enforcement hook at the traverse boundary for the
+framework refusing bind-derivation on the accumulating object.
 **Why:** An explicit template parameter (`traverse<accumulating>(f, xs)`)
-would rule out ever spelling `traverse` as a CPO, since a function object
-cannot take explicit template arguments — the surface decision would silently
-foreclose a customization-point decision that has not been made. A trailing
-defaulted value parameter keeps both open, and it is already the idiom the
-standard library uses for exactly this shape of optional policy, so it needs
-no explanation in the paper. Tag types are rejected because they add a
-vocabulary the library does not otherwise use, and a tag is a second thing to
-keep in sync with the object it names when the object is right there and
-already NTTP-pinnable.
+would rule out ever spelling `traverse` as a CPO, since call syntax cannot
+supply template arguments to `operator()` — and in a HOF-centric library
+`traverse` wants to be passable to other combinators. Working around it by
+making `traverse` a variable template of callables breaks the *default* call:
+`traverse(f, xs)` becomes `traverse<>(f, xs)`, changing every existing call
+site and failing the goldens. So the explicit-template spelling quietly
+forecloses the object form; the surface decision would settle a
+customization-point question nobody has asked.
+The trailing defaulted parameter costs nothing to get this: the objects are
+stateless, so type is identity, dispatch is type-directed and constant-folded,
+and default call sites are character-identical to today. Composition comes
+free — `bind_back(traverse, accumulating)` is the accumulating traverse as a
+first-class object, no wrapper lambda. It is also the LEWG-friendliest
+precedent to cite, being the ranges convention rather than the
+`sort(par, ...)` policy-first one.
+Tag types are rejected as a *shadow identity*: `accumulating_t` would be a
+second name for a structure that already has a nominal one, the applicative
+object itself — precisely what the NTTP-object design exists to prevent.
 **Log:**
 - 2026-08-28 — Raised during planning.
 - 2026-08-29 — Answered: trailing defaulted constrained value parameter, on
@@ -366,6 +405,56 @@ correctly at the call site, where the operand is a grade and not a monad.
   `lattice` return zero hits on the public surface.
 - 2026-08-28 — Answered: `grade_`-prefixed free verbs, on the
   `monoid_combine` precedent. Divergence closed; work resumed.
+
+---
+
+## accumulation-evidence
+
+**Question:** What carries the evidence of *multiple* failures, when the
+accumulating applicative object collects every error rather than the first?
+**Status:** DECIDED 2026-08-29
+**Decision:** The `error_set` value itself, as a **non-empty witnessed subset
+of its grade**: for each raised type, one witness value. The grade says "may
+raise {A,B}"; the value says "did raise", and did-raise is a subset of
+may-raise. Both applicative objects therefore share the carrier exactly as
+[applicative-objects](#applicative-objects) states — short-circuit only ever
+produces singletons, accumulating combines by witnessed union.
+Combining is **left-biased per type**: two A-witnesses keep the first. That is
+associative, allocation-free, and deterministic *because*
+[applicative-objects](#applicative-objects) already made left-to-right
+traversal normative — that decision pays for this one.
+Multiplicity loss is real and documented: the second A witness is dropped. The
+escape hatch is honest and needs no new machinery — a user who must keep every
+witness chooses a collecting error type as their `E`.
+**Why:** The alternatives conflated two levels. The grade join is type-level ∪
+and is always available, needing no monoid at all; what accumulation needs is
+a semigroup on the *evidence*, the value-level record of what did raise.
+Requiring `Monoid<E>` on user error types looks for that semigroup in the
+wrong place and makes graded accumulation unavailable by construction; its
+kernel survives here as "`error_set` supplies the semigroup itself". Making
+the accumulating object yield a different carrier was rejected because it
+breaks the decided same-carrier premise and makes the result type depend on
+the policy, which poisons composition.
+The confirming sign that this is the right shape rather than a patch for
+accumulation: it makes `recover` compositional. Under one-of semantics,
+recovering type A from a value that raised {a,b} has no meaning. Under subset
+semantics it is set-difference at both levels — the handler consumes the A
+witness, {b} remains an error, empty means success — so the value semantics
+and the grade arithmetic become the same operation at two levels.
+**Cost:** amends [error-set-identity](#error-set-identity) at the value level:
+invariant from "exactly one alternative" to "at least one", storage from a
+one-of union to per-type slots (bounded by |grade|, still no allocation, still
+constexpr-clean), equality to "same present set, equal witnesses". The
+`error_set` shipped by stage
+[error-set-type](transpose-grading-plan.md#error-set-type) implements the
+one-of form and must be revised before the accumulating object can exist.
+**Log:**
+- 2026-08-29 — Raised by stage
+  [accumulating-object](transpose-grading-plan.md#accumulating-object): the
+  plan specified the accumulating object's existence, its grade behaviour, and
+  its lawlessness for bind, but never what carries multiple witnesses at the
+  value level. The protocol's "question nobody has asked yet" case.
+- 2026-08-29 — Answered by Steve.
 
 ---
 
