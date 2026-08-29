@@ -247,9 +247,27 @@ divergence proves otherwise?
 
 **Question:** How is the traverse applicative-object policy spelled at call
 sites — NTTP object parameter or tag type?
-**Status:** OPEN
+**Status:** DECIDED 2026-08-29
+**Decision:** The policy is the NTTP-pinned applicative object itself, passed
+as a **trailing defaulted value parameter** — the shape `std::ranges`
+algorithms use for `comp = {}, proj = {}`. The parameter is constrained. No
+tag types.
+**Why:** An explicit template parameter (`traverse<accumulating>(f, xs)`)
+would rule out ever spelling `traverse` as a CPO, since a function object
+cannot take explicit template arguments — the surface decision would silently
+foreclose a customization-point decision that has not been made. A trailing
+defaulted value parameter keeps both open, and it is already the idiom the
+standard library uses for exactly this shape of optional policy, so it needs
+no explanation in the paper. Tag types are rejected because they add a
+vocabulary the library does not otherwise use, and a tag is a second thing to
+keep in sync with the object it names when the object is right there and
+already NTTP-pinnable.
 **Log:**
 - 2026-08-28 — Raised during planning.
+- 2026-08-29 — Answered: trailing defaulted constrained value parameter, on
+  the ranges `comp={}, proj={}` precedent; no tag types. The deciding
+  consideration was that an explicit-template spelling forecloses a CPO
+  `traverse`.
 
 ---
 
