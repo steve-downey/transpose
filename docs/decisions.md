@@ -335,3 +335,38 @@ correctly at the call site, where the operand is a grade and not a monad.
   `lattice` return zero hits on the public surface.
 - 2026-08-28 — Answered: `grade_`-prefixed free verbs, on the
   `monoid_combine` precedent. Divergence closed; work resumed.
+
+---
+
+## golden-vs-scheduled-assertions
+
+**Question:** How does the golden file separate assertions that must never
+change from assertions a named stage is *expected* to flip, and what does
+[graded-deduction](transpose-grading-plan.md#graded-deduction)'s tripwire say
+about the latter?
+**Status:** OPEN
+**Log:**
+- 2026-08-28 — Raised by stage
+  [expected-instance](transpose-grading-plan.md#expected-instance). That
+  stage's deliverable asks for "negative tests pinning the mixed case as still
+  ill-formed"; [graded-deduction](transpose-grading-plan.md#graded-deduction)'s
+  acceptance requires those same mixed cases to become well-formed and deduce
+  `expected<T, error_set<E1,E2>>`. Filed as goldens, they make graded-deduction
+  trip its own tripwire — "any golden test changes → STOP" — on assertions its
+  charter requires it to reverse.
+  *Fixed on the test side:* `baseline_deduction.test.cpp` is now split by
+  lifetime rather than polarity. Sections 1–8 are goldens; section 9 is
+  SCHEDULED, names graded-deduction as its expiry, and carries paired
+  permanent controls so the negatives cannot pass vacuously. The split also
+  surfaced a misfiling: `!applicative_registered<int>` is permanent and
+  load-bearing — under [empty-grade-spelling](#empty-grade-spelling) promotion
+  at ∅ must not arrive by registering bare values — yet it sat under a heading
+  reading "what is NOT a context today", beside two pins that were about to
+  flip.
+  *Unresolved, and Steve's call:* graded-deduction's tripwire still says any
+  golden change stops the stage, with no mention of a scheduled block.
+  Amending a tripwire is what rule 4 forbids and rule 5 reserves, so the plan
+  is deliberately left untouched. Options: amend the tripwire to name the
+  licensed exception; move the scheduled block to its own file so "golden
+  file" stays literally true; or drop the mixed-case negatives from stage 1
+  and let graded-deduction assert only the positives.
