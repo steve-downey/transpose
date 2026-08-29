@@ -29,6 +29,7 @@
 
 #include <concepts>
 #include <type_traits>
+#include <utility>
 
 namespace beman::transpose {
 
@@ -62,7 +63,7 @@ struct grade_bottom;
  * `grade_join_t<LEFT, RIGHT>` being RIGHT, which is what makes subsumption
  * coercions canonical and therefore coherently implicit. */
 template <class LEFT, class RIGHT>
-struct grade_subsume;
+struct grade_subsumes;
 
 template <class LEFT, class RIGHT>
 using grade_join_t = typename grade_join<LEFT, RIGHT>::type;
@@ -71,7 +72,7 @@ template <class GRADE>
 using grade_bottom_t = typename grade_bottom<GRADE>::type;
 
 template <class LEFT, class RIGHT>
-inline constexpr bool grade_subsume_v = grade_subsume<LEFT, RIGHT>::value;
+inline constexpr bool grade_subsumes_v = grade_subsumes<LEFT, RIGHT>::value;
 
 /** A type is a grade when a model has given it the three algebra verbs.
  *
@@ -85,7 +86,7 @@ template <class GRADE>
 concept grade_semilattice = requires {
     typename grade_join<GRADE, GRADE>::type;
     typename grade_bottom<GRADE>::type;
-    { grade_subsume<GRADE, GRADE>::value } -> std::convertible_to<bool>;
+    { grade_subsumes<GRADE, GRADE>::value } -> std::convertible_to<bool>;
 };
 
 // -- unit_grade is a grade in its own right, and the identity of every other
@@ -115,18 +116,18 @@ struct grade_bottom<unit_grade> {
 };
 
 template <>
-struct grade_subsume<unit_grade, unit_grade> : std::true_type {};
+struct grade_subsumes<unit_grade, unit_grade> : std::true_type {};
 
 /** ∅ subsumes into everything: a computation that raises nothing is usable
  * wherever one that may raise something is. */
 template <class RIGHT>
     requires requires { typename grade_bottom<RIGHT>::type; }
-struct grade_subsume<unit_grade, RIGHT> : std::true_type {};
+struct grade_subsumes<unit_grade, RIGHT> : std::true_type {};
 
 /** Nothing but ∅ subsumes into ∅. */
 template <class LEFT>
     requires requires { typename grade_bottom<LEFT>::type; }
-struct grade_subsume<LEFT, unit_grade> : std::false_type {};
+struct grade_subsumes<LEFT, unit_grade> : std::false_type {};
 
 // -- Carrier traits -------------------------------------------------------
 
@@ -172,6 +173,31 @@ using rebind_grade_t = typename rebind_grade<CONTEXT, GRADE>::type;
  */
 template <class CONTEXT>
 concept graded_context = !std::is_same_v<grade_of_t<CONTEXT>, unit_grade>;
+
+/** Subsumption: use a computation at a wider grade.
+ *
+ * The defaulted coercion is the carrier's OWN converting constructor. There
+ * is deliberately no bespoke machinery here: because the order is read off
+ * the join, the inclusion between two grades is unique, so there is exactly
+ * one coercion to write and the carrier already writes it. For the shipped
+ * model that is `error_set`'s ⊆-only converting constructor; for the ∅ case
+ * it is `expected`'s converting constructor from `T`, which is to say the
+ * standard already implements η's coercion
+ * (docs/decisions.md#empty-grade-spelling).
+ *
+ * Constrained, so it disappears cleanly rather than hard-erroring when the
+ * widening is not licensed by the order or the carrier cannot express it.
+ */
+template <class TARGET_GRADE, class CARRIER>
+    requires grade_subsumes_v<grade_of_t<remove_cvref_t<CARRIER>>,
+                              TARGET_GRADE> &&
+             std::constructible_from<
+                 rebind_grade_t<remove_cvref_t<CARRIER>, TARGET_GRADE>, CARRIER>
+constexpr auto grade_subsume(CARRIER &&value)
+    -> rebind_grade_t<remove_cvref_t<CARRIER>, TARGET_GRADE> {
+    return rebind_grade_t<remove_cvref_t<CARRIER>, TARGET_GRADE>(
+        std::forward<CARRIER>(value));
+}
 
 } // namespace beman::transpose
 

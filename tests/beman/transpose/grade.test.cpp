@@ -67,9 +67,9 @@ static_assert(std::is_same_v<bt::grade_join_t<bt::unit_grade, set_ab>, set_ab>);
 static_assert(std::is_same_v<bt::grade_join_t<set_ab, bt::unit_grade>, set_ab>);
 
 // ∅ subsumes into everything; nothing but ∅ subsumes into ∅.
-static_assert(bt::grade_subsume_v<bt::unit_grade, bt::unit_grade>);
-static_assert(bt::grade_subsume_v<bt::unit_grade, set_ab>);
-static_assert(!bt::grade_subsume_v<set_ab, bt::unit_grade>);
+static_assert(bt::grade_subsumes_v<bt::unit_grade, bt::unit_grade>);
+static_assert(bt::grade_subsumes_v<bt::unit_grade, set_ab>);
+static_assert(!bt::grade_subsumes_v<set_ab, bt::unit_grade>);
 
 // =========================================================================
 // 2. The shipped model, reached through grade vocabulary only. These
@@ -81,13 +81,13 @@ static_assert(
     std::is_same_v<bt::grade_join_t<set_a, bt::error_set<beta>>, set_ab>);
 static_assert(std::is_same_v<bt::grade_join_t<set_ab, set_a>, set_ab>);
 static_assert(std::is_same_v<bt::grade_bottom_t<set_ab>, bt::error_set<>>);
-static_assert(bt::grade_subsume_v<set_a, set_ab>);
-static_assert(!bt::grade_subsume_v<set_ab, set_a>);
+static_assert(bt::grade_subsumes_v<set_a, set_ab>);
+static_assert(!bt::grade_subsumes_v<set_ab, set_a>);
 
 // Order-from-join, through the framework verbs.
 template <class LEFT, class RIGHT>
 inline constexpr bool order_agrees_with_join =
-    bt::grade_subsume_v<LEFT, RIGHT> ==
+    bt::grade_subsumes_v<LEFT, RIGHT> ==
     std::is_same_v<bt::grade_join_t<LEFT, RIGHT>, RIGHT>;
 
 static_assert(order_agrees_with_join<set_a, set_ab>);
