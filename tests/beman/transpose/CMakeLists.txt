@@ -10,6 +10,7 @@ set(transpose_tests
     apply
     expected
     fold
+    grade
     monad
     traverse
     transpose

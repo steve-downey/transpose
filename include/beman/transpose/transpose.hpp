@@ -22,6 +22,7 @@
 #include <beman/transpose/expected.hpp>
 #include <beman/transpose/fold.hpp>
 #include <beman/transpose/functor.hpp>
+#include <beman/transpose/grade.hpp>
 #include <beman/transpose/monad.hpp>
 #include <beman/transpose/monoid.hpp>
 #include <beman/transpose/sender.hpp>
