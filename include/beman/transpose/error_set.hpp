@@ -258,6 +258,19 @@ class error_set_of {
         return std::visit(std::forward<HANDLER>(handler), d_alternative);
     }
 
+    /** Equality, when every alternative has it.
+     *
+     * Not a step toward being a variant competitor -- it is what keeps a
+     * graded carrier as usable as an ungraded one. `expected<T,E>` compares
+     * equal whenever E does, and `expected<T, error_set<...>>` would silently
+     * lose that if this were absent, which would make grading a usability
+     * regression at exactly the point it claims to be additive. Defaulted, so
+     * it is deleted rather than ill-formed when an alternative is not
+     * comparable. See docs/decisions.md#error-set-identity.
+     */
+    friend auto operator==(const error_set_of &, const error_set_of &)
+        -> bool = default;
+
   private:
     std::variant<ERRORS...> d_alternative;
 };

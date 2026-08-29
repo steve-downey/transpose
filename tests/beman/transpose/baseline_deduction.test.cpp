@@ -4,25 +4,23 @@
 // GOLDEN DEDUCTION TESTS -- stage baseline-capture of the grading plan
 // (docs/transpose-grading-plan.md#baseline-capture).
 //
-// This file holds two kinds of assertion, and they are kept apart on
-// purpose, because a failure has to mean one unambiguous thing.
-//
-// GOLDENS (sections 1-8) pin the EXACT type deduced by the library, and are
-// expected to hold unchanged through every remaining stage. What makes a
-// golden gold is precisely that nothing in the plan will legitimately change
-// it: the additive-compatibility claim of
+// EVERY assertion in this file is a golden: it pins the EXACT type the
+// library deduces, and no remaining stage will legitimately change it. What
+// makes a golden gold is precisely that nothing in the plan is due to move
+// it. The additive-compatibility claim of
 // docs/decisions.md#grading-footprint -- "for any input combination that
 // deduces a type today, the graded framework deduces the same type" -- is
 // proved by keeping them green, not by argument. A golden that fails is a
-// regression. Never update one to make a stage pass; that inverts the
-// sensor (divergence protocol rule 4).
+// regression. Never update one to make a stage pass; that inverts the sensor
+// (divergence protocol rule 4).
 //
-// SCHEDULED ASSERTIONS (section 9) record facts that a NAMED later stage is
-// planned to reverse. They are ordinary tests with an expiry date, not
-// goldens -- a golden with a scheduled flip is a to-do wearing a sensor's
-// clothes, and it teaches the reader to treat a red build as routine. Each
-// one names the stage that retires it. When that stage lands, flipping the
-// assertion is the expected outcome, not a caught regression.
+// Assertions that a named stage IS due to reverse do not belong here. They
+// live in their own translation unit with a stated expiry, because a golden
+// with a scheduled flip is a to-do wearing a sensor's clothes and teaches the
+// reader that a red build is routine. See
+// docs/decisions.md#golden-vs-scheduled-assertions. There is no such file at
+// present: the mixing frontier was the only scheduled block, stage
+// graded-deduction retired it, and section 9 below is what it became.
 //
 // Everything here lives in unevaluated context, so the file is a
 // compile-time artifact: if it compiles, the assertions hold.
@@ -35,6 +33,7 @@
 
 #include <array>
 #include <expected>
+#include <ios>
 #include <optional>
 #include <system_error>
 #include <tuple>
@@ -343,6 +342,82 @@ static_assert(std::is_same_v<
 static_assert(std::is_same_v<decltype(bt::transpose(
                                  std::declval<const std::vector<exp_int> &>())),
                              std::expected<std::vector<int>, std::errc>>);
+
+// =========================================================================
+// 9. Graded deduction at a mixing point. Golden as of stage
+//    graded-deduction, which promoted these from the scheduled block that
+//    used to assert the opposite (current_state.test.cpp, now retired).
+//
+// This is the ONE place grading changes behaviour, and it only claims
+// territory that was ill-formed before: none of the combinations below
+// deduced anything at all until this stage. Nothing that already deduced a
+// type deduces a different one -- which is what sections 1 to 8 are for.
+// =========================================================================
+
+using exp_io = std::expected<int, std::io_errc>;
+using mixed_errors = bt::error_set<std::errc, std::io_errc>;
+
+auto exp_io_of(const int &x) -> std::expected<double, std::io_errc> {
+    return std::expected<double, std::io_errc>{static_cast<double>(x)};
+}
+
+// Two different error types join into the error_set of both.
+static_assert(
+    std::is_same_v<decltype(exp_app.invoke(add, std::declval<const exp_int &>(),
+                                           std::declval<const exp_io &>())),
+                   std::expected<int, mixed_errors>>);
+
+// Grades are order-blind: ∪ commutes, so the operand order cannot change the
+// deduced grade. (It still fixes which error is OBSERVED, which is why the
+// traversal order is specified normatively rather than left to the types.)
+static_assert(
+    std::is_same_v<decltype(exp_app.invoke(add, std::declval<const exp_io &>(),
+                                           std::declval<const exp_int &>())),
+                   std::expected<int, mixed_errors>>);
+
+// Sequencing joins too: a continuation raising a different error widens the
+// result.
+static_assert(std::is_same_v<decltype(exp_monad.bind(
+                                 std::declval<const exp_int &>(), exp_io_of)),
+                             std::expected<double, mixed_errors>>);
+
+// An operand already carrying an error_set absorbs the other side's error
+// rather than nesting a set inside a set.
+static_assert(
+    std::is_same_v<
+        decltype(bt::applicative_typeclass<
+                     std::expected<int, bt::error_set<std::errc>>>
+                     .invoke(add,
+                             std::declval<const std::expected<
+                                 int, bt::error_set<std::errc>> &>(),
+                             std::declval<const exp_io &>())),
+        std::expected<int, mixed_errors>>);
+
+// LAZY JOIN. A bare operand is ∅-graded: it is promoted inside the framework
+// and leaves no trace, so mixing it with a graded operand does NOT
+// manufacture a singleton error_set. This is the no-spontaneous-singletons
+// corollary at the one place it could plausibly break.
+static_assert(
+    std::is_same_v<decltype(exp_app.invoke(add, std::declval<const exp_int &>(),
+                                           std::declval<const int &>())),
+                   std::expected<int, std::errc>>);
+static_assert(
+    std::is_same_v<decltype(exp_app.invoke(add, std::declval<const int &>(),
+                                           std::declval<const exp_int &>())),
+                   std::expected<int, std::errc>>);
+
+// And the same for two operands that agree on an error_set: carried
+// verbatim, not re-wrapped.
+static_assert(
+    std::is_same_v<
+        decltype(bt::applicative_typeclass<
+                     std::expected<int, bt::error_set<std::errc>>>
+                     .invoke(add,
+                             std::declval<const std::expected<
+                                 int, bt::error_set<std::errc>> &>(),
+                             std::declval<const std::expected<
+                                 int, bt::error_set<std::errc>> &>())),
+        std::expected<int, bt::error_set<std::errc>>>);
 
 } // namespace
 
