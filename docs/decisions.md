@@ -106,6 +106,19 @@ normalization = names-not-positions; inclusions unique). Precedents:
 `chrono::duration`, `std::byte` — semantics carried by what the type refuses.
 **Log:**
 - 2026-08-28 — Adopted.
+- 2026-08-29 — ADDITION, made by stage
+  [graded-deduction](transpose-grading-plan.md#graded-deduction); flag if
+  unwanted. `error_set_of` gained a defaulted `operator==`, which the
+  impoverished-API list (visitation, membership) did not enumerate. *Reason:*
+  `std::expected<T,E>` compares equal whenever `E` does, so without it
+  `expected<T, error_set<...>>` silently loses equality and grading becomes a
+  usability regression at precisely the point it claims to be additive. That
+  reads as against the spirit of [grading-footprint](#grading-footprint) even
+  though its letter does not apply, these types being new. *Assessment:*
+  equality on a sum of comparable alternatives is not a step toward competing
+  with `variant` — it exposes no alternative, no index, and no storage. It is
+  defaulted, so it is deleted rather than ill-formed when an alternative is
+  not comparable.
 
 ---
 
