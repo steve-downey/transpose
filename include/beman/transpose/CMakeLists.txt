@@ -14,6 +14,7 @@ target_sources(
                 expected.hpp
                 fold.hpp
                 functor.hpp
+                grade.hpp
                 monad.hpp
                 monoid.hpp
                 sender.hpp

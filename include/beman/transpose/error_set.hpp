@@ -33,9 +33,11 @@
 // error_set_of.
 
 #include <beman/transpose/detail/typeclass_base.hpp>
+#include <beman/transpose/grade.hpp>
 
 #include <array>
 #include <cstddef>
+#include <expected>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -315,6 +317,88 @@ template <class... LEFT, class... RIGHT>
 inline constexpr bool
     error_set_subsumes_v<error_set_of<LEFT...>, error_set_of<RIGHT...>> =
         (detail::list_contains_v<LEFT, detail::type_list<RIGHT...>> && ...);
+
+// -- Registration as a model of the grade algebra -------------------------
+// The direction of dependency is the point: the model knows about the
+// framework, never the reverse. Everything above this line is error
+// vocabulary; everything below translates it into grade vocabulary, and is
+// the only place the two meet. A second algebra registers the same way and
+// needs nothing from here -- which is the claim the law harness exists to
+// test (docs/decisions.md#grade-generality).
+
+namespace detail {
+
+template <class T>
+inline constexpr bool is_expected_v = false;
+
+template <class VALUE, class ERROR>
+inline constexpr bool is_expected_v<std::expected<VALUE, ERROR>> = true;
+
+} // namespace detail
+
+template <class... LEFT, class... RIGHT>
+struct grade_join<error_set_of<LEFT...>, error_set_of<RIGHT...>> {
+    using type =
+        error_set_join_t<error_set_of<LEFT...>, error_set_of<RIGHT...>>;
+};
+
+template <class... ERRORS>
+struct grade_bottom<error_set_of<ERRORS...>> {
+    using type = error_set_bottom;
+};
+
+template <class... LEFT, class... RIGHT>
+struct grade_subsume<error_set_of<LEFT...>, error_set_of<RIGHT...>>
+    : std::bool_constant<
+          error_set_subsumes_v<error_set_of<LEFT...>, error_set_of<RIGHT...>>> {
+};
+
+/** Structural grade detection: an expected whose error alternative IS an
+ * error_set is graded at that set.
+ *
+ * Nominality is what makes this sound -- it conscripts only the willing. An
+ * `expected<T, std::variant<A,B>>` is a value-level sum error and stays
+ * ∅-graded, because the user did not say otherwise at the declaration site.
+ */
+template <class VALUE, class... ERRORS>
+struct grade_of<std::expected<VALUE, error_set_of<ERRORS...>>> {
+    using type = error_set_of<ERRORS...>;
+};
+
+/** Re-indexing an expected at a non-empty error set replaces its error
+ * alternative. */
+template <class VALUE, class ERROR, class HEAD, class... TAIL>
+struct rebind_grade<std::expected<VALUE, ERROR>, error_set_of<HEAD, TAIL...>> {
+    using type = std::expected<VALUE, error_set_of<HEAD, TAIL...>>;
+};
+
+/** Re-indexing a BARE value at a non-empty error set is the promotion into a
+ * carrier: the ∅ fiber is the ungraded type itself, so this is where a
+ * pipeline first acquires an error alternative. */
+template <class VALUE, class HEAD, class... TAIL>
+    requires(!detail::is_expected_v<VALUE>)
+struct rebind_grade<VALUE, error_set_of<HEAD, TAIL...>> {
+    using type = std::expected<VALUE, error_set_of<HEAD, TAIL...>>;
+};
+
+/** Re-indexing at the EMPTY error set yields the bare value, never
+ * `expected<T, error_set<>>`.
+ *
+ * This is the mechanized form of the sentinel in
+ * docs/decisions.md#empty-grade-spelling: the uniform degenerate-expected
+ * form stays available as an explicit spelling, and no framework path
+ * materializes it on a user's behalf.
+ */
+template <class VALUE>
+    requires(!detail::is_expected_v<VALUE>)
+struct rebind_grade<VALUE, error_set_of<>> {
+    using type = VALUE;
+};
+
+template <class VALUE, class ERROR>
+struct rebind_grade<std::expected<VALUE, ERROR>, error_set_of<>> {
+    using type = VALUE;
+};
 
 } // namespace beman::transpose
 
