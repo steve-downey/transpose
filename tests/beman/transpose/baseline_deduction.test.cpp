@@ -240,28 +240,34 @@ static_assert(
                    std::array<std::tuple<int, double>, 2>>);
 
 // =========================================================================
-// 7. The registration frontier.
+// 7. Registration invariants.
 //
-// At stage baseline-capture all three of these read `!registered`: expected
-// appeared nowhere in the library, so no expression over it deduced anything.
-// Stage expected-instance
-// (docs/transpose-grading-plan.md#expected-instance) flipped the applicative
-// and monad deliberately, which is what the pin was here to make visible --
-// the goldens failed on exactly these two lines when the instance landed.
-// Functor is untouched and stays unregistered: the stage's scope is
-// Applicative and Monad, and widening it silently is what the pin prevents.
+// Which types are contexts, and which must never become one. No stage in
+// the plan changes any of these, so a failure here is a regression.
+//
+// (Two of them did read `!registered` at stage baseline-capture, when
+// expected appeared nowhere in the library. Stage expected-instance
+// registered it, and that flip was scheduled rather than detected -- see
+// section 9 on why such assertions do not belong among the goldens.)
 // =========================================================================
 
 using exp_int = std::expected<int, std::errc>;
 
 static_assert(applicative_registered<exp_int>);
 static_assert(monad_registered<exp_int>);
+
+// Functor is deliberately NOT registered for expected: no stage in the plan
+// calls for it, and the Applicative and Monad instances do not need it. If
+// this flips, scope widened without a decision behind it.
 static_assert(!functor_registered<exp_int>);
 
-// The bare value carries no applicative registration either. Under
-// docs/decisions.md#empty-grade-spelling bare `T` IS the empty grade, so
-// the promotion of bare values at grade zero (stage crtp-absorption) must
-// arrive without registering `int` as a context. Pinned so that it cannot.
+// Bare values carry no registration, and must never acquire one. Under
+// docs/decisions.md#empty-grade-spelling bare `T` IS the empty grade, so the
+// promotion of bare values at grade zero (stage crtp-absorption) has to
+// arrive WITHOUT registering `int` as a context. This is the load-bearing
+// negative in the file: it holds for the whole run, and stage
+// crtp-absorption is the one most likely to break it by taking the easy
+// route. It is a golden, not a milestone.
 static_assert(!applicative_registered<int>);
 static_assert(!monad_registered<int>);
 
@@ -344,11 +350,32 @@ static_assert(std::is_same_v<decltype(bt::transpose(
                                  std::declval<const std::vector<exp_int> &>())),
                              std::expected<std::vector<int>, std::errc>>);
 
-// -- The mixing frontier, which stays closed until graded-deduction. -------
-// One pinned error type per instance object, so an operand carrying a
-// different one fails deduction on the Impl basis. The probes are named
-// concepts for the usual reason: a bare requires-expression at block scope
-// would hard-error rather than yield false.
+// =========================================================================
+// 9. SCHEDULED ASSERTIONS -- not goldens. Expiry: stage graded-deduction.
+//
+// The mixing frontier. Today one error type is pinned per instance object,
+// so combining expected<T,E1> with expected<T,E2> fails deduction. That is
+// the "previously-ill-formed territory" of
+// docs/decisions.md#grading-footprint, and stage graded-deduction
+// (docs/transpose-grading-plan.md#graded-deduction) exists to open it: after
+// that stage the mixed cases become well-formed and deduce
+// expected<T, error_set<E1,E2>>.
+//
+// So these negatives are DUE to flip, by a named stage, for a recorded
+// reason. They are here to make the opening deliberate and to prove the
+// territory is still shut in the meantime -- not to detect drift. Grouping
+// them with the goldens would teach the reader that a red build is routine,
+// which is exactly what rule 4 of the divergence protocol depends on not
+// being true.
+//
+// When graded-deduction lands: replace each negative with the positive
+// deduction it becomes, and move those into section 8, where they will be
+// goldens for the remainder of the plan.
+// =========================================================================
+
+// The probes are named concepts for the usual reason: a bare
+// requires-expression at block scope would hard-error rather than yield
+// false ([expr.prim.req]).
 
 template <class MAP, class FUNCTION, class... OPERANDS>
 concept invocable_through =
@@ -366,20 +393,24 @@ using exp_app_t = std::remove_cvref_t<decltype(exp_app)>;
 using exp_monad_t = std::remove_cvref_t<decltype(exp_monad)>;
 using exp_other = std::expected<int, other_errc>;
 
-// Same error type on every operand: fine.
+// PERMANENT controls. Without these the negatives below could pass by being
+// vacuously false -- a probe that never matches anything proves nothing.
+// Unmixed operands stay invocable through every stage, so these two are
+// goldens that happen to live here for legibility.
 static_assert(invocable_through<exp_app_t, decltype(add), exp_int, exp_int>);
-// Mixing two error types: ill-formed, and cleanly so.
+static_assert(bindable_through<exp_monad_t, exp_int, decltype(exp_double_of)>);
+
+// SCHEDULED. Mixing two error types is ill-formed, and cleanly so (the
+// deduction fails on the Impl basis rather than tripping a static_assert in
+// the CRTP derivation). graded-deduction reverses all three.
 static_assert(!invocable_through<exp_app_t, decltype(add), exp_int, exp_other>);
 static_assert(!invocable_through<exp_app_t, decltype(add), exp_other, exp_int>);
-
-// Same for bind: the continuation must return the instance's error type.
-static_assert(bindable_through<exp_monad_t, exp_int, decltype(exp_double_of)>);
 static_assert(!bindable_through<exp_monad_t, exp_int, decltype(exp_other_of)>);
 
 } // namespace
 
 TEST_CASE("baseline-capture: golden deductions hold at this commit") {
     // Every assertion in this translation unit is a static_assert; reaching
-    // this line means the ungraded baseline is intact.
+    // this line means the goldens and the scheduled assertions both hold.
     SUCCEED("golden deduction matrix compiled");
 }
