@@ -305,15 +305,9 @@ static_assert(functor_registered<vec_int>);
 // grade out of an unmixed pipeline, which is the thing the corollary forbids.
 // =========================================================================
 
-/** A second, unrelated error type -- the other side of a mixing point. */
-enum class other_errc { boom };
-
 auto exp_of(const int &x) -> exp_int { return exp_int{x}; }
 auto exp_double_of(const int &x) -> std::expected<double, std::errc> {
     return std::expected<double, std::errc>{static_cast<double>(x)};
-}
-auto exp_other_of(const int &x) -> std::expected<double, other_errc> {
-    return std::expected<double, other_errc>{static_cast<double>(x)};
 }
 
 inline constexpr const auto &exp_app = bt::applicative_typeclass<exp_int>;
@@ -350,67 +344,11 @@ static_assert(std::is_same_v<decltype(bt::transpose(
                                  std::declval<const std::vector<exp_int> &>())),
                              std::expected<std::vector<int>, std::errc>>);
 
-// =========================================================================
-// 9. SCHEDULED ASSERTIONS -- not goldens. Expiry: stage graded-deduction.
-//
-// The mixing frontier. Today one error type is pinned per instance object,
-// so combining expected<T,E1> with expected<T,E2> fails deduction. That is
-// the "previously-ill-formed territory" of
-// docs/decisions.md#grading-footprint, and stage graded-deduction
-// (docs/transpose-grading-plan.md#graded-deduction) exists to open it: after
-// that stage the mixed cases become well-formed and deduce
-// expected<T, error_set<E1,E2>>.
-//
-// So these negatives are DUE to flip, by a named stage, for a recorded
-// reason. They are here to make the opening deliberate and to prove the
-// territory is still shut in the meantime -- not to detect drift. Grouping
-// them with the goldens would teach the reader that a red build is routine,
-// which is exactly what rule 4 of the divergence protocol depends on not
-// being true.
-//
-// When graded-deduction lands: replace each negative with the positive
-// deduction it becomes, and move those into section 8, where they will be
-// goldens for the remainder of the plan.
-// =========================================================================
-
-// The probes are named concepts for the usual reason: a bare
-// requires-expression at block scope would hard-error rather than yield
-// false ([expr.prim.req]).
-
-template <class MAP, class FUNCTION, class... OPERANDS>
-concept invocable_through =
-    requires(const MAP &map, FUNCTION function, const OPERANDS &...operands) {
-        map.invoke(function, operands...);
-    };
-
-template <class MAP, class MA, class FUNCTION>
-concept bindable_through =
-    requires(const MAP &map, const MA &ma, FUNCTION function) {
-        map.bind(ma, function);
-    };
-
-using exp_app_t = std::remove_cvref_t<decltype(exp_app)>;
-using exp_monad_t = std::remove_cvref_t<decltype(exp_monad)>;
-using exp_other = std::expected<int, other_errc>;
-
-// PERMANENT controls. Without these the negatives below could pass by being
-// vacuously false -- a probe that never matches anything proves nothing.
-// Unmixed operands stay invocable through every stage, so these two are
-// goldens that happen to live here for legibility.
-static_assert(invocable_through<exp_app_t, decltype(add), exp_int, exp_int>);
-static_assert(bindable_through<exp_monad_t, exp_int, decltype(exp_double_of)>);
-
-// SCHEDULED. Mixing two error types is ill-formed, and cleanly so (the
-// deduction fails on the Impl basis rather than tripping a static_assert in
-// the CRTP derivation). graded-deduction reverses all three.
-static_assert(!invocable_through<exp_app_t, decltype(add), exp_int, exp_other>);
-static_assert(!invocable_through<exp_app_t, decltype(add), exp_other, exp_int>);
-static_assert(!bindable_through<exp_monad_t, exp_int, decltype(exp_other_of)>);
-
 } // namespace
 
 TEST_CASE("baseline-capture: golden deductions hold at this commit") {
-    // Every assertion in this translation unit is a static_assert; reaching
-    // this line means the goldens and the scheduled assertions both hold.
+    // Every assertion in this translation unit is a static_assert, and every
+    // one of them is a golden: nothing here is scheduled to change. What was
+    // scheduled now lives in current_state.test.cpp.
     SUCCEED("golden deduction matrix compiled");
 }
