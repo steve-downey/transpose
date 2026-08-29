@@ -348,7 +348,7 @@ struct grade_bottom<error_set_of<ERRORS...>> {
 };
 
 template <class... LEFT, class... RIGHT>
-struct grade_subsume<error_set_of<LEFT...>, error_set_of<RIGHT...>>
+struct grade_subsumes<error_set_of<LEFT...>, error_set_of<RIGHT...>>
     : std::bool_constant<
           error_set_subsumes_v<error_set_of<LEFT...>, error_set_of<RIGHT...>>> {
 };

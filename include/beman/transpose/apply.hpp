@@ -4,6 +4,7 @@
 #define BEMAN_TRANSPOSE_APPLY_HPP
 
 #include <beman/transpose/detail/typeclass_base.hpp>
+#include <beman/transpose/grade.hpp>
 
 #include <concepts>
 #include <functional>
@@ -304,6 +305,28 @@ struct Applicative : protected Impl {
             },
             std::forward<FIRST_ARGUMENT>(first_argument),
             std::forward<SECOND_ARGUMENT>(second_argument));
+    }
+
+    /** Uses a value at a wider grade, defaulted from the grade algebra.
+     *
+     * An instance that knows nothing about grades still gets this member, and
+     * for such an instance it is the identity: its carrier is ∅-graded, so
+     * the only licensed target is ∅ and re-indexing there changes nothing.
+     * That is the ergonomics invariant of
+     * docs/decisions.md#grade-machinery-home working as intended -- grade
+     * participation is never something an instance declares.
+     *
+     * Constrained rather than defined unconditionally, so it SFINAEs away
+     * silently for carriers that cannot express the widening instead of
+     * hard-erroring inside a body nobody asked to instantiate.
+     */
+    template <class TARGET_GRADE, class CARRIER>
+    constexpr auto subsume(this auto &&, CARRIER &&value)
+        requires requires {
+            grade_subsume<TARGET_GRADE>(std::forward<CARRIER>(value));
+        }
+    {
+        return grade_subsume<TARGET_GRADE>(std::forward<CARRIER>(value));
     }
 
     /** Delegates invoke to a different applicative instance at runtime. */
