@@ -5,6 +5,7 @@ set(transpose_tests
     baseline_deduction
     monoid
     dual_monoid
+    error_set
     functor
     apply
     expected
