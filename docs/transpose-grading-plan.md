@@ -207,6 +207,12 @@ policy parameter defaulted to the monad-derived object
 static rejection of bind on the accumulating object; normative left-to-right
 order documented and tested with order-observing probe effects.
 Why: [applicative-objects](decisions.md#applicative-objects).
+Read [accumulation-evidence](decisions.md#accumulation-evidence) BEFORE
+starting: it answers what carries multiple witnesses at the value level, which
+this stage's text originally left unspecified, and it amends
+[error-set-identity](decisions.md#error-set-identity) — the `error_set`
+shipped by [error-set-type](#error-set-type) holds one alternative and must be
+revised to the witnessed-subset form first.
 Acceptance: accumulating traverse collects all errors at the joined grade;
 attempting bind on it is a clear compile error whose message names the
 value-flow reason.
