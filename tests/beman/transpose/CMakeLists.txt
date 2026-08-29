@@ -3,6 +3,7 @@
 
 set(transpose_tests
     baseline_deduction
+    current_state
     monoid
     dual_monoid
     error_set

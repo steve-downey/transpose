@@ -192,7 +192,13 @@ Acceptance: [baseline-capture](#baseline-capture) goldens green; new tests:
 unmixed pipelines never produce `error_set`; bare/graded mixing promotes the
 bare side at ∅ inside the framework only.
 Tripwire: any golden test changes → STOP. Do not update a golden to make a
-stage pass; that inverts the sensor.
+stage pass; that inverts the sensor. The goldens are
+`baseline_deduction.test.cpp`, in full. `current_state.test.cpp` is NOT
+golden — it records what the library does at a point the plan intends to
+move, names this stage as the expiry, and is meant to be edited here; see
+[golden-vs-scheduled-assertions](decisions.md#golden-vs-scheduled-assertions).
+Its mixing-frontier block is already known to go red when flipped to the
+positive form, which is the failure this stage turns green.
 
 ### Stage 6 — [accumulating-object](#accumulating-object) {#accumulating-object}
 Deliverables: separate NTTP-pinned accumulating applicative object; traverse

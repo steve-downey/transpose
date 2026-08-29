@@ -344,7 +344,23 @@ correctly at the call site, where the operand is a grade and not a monad.
 change from assertions a named stage is *expected* to flip, and what does
 [graded-deduction](transpose-grading-plan.md#graded-deduction)'s tripwire say
 about the latter?
-**Status:** OPEN
+**Status:** DECIDED 2026-08-29
+**Decision:** Separate translation units, and drop the word "golden" for the
+scheduled kind. `baseline_deduction.test.cpp` is golden in full: nothing in it
+is scheduled to change, and rule 4 applies to all of it.
+`current_state.test.cpp` holds assertions that record what the library does
+today at a point the plan intends to move; each block names the stage that
+will move it. Editing the latter is ordinary work, editing the former is a
+stop-and-ask. graded-deduction's tripwire names the distinction rather than
+relying on the reader to infer it.
+**Why:** A golden is defined by not changing, so an assertion with a scheduled
+flip was never one — the fix is the vocabulary, not an exception to the rule.
+Separate files make the distinction structural instead of a matter of reading
+a comment carefully: "any golden test changes → STOP" stays literally true,
+and the scheduled file is visibly droppable. Splitting first also makes the
+block available for red/green: flipping the three negatives to their post-
+graded-deduction form fails the build today, which is the failure that stage
+is defined to fix.
 **Log:**
 - 2026-08-28 — Raised by stage
   [expected-instance](transpose-grading-plan.md#expected-instance). That
@@ -370,3 +386,7 @@ about the latter?
   licensed exception; move the scheduled block to its own file so "golden
   file" stays literally true; or drop the mixed-case negatives from stage 1
   and let graded-deduction assert only the positives.
+- 2026-08-29 — Answered: combine the first two — rename away from "golden"
+  AND split into `current_state.test.cpp`. Done before graded-deduction
+  starts, so the block can be driven red first: the three negatives flipped
+  to their post-stage form fail the build at this commit. Divergence closed.

@@ -109,8 +109,8 @@ static_assert(!bt::graded_context<boxed<int>>);
 auto boxed_of(const int &x) -> boxed<int> { return boxed<int>{x}; }
 
 static_assert(
-    std::is_same_v<decltype(bt::traverse(boxed_of,
-                                         std::declval<const std::vector<int> &>())),
+    std::is_same_v<decltype(bt::traverse(
+                       boxed_of, std::declval<const std::vector<int> &>())),
                    boxed<std::vector<int>>>);
 
 // =========================================================================
@@ -127,18 +127,16 @@ static_assert(
     std::is_same_v<decltype(boxed_app.template subsume<bt::unit_grade>(
                        std::declval<const boxed<int> &>())),
                    boxed<int>>);
-static_assert(
-    std::is_same_v<decltype(opt_app.template subsume<bt::unit_grade>(
-                       std::declval<const std::optional<int> &>())),
-                   std::optional<int>>);
+static_assert(std::is_same_v<decltype(opt_app.template subsume<bt::unit_grade>(
+                                 std::declval<const std::optional<int> &>())),
+                             std::optional<int>>);
 
 // A ∅-graded carrier cannot be widened to a grade its algebra does not
 // license... except that ∅ subsumes into everything, which is the promotion
 // case below. What is NOT available is narrowing.
 template <class GRADE, class CARRIER>
-concept subsumable = requires(const CARRIER &value) {
-    bt::grade_subsume<GRADE>(value);
-};
+concept subsumable =
+    requires(const CARRIER &value) { bt::grade_subsume<GRADE>(value); };
 
 static_assert(subsumable<set_ab, std::expected<int, set_a>>);
 static_assert(!subsumable<set_a, std::expected<int, set_ab>>);
@@ -151,12 +149,13 @@ static_assert(!subsumable<set_a, std::expected<int, set_ab>>);
 // implements η, so the framework contributes nothing but the constraint.
 // =========================================================================
 
-static_assert(std::is_same_v<decltype(bt::grade_subsume<set_ab>(
-                                 std::declval<const int &>())),
-                             std::expected<int, set_ab>>);
-static_assert(std::is_same_v<decltype(bt::grade_subsume<set_ab>(
-                                 std::declval<const std::expected<int, set_a> &>())),
-                             std::expected<int, set_ab>>);
+static_assert(std::is_same_v<
+              decltype(bt::grade_subsume<set_ab>(std::declval<const int &>())),
+              std::expected<int, set_ab>>);
+static_assert(
+    std::is_same_v<decltype(bt::grade_subsume<set_ab>(
+                       std::declval<const std::expected<int, set_a> &>())),
+                   std::expected<int, set_ab>>);
 
 // Promotion at ∅ is the identity, and in particular does NOT manufacture
 // expected<int, error_set<>> -- the sentinel again, now at the value level.
