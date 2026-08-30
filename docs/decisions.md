@@ -144,6 +144,20 @@ normalization = names-not-positions; inclusions unique). Precedents:
   underspecified relative to type semantics. Worth suspecting that pattern
   anywhere else the log states a type-level rule without saying what the
   values do.
+- 2026-08-29 — `visit` is now PARTIAL, and checked. The witnessed-subset
+  amendment made it possible to hold more than one witness, which left `visit`
+  with a documented but unenforced precondition and a `to_variant` that
+  silently returned the leftmost witness — a dropped error surfacing far from
+  its cause. Violation is now a compile error in a constant expression
+  (`to_variant` calls a non-constexpr function on that path) and stops the
+  program at runtime. `witness_count()` is public so a caller can check rather
+  than trip: an unenforceable contract callers cannot inspect is a trap, not a
+  contract. Note this is a real narrowing of the surface — `visit` was total
+  before the amendment, and `error-set-identity` lists visitation as one of
+  the two things the API does offer — so the multi-witness case now has no
+  visitation verb at all, only per-type `witness<E>()`. If
+  [recover-narrowing](transpose-grading-plan.md#recover-narrowing) wants one,
+  that is a question for a new slug rather than an addition to this one.
 
 ---
 

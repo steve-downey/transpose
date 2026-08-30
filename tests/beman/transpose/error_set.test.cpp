@@ -314,3 +314,66 @@ TEST_CASE("error_set: combine is associative, allocation-free evidence") {
     REQUIRE(left_first.holds<beta>());
     REQUIRE(left_first.holds<gamma>());
 }
+
+// =========================================================================
+// visit's precondition is checked, not merely documented.
+//
+// Multi-witness values and visitation shipped one stage apart
+// (accumulating-object and error-set-type respectively), and the seam
+// between them is where a silent wrong answer would have lived: visit
+// picking the leftmost witness and dropping the rest would surface as a
+// lost error somewhere else entirely, much later.
+// =========================================================================
+
+/** visit still works in a CONSTANT EXPRESSION when the precondition holds.
+ * This is the assertion that matters after the hardening: the check added to
+ * to_variant() calls a non-constexpr function, and if that call were reachable
+ * on the valid path it would have quietly cost every constexpr use of visit. */
+consteval auto visit_a_singleton_at_compile_time() -> int {
+    const set_ab held{alpha{7}};
+    return held.visit([](const auto &error) { return error.value; });
+}
+
+static_assert(visit_a_singleton_at_compile_time() == 7);
+
+// witness_count lets a caller check the precondition instead of tripping it.
+consteval auto count_after_combining() -> std::size_t {
+    const set_ab left{alpha{1}};
+    const set_ab right{beta{2}};
+    return left.combined_with(right).witness_count();
+}
+
+static_assert(count_after_combining() == 2);
+
+consteval auto count_of_a_singleton() -> std::size_t {
+    return set_ab{alpha{1}}.witness_count();
+}
+
+static_assert(count_of_a_singleton() == 1);
+
+// Left-bias keeps the count at one when both sides witness the SAME type.
+consteval auto count_after_combining_same_type() -> std::size_t {
+    const set_ab left{alpha{1}};
+    const set_ab right{alpha{2}};
+    return left.combined_with(right).witness_count();
+}
+
+static_assert(count_after_combining_same_type() == 1);
+
+TEST_CASE("error_set: witness_count reports how many alternatives did raise") {
+    set_ab single{alpha{1}};
+    REQUIRE(single.witness_count() == 1);
+
+    auto combined = single.combined_with(set_ab{beta{2}});
+    REQUIRE(combined.witness_count() == 2);
+    REQUIRE(combined.holds<alpha>());
+    REQUIRE(combined.holds<beta>());
+
+    // A caller checks rather than trips: this is the guarded idiom the
+    // precondition expects of anyone holding a possibly-accumulated value.
+    if (combined.witness_count() == 1) {
+        FAIL("combined value should witness two alternatives");
+    }
+    REQUIRE(combined.witness<alpha>().has_value());
+    REQUIRE(combined.witness<beta>().has_value());
+}
