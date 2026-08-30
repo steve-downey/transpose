@@ -13,6 +13,7 @@ set(transpose_tests
     expected
     fold
     grade
+    laws
     monad
     traverse
     transpose
