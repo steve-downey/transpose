@@ -389,6 +389,30 @@ concept accepts_boolean_invoke =
 static_assert(accepts_boolean_invoke<boolean_may, boolean_never>);
 static_assert(!accepts_boolean_invoke<boolean_may, graded_c>);
 
+constexpr auto accepts_expected_value_and_foreign_carrier(
+    const int &expected_value, const boolean_may &) -> int {
+    return expected_value;
+}
+
+template <class LEFT, class RIGHT>
+concept accepts_expected_invoke =
+    requires(const LEFT &lhs, const RIGHT &rhs) {
+        bt::applicative_typeclass<bare_c>.invoke(
+            accepts_expected_value_and_foreign_carrier, lhs, rhs);
+    };
+
+template <class LEFT, class RIGHT>
+concept accepts_accumulating_expected_invoke =
+    requires(const LEFT &lhs, const RIGHT &rhs) {
+        bt::accumulating_applicative_typeclass<bare_c>.invoke(
+            accepts_expected_value_and_foreign_carrier, lhs, rhs);
+    };
+
+static_assert(accepts_expected_invoke<bare_c, int>);
+static_assert(!accepts_expected_invoke<bare_c, boolean_may>);
+static_assert(accepts_accumulating_expected_invoke<bare_c, int>);
+static_assert(!accepts_accumulating_expected_invoke<bare_c, boolean_may>);
+
 } // namespace mixing_point
 
 TEST_CASE("laws: the shipped model satisfies the graded laws") {

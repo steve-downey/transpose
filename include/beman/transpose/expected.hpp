@@ -90,13 +90,14 @@ template <class ERROR_TYPE, class... CARRIERS>
 inline constexpr bool all_declare_v =
     (is_expected_with_error_v<remove_cvref_t<CARRIERS>, ERROR_TYPE> && ...);
 
-/** True when every expected operand declares exactly ERROR_TYPE and every
- * other operand is bare. This is not a mixing point: lazy join says bare
- * values contribute the model bottom and leave no trace.
+/** True when every operand either declares exactly ERROR_TYPE or is truly
+ * ungraded. This is not a mixing point: lazy join says ungraded values
+ * contribute the model bottom and leave no trace. Foreign-model carriers are
+ * not bare, even when they are not std::expected.
  */
 template <class ERROR_TYPE, class CARRIER>
 inline constexpr bool declares_or_bare_v =
-    !is_expected_v<remove_cvref_t<CARRIER>> ||
+    (!graded_context<remove_cvref_t<CARRIER>>) ||
     is_expected_with_error_v<remove_cvref_t<CARRIER>, ERROR_TYPE>;
 
 template <class ERROR_TYPE, class... CARRIERS>

@@ -51,6 +51,7 @@ without the user writing it violates this decision.
 **Question:** What is grading permitted to change for existing clients at the
 API level?
 **Status:** DECIDED 2026-08-28
+**Decided by:** Planning discussion; amended by Steve Downey 2026-08-30.
 **Decision:** Grading claims only previously-ill-formed territory. For any
 input combination that deduces a type today, the graded framework deduces the
 same type. `error_set` appears in a deduced result only when an input already
@@ -58,8 +59,10 @@ carried one, or the combination was previously ill-formed (mixing
 `expected<T,E1>` with `expected<T,E2>`, which now joins). Corollary — no
 spontaneous singletons: unmixed `expected<T,E>` pipelines never become
 `expected<T, error_set<E>>`; join is lazy, entering only at a genuine mixing
-point. Graded and ungraded CPO overloads are mutually exclusive by constraint
-(structural presence of `error_set`), never merely ranked.
+point. Graded and ungraded paths are mutually exclusive by semantic
+`grade_of` / `graded_context` constraints; expected's lazy-spelling path also
+requires declared-error matching, so foreign graded carriers are not treated
+as bare operands.
 **Why:** This is the entire additive-compatibility story, and it is available
 only because of [empty-grade-spelling](#empty-grade-spelling). Accepted
 residue: previously-ill-formed combinations becoming well-formed flips
@@ -69,8 +72,8 @@ deductions on previously-valid code are not tolerated.
 - 2026-08-28 — Adopted; mechanized as the golden deduction tests in stage
   [baseline-capture](transpose-grading-plan.md#baseline-capture).
 - 2026-08-28 — DIVERGENCE, raised by
-  [baseline-capture](transpose-grading-plan.md#baseline-capture); awaiting
-  resolution. *Plan said:* the baseline matrix includes unmixed
+  [baseline-capture](transpose-grading-plan.md#baseline-capture). *Plan said:*
+  the baseline matrix includes unmixed
   `expected<T,E>`, and the newly-well-formed territory is "mixing
   `expected<T,E1>` with `expected<T,E2>`". *Reality:* `std::expected` appears
   nowhere in the repository — not registered as an applicative, monad, or
@@ -85,6 +88,11 @@ deductions on previously-valid code are not tolerated.
   non-registration as an explicit negative golden so a later stage flipping it
   is deliberate; and settle where the ungraded instance comes from under
   [expected-instance-introduction](#expected-instance-introduction).
+- 2026-08-28 — Closed by
+  [expected-instance-introduction](#expected-instance-introduction):
+  `expected` was registered ungraded first, then the later grade stages
+  preserved its existing same-error carrier spelling while adding only the
+  previously ill-formed mixed-error territory.
 
 ---
 
@@ -93,6 +101,7 @@ deductions on previously-valid code are not tolerated.
 **Question:** Is `error_set` a nominal type or any suitably normalized
 structural sum?
 **Status:** DECIDED 2026-08-28
+**Decided by:** Planning discussion; amended by Steve Downey 2026-08-29.
 **Decision:** Nominal. `error_set<Es...>` is its own type: canonicalization
 (sorted, deduplicated via type ordering) is a class invariant enforced at
 construction; converting constructors encode exactly the `⊆` widenings and
@@ -180,8 +189,10 @@ to model grades. `join`/`bottom`/`subsume` are operations of the grade algebra
 model. Plain-error `std::expected<T, E>` is semantically graded at
 `error_set<E>` per [plain-error-grade-reading](#plain-error-grade-reading);
 lazy join remains a carrier-spelling rule, not a second grade trait. The CRTP
-base absorbs promotion of bare values at model bottoms, ap-from-bind, and
-defaulted subsume as constrained members that SFINAE away silently.
+base carries ap-from-bind and the defaulted `grade_subsume` coercion as
+constrained members that SFINAE away silently. Mixing-point bare-operand
+lifting lives in the model-dispatched deduction helpers, where an ungraded
+operand is lifted to the current model's bottom.
 **Why:** Gadget-author ergonomics: registering a kind must stay "a couple of
 functions," and duck typing at use sites is a feature to preserve. Invariant:
 an instance that knows nothing about grades works verbatim, treated as
@@ -360,6 +371,12 @@ official grade registration?
   *The price is now measured:* the algebra is ten trivial specializations and slides in cleanly, but the carrier costs four more, all transliterations of `error_set.hpp`'s, and two of the four exist only because of [bottom-grade-identity](#bottom-grade-identity).
   *The benefit is currently unavailable:* per [mixing-point-vocabulary](#mixing-point-vocabulary) a registered algebra is not a usable one, so shipping this today would register `optional` as graded without letting it join with anything.
   Answering yes probably wants that resolved first.
+- 2026-08-30 — Superseded by
+  [model-dispatched-mixing](transpose-grading-plan.md#model-dispatched-mixing):
+  the Boolean model now drives a real mixed deduction, so the "registered but
+  not usable" objection above is closed. The question remains open because
+  shipping the Boolean model as `optional`'s grade registration is a public
+  surface decision, not an implementation-blocker.
 
 ---
 
@@ -407,6 +424,7 @@ instance come from — its own stage before
 [graded-deduction](transpose-grading-plan.md#graded-deduction), or does
 grading introduce `expected` to this library already graded?
 **Status:** DECIDED 2026-08-28
+**Decided by:** Planning discussion; amended by Steve Downey 2026-08-30.
 **Decision:** Ungraded first, as its own stage. `std::expected<T,E>` is
 registered as an ordinary applicative and monad — one pinned error type per
 instance object, so mixing `E1` with `E2` remains ill-formed until
@@ -464,9 +482,10 @@ deliberately.
 **Question:** How are the grade-algebra operations spelled, given that `join`
 in this library already means monadic join?
 **Status:** DECIDED 2026-08-28
-**Decision:** `grade_`-prefixed free verbs — `grade_join`, `grade_bottom`,
-`grade_subsume` — dispatching through the grade model. Monadic `join` keeps
-its name unqualified and unchanged.
+**Decided by:** Planning discussion; amended by Steve Downey 2026-08-30.
+**Decision:** `grade_`-prefixed operations — `grade_join`, `grade_bottom`,
+the order predicate `grade_subsumes`, and the carrier coercion
+`grade_subsume`. Monadic `join` keeps its name unqualified and unchanged.
 **Why:** This is the library's own established shape one level up:
 `monoid_combine` and `monoid_identity` are free verbs dispatching to
 `Monoid<T>`, and the grade semilattice is the same kind of object. It keeps
@@ -490,6 +509,11 @@ correctly at the call site, where the operand is a grade and not a monad.
   `lattice` return zero hits on the public surface.
 - 2026-08-28 — Answered: `grade_`-prefixed free verbs, on the
   `monoid_combine` precedent. Divergence closed; work resumed.
+- 2026-08-30 — Amended by stage
+  [model-dispatched-mixing](transpose-grading-plan.md#model-dispatched-mixing):
+  the order question and the value coercion have distinct names.
+  `grade_subsumes` is the type-level predicate used in constraints;
+  `grade_subsume` is the coercion that re-indexes a carrier at a wider grade.
 
 ---
 
@@ -635,6 +659,11 @@ is defined to fix.
   AND split into `current_state.test.cpp`. Done before graded-deduction
   starts, so the block can be driven red first: the three negatives flipped
   to their post-stage form fail the build at this commit. Divergence closed.
+- 2026-08-30 — Narrow ruling by Steve, logged during grading-fidelity
+  remediation: after a scheduled block has expired, a stage may append that
+  block's positive post-stage form to the golden file only when no existing
+  golden assertion is weakened or edited. This retroactively licenses the
+  Stage 5 shape; it is not permission to change established golden coverage.
 
 ---
 
@@ -752,3 +781,60 @@ A product of grade models is a new semantic feature with no current client, the 
 **Log:**
 - 2026-08-30 — Raised and answered by Steve's ruling on the Stage 8 leak-detector findings.
   The absence of cross-model products is intentional and belongs in the log so the next stage treats it as a constraint, not an oversight.
+- 2026-08-30 — Grading-fidelity review found a constraint divergence in
+  expected's same-error-plus-bare cores: "bare" meant "not `std::expected`,"
+  so a foreign graded carrier could enter the lazy expected path and bypass
+  the same-model check. Fixed by making "bare" mean semantic ungraded
+  (`grade_of_t<T> == unit_grade`, spelled through `graded_context`) while
+  preserving declared-error matching for the unmixed expected spelling.
+
+---
+
+## evidence-combine-surface
+
+**Question:** What public surface combines value-level failure evidence for
+the accumulating expected applicative object?
+**Status:** DECIDED 2026-08-30
+**Decided by:** Steve Downey.
+**Decision:** There is no generic public `combine_errors`.
+The shipped error-set model exposes its native `error_set_combine` operation.
+Framework-facing evidence dispatch stays private as
+`detail::combine_grade_evidence`, with a left-biased same-type default and
+model-specific overloads where needed.
+**Why:** Evidence combination is value-level model vocabulary, not a generic
+grade-algebra operation. A public generic name would either encode the
+shipped model's assumptions as framework API or promise a cross-model
+semigroup the grade concept does not require.
+**Log:**
+- 2026-08-30 — Raised by the grading-fidelity review.
+  Stage accumulating-object introduced public `combine_errors`, but the later
+  model-dispatched repair moved the only framework fold to
+  `detail::combine_grade_evidence`, leaving `combine_errors` and its support
+  trait `is_error_set_of_v` as caller-less residue. They were removed; the
+  intentional public model-native operation remains `error_set_combine`.
+
+---
+
+## graded-context-role
+
+**Question:** Is `graded_context` the public spelling of
+[grading-footprint](#grading-footprint)'s graded/ungraded exclusivity
+constraint?
+**Status:** DECIDED 2026-08-30
+**Decided by:** Steve Downey.
+**Decision:** Yes.
+`graded_context<C>` means `grade_of_t<C>` is a model grade rather than the
+framework's ungraded sentinel. It is public semantic vocabulary, and shipped
+mixing-boundary constraints use it to distinguish true ungraded operands from
+foreign-model carriers.
+**Why:** Structural checks such as "not `std::expected`" or "contains
+`error_set`" do not survive multiple grade models. `graded_context` is the
+single framework question that matches the sentinel/model split decided by
+[bottom-grade-identity](#bottom-grade-identity).
+**Log:**
+- 2026-08-30 — Raised by the grading-fidelity review after `graded_context`
+  was public and tested but unused in shipped headers. The expected
+  same-error-plus-bare constraints now make it load-bearing: plain `int`
+  remains bare, `expected<T, E>` keeps the declared-error lazy spelling path,
+  and `Fallible<T, may_fail>` is rejected at the expected cross-model
+  boundary.

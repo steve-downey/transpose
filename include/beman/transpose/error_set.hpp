@@ -447,16 +447,6 @@ class error_set_of {
     std::tuple<std::optional<ERRORS>...> d_witnesses;
 };
 
-/** True when T is a witnessed subset -- an error_set_of<...> specialization,
- * whatever its pack. Used to tell apart "this declared error is itself a
- * grade carrier" from "this declared error is a single bare type", which is
- * exactly the fork `combine_errors` needs. */
-template <class T>
-inline constexpr bool is_error_set_of_v = false;
-
-template <class... ERRORS>
-inline constexpr bool is_error_set_of_v<error_set_of<ERRORS...>> = true;
-
 /** The empty error set: bottom of the lattice, and uninhabited.
  *
  * A computation graded ∅ raises nothing, so there is no value to hold. Note
@@ -527,29 +517,6 @@ constexpr auto error_set_combine(const error_set_of<ERRORS...> &lhs,
                                  const error_set_of<ERRORS...> &rhs)
     -> error_set_of<ERRORS...> {
     return lhs.combined_with(rhs);
-}
-
-/** Combines two same-typed declared errors, left-biased. When ERROR is a
- * witnessed subset this unions witnesses via `error_set_combine`; when it is
- * a bare type there is only one slot to begin with, so this degrades to
- * "keep the left" -- the same leftmost-wins behavior the short-circuit
- * object already has, which is why an accumulating traverse over an unmixed
- * pipeline is observationally identical to a short-circuit one. This is the
- * uniform step the accumulating applicative object folds with, regardless of
- * whether the declared error happens to be a set.
- */
-template <class ERROR>
-constexpr auto combine_errors(const ERROR &lhs, const ERROR & /*rhs*/) -> ERROR
-    requires(!is_error_set_of_v<ERROR>)
-{
-    return lhs;
-}
-
-template <class... ERRORS>
-constexpr auto combine_errors(const error_set_of<ERRORS...> &lhs,
-                              const error_set_of<ERRORS...> &rhs)
-    -> error_set_of<ERRORS...> {
-    return error_set_combine(lhs, rhs);
 }
 
 namespace detail {
