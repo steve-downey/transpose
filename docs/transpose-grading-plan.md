@@ -90,6 +90,15 @@ client. The agent should know their one-line forms cold:
   recover-narrowed grades are annotated and checked, not inferred.
 - [grade-generality](decisions.md#grade-generality) — `error_set` is one model
   of a `grade_semilattice` concept; non-idempotent grades excluded.
+- [bottom-grade-identity](decisions.md#bottom-grade-identity) — framework ∅ is
+  a pure ungraded sentinel; bottoms and carrier machinery exist only per
+  model.
+- [mixing-point-vocabulary](decisions.md#mixing-point-vocabulary) — mixing
+  points dispatch through the operands' grade model via `grade_join`, not
+  error-set vocabulary.
+- [cross-model-mixing](decisions.md#cross-model-mixing) — graded operands at a
+  mixing point must belong to the same grade model; cross-model mixing is
+  ill-formed by constraint.
 - [expected-instance-introduction](decisions.md#expected-instance-introduction)
   — `expected` is registered ungraded first, one pinned error type per
   instance object, before any grade machinery reaches it.
@@ -264,7 +273,39 @@ don't patch around it.
 Acceptance: harness green on both models; harness written against the
 concept, instantiated with the models.
 
-### Stage 9 — [paper-revision](#paper-revision) {#paper-revision}
+### Stage 9 — [model-dispatched-mixing](#model-dispatched-mixing) {#model-dispatched-mixing}
+Deliverables:
+- Make framework ∅ a pure sentinel per
+  [bottom-grade-identity](decisions.md#bottom-grade-identity): `grade_of`
+  yields either ungraded or a model grade, and the sentinel has no lattice
+  membership or carrier machinery.
+- Route every mixing-point deduction through the operands' grade model per
+  [mixing-point-vocabulary](decisions.md#mixing-point-vocabulary):
+  `rebind_grade<Carrier, grade_join<g1, g2>>`, with ungraded operands lifted
+  to that model's bottom at the mixing point.
+- Constrain graded mixing points to a single grade model per
+  [cross-model-mixing](decisions.md#cross-model-mixing); cross-model mixing is
+  ill-formed, and no product-of-models machinery is introduced.
+- Add a Boolean-model mixed deduction that actually drives the machinery:
+  `Fallible<T, may_fail>` combined with `Fallible<T, never_fails>` deduces the
+  joined Boolean grade.
+- Keep the existing goldens green; shipped deductions must still express
+  error-specific joining only inside the `error_set` model layer.
+Why: the Stage 8 law harness did its job by proving the second model can
+register and pass laws while still being unable to drive a real deduction.
+That is the abstraction-boundary leak [grade-generality](decisions.md#grade-generality)
+was designed to detect, and paper-revision must not start while the artifact
+only half demonstrates the claim.
+Acceptance: Boolean mixed deduction green; cross-model mixing rejected by
+constraint; baseline goldens unchanged; no shipped mixing-point code mentions
+`error_set` outside the model layer; `make TOOLCHAIN=gcc-16 compile`,
+`make TOOLCHAIN=gcc-16 ctest`, and `make TOOLCHAIN=gcc-16 compile-headers`
+green.
+Tripwire: needing a product of grade models, changing the golden baseline, or
+weakening [grading-footprint](decisions.md#grading-footprint) to make
+singleton lifting easy → STOP and ask.
+
+### Stage 10 — [paper-revision](#paper-revision) {#paper-revision}
 Deliverables: P3200 rationale sections — coherence argument (nominal
 `error_set`, subset-only conversions, sorted normalization as
 names-not-positions); compatibility section (three sentences: pure paths

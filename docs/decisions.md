@@ -9,6 +9,7 @@ existing link stay valid. Divergences append dated entries to the implicated
 question's Log; they do not get their own files.
 
 Entry shape: Question / Status / Decision / Why / Log.
+New or amended DECIDED entries also carry `Decided by` so later agents can distinguish Steve rulings from stage-local observations.
 
 ---
 
@@ -17,6 +18,7 @@ Entry shape: Question / Status / Decision / Why / Log.
 **Question:** How is the ∅ (empty) grade spelled — bare `T` or
 `expected<T, error_set<>>`?
 **Status:** DECIDED 2026-08-28
+**Decided by:** Planning discussion; Stage 8 generalization affirmed by Steve Downey 2026-08-30.
 **Decision:** Bare `T`. The uniform degenerate-expected form remains available
 as an explicit spelling with the isomorphism documented once
 (see [uniform-form-surface](#uniform-form-surface)).
@@ -40,6 +42,7 @@ without the user writing it violates this decision.
   cannot arrive by quietly registering bare values as a carrier.
 - 2026-08-30 — Sentinel generalized off the shipped model by stage [law-harness](transpose-grading-plan.md#law-harness): the harness asserts for EVERY model that re-indexing a carrier at that model's bottom yields the bare value, so "no framework path materializes an ∅-graded carrier the user did not write" is now checked for the Boolean model too, not only for `error_set`.
   Doing so surfaced that this decision's ∅ and the framework's `unit_grade` are different types that behave differently here — see [bottom-grade-identity](#bottom-grade-identity).
+  Steve's ruling accepts the generalization but changes the implementation target: framework-∅ is a pure sentinel, not a model grade or carrier.
 
 ---
 
@@ -534,6 +537,7 @@ change from assertions a named stage is *expected* to flip, and what does
 [graded-deduction](transpose-grading-plan.md#graded-deduction)'s tripwire say
 about the latter?
 **Status:** DECIDED 2026-08-29
+**Decided by:** Steve Downey.
 **Decision:** Separate translation units, and drop the word "golden" for the
 scheduled kind. `baseline_deduction.test.cpp` is golden in full: nothing in it
 is scheduled to change, and rule 4 applies to all of it.
@@ -586,7 +590,15 @@ is defined to fix.
 
 **Question:** Is the framework's `unit_grade` the same ∅ as a model's
 `grade_bottom_t<G>`, or a second bottom sitting below every model's?
-**Status:** OPEN
+**Status:** DECIDED 2026-08-30
+**Decided by:** Steve Downey.
+**Decision:** The framework ∅ is a pure sentinel, not a grade in any model lattice and not a carrier-bearing bottom.
+`grade_of` yields either that ungraded sentinel or a model grade.
+Bottoms exist only per model, such as `error_set<>` and `never_fails`.
+Promotion is where the sentinel and a model meet: an ungraded operand entering a mixing point lifts to that mixing point's model bottom.
+One sentinel, N bottoms, zero duplication.
+**Why:** Bare `T` is the unit fiber of every graded family simultaneously, so materializing a framework bottom as if it were a grade with carrier machinery creates a shadow model.
+The Boolean model exposed that duplication by forcing the framework bottom and model bottoms to be compared outside the shipped `error_set` vocabulary.
 **Log:**
 - 2026-08-30 — Raised by stage [law-harness](transpose-grading-plan.md#law-harness).
   Registering the Boolean semilattice as a second model made visible something the shipped model alone hid: the framework and every model each carry their own ∅, and nothing identifies them.
@@ -621,6 +633,9 @@ is defined to fix.
   (b) Keep them distinct but give the framework a constrained `rebind_grade` at any model's bottom, so stripping is written once.
   (c) Accept the duplication and document it as the price of models owning their own lattice.
   Both halves of the disagreement are now pinned by the harness, so whichever is chosen cannot happen silently.
+- 2026-08-30 — Ruling by Steve: choose the sentinel interpretation, not identification and not documented duplication.
+  Framework-∅ is the model-less state "not yet in a family"; model bottoms remain model-owned.
+  The repair belongs in stage [model-dispatched-mixing](transpose-grading-plan.md#model-dispatched-mixing), where promotion at a mixing point lifts ungraded operands to that point's model bottom.
 
 ---
 
@@ -628,7 +643,14 @@ is defined to fix.
 
 **Question:** In whose vocabulary is the join at a mixing point computed —
 the framework's `grade_join`, or the model's own?
-**Status:** OPEN
+**Status:** DECIDED 2026-08-30
+**Decided by:** Steve Downey.
+**Decision:** Fix the mixing point rather than documenting around it.
+Mixing-point deduction is `rebind_grade<Carrier, grade_join<g1, g2>>`, dispatched through the operands' grade model.
+No shipped mixing-point code utters `error_set` outside the model layer.
+If an ungraded operand participates in a typed mixing point, it is first lifted to that point's model bottom as decided by [bottom-grade-identity](#bottom-grade-identity).
+**Why:** [grade-generality](#grade-generality) says `error_set` is one model of a grade concept, and the Boolean model proved that the current deduction path registers a second algebra without letting it drive the machinery.
+The repair must happen while Steve is still the sole client, because after a second client this change would alter meanings rather than only repair an abstraction boundary.
 **Log:**
 - 2026-08-30 — Raised by stage [law-harness](transpose-grading-plan.md#law-harness), and it is the sharp half of what the second model was put there to detect.
   [grade-generality](#grade-generality) decides that the framework layer speaks only grade vocabulary.
@@ -656,3 +678,21 @@ the framework's `grade_join`, or the model's own?
   Logging rather than stopping is what stage [law-harness](transpose-grading-plan.md#law-harness) instructs for exactly this finding, so the stage completed; but this contradicts the letter of [grade-generality](#grade-generality), which is more than a stage-local divergence.
   *Not patched:* routing the mixing point through `grade_join` needs the grade layer to gain something the ∅ grade currently forbids — either a singleton-lifting operation, or a `grade_of` that reports a singleton for `expected<T,E>`, which [grading-footprint](#grading-footprint) rules out at the deduction level even if not necessarily at the trait level.
   Either is a design decision, not a stage deliverable.
+- 2026-08-30 — Ruling by Steve: this is a design bug with the same root cause as [bottom-grade-identity](#bottom-grade-identity), not an acceptable documented limitation.
+  The next stage must make the Boolean model drive an actual mixed deduction before [paper-revision](transpose-grading-plan.md#paper-revision) starts.
+
+---
+
+## cross-model-mixing
+
+**Question:** May a mixing point combine graded operands from different grade models?
+**Status:** DECIDED 2026-08-30
+**Decided by:** Steve Downey.
+**Decision:** No.
+Both graded operands at a mixing point must belong to the same grade model; cross-model mixing is ill-formed by constraint.
+Do not build product-of-models machinery.
+**Why:** Model-dispatched mixing needs one model to supply the join and bottom-lift vocabulary for the deduction.
+A product of grade models is a new semantic feature with no current client, the same YAGNI boundary recorded for fuel and other perpendicular axes in [grade-generality](#grade-generality).
+**Log:**
+- 2026-08-30 — Raised and answered by Steve's ruling on the Stage 8 leak-detector findings.
+  The absence of cross-model products is intentional and belongs in the log so the next stage treats it as a constraint, not an oversight.
