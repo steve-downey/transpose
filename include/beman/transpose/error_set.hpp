@@ -51,6 +51,8 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdio>
+#include <cstdlib>
 #include <expected>
 #include <optional>
 #include <string_view>
@@ -206,6 +208,26 @@ struct error_set_from_list<type_list<ERRORS...>> {
     using type = error_set_of<ERRORS...>;
 };
 
+/** A precondition violation the type system cannot catch.
+ *
+ * Deliberately NOT constexpr. During constant evaluation, calling a
+ * non-constexpr function makes the evaluation non-constant, so a violated
+ * precondition becomes a COMPILE ERROR naming this function -- which is where
+ * most of this library's code runs, and where the contract is therefore not
+ * merely documented but enforced. At runtime it stops the program instead of
+ * letting a silently-wrong answer escape.
+ *
+ * This library has no assertion vocabulary and is not acquiring one. The
+ * point is narrower: a narrow contract whose violation returns a plausible
+ * wrong answer is worse than one that stops, because the plausible answer is
+ * the one that reaches a user.
+ */
+[[noreturn]] inline void error_set_precondition_violated(const char *what) {
+    std::fputs(what, stderr);
+    std::fputs("\n", stderr);
+    std::abort();
+}
+
 // -- Per-type witness storage ----------------------------------------------
 // One std::optional slot per alternative, never a discriminated one-of. See
 // docs/decisions.md#accumulation-evidence for why: the grade join needs no
@@ -319,16 +341,37 @@ class error_set_of {
         return std::get<std::optional<ERROR>>(d_witnesses);
     }
 
-    /** Visitation, for `recover`: apply `handler` to the currently held
-     * witness.
+    /** How many alternatives this value witnesses -- "how many did raise".
      *
-     * PRECONDITION: exactly one witness is present. Every error_set produced
-     * by the short-circuit (monad-derived) applicative object satisfies
-     * this -- "short-circuit only ever produces singletons"
-     * (docs/decisions.md#applicative-objects) -- which is the only caller
-     * today. A witnessed subset with more than one member (produced only by
-     * the accumulating object) has no single value for `visit` to hand
-     * back; use `witness<ERROR>()` per alternative for that case instead.
+     * Always at least one, by the class invariant. The short-circuit
+     * applicative object produces exactly one; the accumulating object may
+     * produce more. Public so that a caller can CHECK `visit`'s precondition
+     * rather than trip it: an unenforceable contract that callers cannot
+     * inspect is not a contract, it is a trap.
+     */
+    constexpr auto witness_count() const noexcept -> std::size_t {
+        return (static_cast<std::size_t>(
+                    std::get<std::optional<ERRORS>>(d_witnesses).has_value()) +
+                ... + std::size_t{0});
+    }
+
+    /** Visitation, for `recover`: apply `handler` to the single held witness.
+     *
+     * PRECONDITION: exactly one witness is present, and it is CHECKED. Every
+     * error_set produced by the short-circuit (monad-derived) applicative
+     * object satisfies it -- "short-circuit only ever produces singletons"
+     * (docs/decisions.md#applicative-objects). A witnessed subset with more
+     * than one member, which only the accumulating object produces, has no
+     * single value for `visit` to hand back.
+     *
+     * Violating it is a compile error in a constant expression and stops the
+     * program at runtime. It is NOT a silent pick of the leftmost witness:
+     * the two features that meet here -- multi-witness values and visitation
+     * -- shipped one stage apart, and a quiet wrong answer at that seam would
+     * surface as a dropped error much later, somewhere else.
+     *
+     * For a multi-witness subset use `witness<ERROR>()` per alternative,
+     * guarded by `holds<ERROR>()` or `witness_count()`.
      */
     template <class HANDLER>
     constexpr auto visit(HANDLER &&handler) const -> decltype(auto) {
@@ -377,10 +420,17 @@ class error_set_of {
                  : std::get<IDX>(other.d_witnesses))...};
     }
 
-    /** The currently held witness, reinterpreted as a std::variant, for
-     * `visit`. PRECONDITION: at least one witness present, which is the
-     * class invariant -- picks the first present slot in canonical order. */
+    /** The single held witness, reinterpreted as a std::variant, for `visit`.
+     * Checks the precondition rather than assuming it: see `visit`. */
     constexpr auto to_variant() const -> std::variant<ERRORS...> {
+        if (witness_count() != 1) {
+            detail::error_set_precondition_violated(
+                "beman::transpose::error_set::visit requires exactly one "
+                "witness, but this value witnesses a different number. Use "
+                "witness<E>() per alternative for a multi-witness subset; "
+                "see docs/decisions.md#accumulation-evidence.");
+        }
+
         std::optional<std::variant<ERRORS...>> found;
         auto try_slot = [&found](const auto &slot) {
             if (!found.has_value() && slot.has_value()) {
