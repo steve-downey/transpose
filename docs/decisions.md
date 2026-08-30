@@ -38,6 +38,14 @@ without the user writing it violates this decision.
   is pinned as an *unregistered* context in the golden tests, so promotion at
   ∅ (stage [crtp-absorption](transpose-grading-plan.md#crtp-absorption))
   cannot arrive by quietly registering bare values as a carrier.
+- 2026-08-30 — Sentinel generalized off the shipped model by stage
+  [law-harness](transpose-grading-plan.md#law-harness): the harness asserts
+  for EVERY model that re-indexing a carrier at that model's bottom yields
+  the bare value, so "no framework path materializes an ∅-graded carrier the
+  user did not write" is now checked for the Boolean model too, not only for
+  `error_set`. Doing so surfaced that this decision's ∅ and the framework's
+  `unit_grade` are different types that behave differently here — see
+  [bottom-grade-identity](#bottom-grade-identity).
 
 ---
 
@@ -256,6 +264,25 @@ stage [law-harness](transpose-grading-plan.md#law-harness)): an abstraction
 with one model is renamed, not generic.
 **Log:**
 - 2026-08-28 — Adopted.
+- 2026-08-30 — LEAK-DETECTOR RESULT, from stage
+  [law-harness](transpose-grading-plan.md#law-harness). The Boolean
+  semilattice was registered as the promised second model and the full
+  harness run against both. Verdict is split, and the split is exactly along
+  the layer boundary this decision draws. *Upheld at the algebra and the
+  carrier traits:* `tests/beman/transpose/laws.hpp` includes `grade.hpp` and
+  nothing else from the library, never names `error_set`, `recover`, or
+  `expected`, and both models pass it — so the framework layer really can
+  state and check the semilattice laws without naming its shipped model.
+  *Not upheld at the mixing point,* which is the one place the algebra exists
+  for: `grade_join_t` has no callers in `include/` at all, and every graded
+  deduction joins through `detail::joined_error_t` in error vocabulary. Filed
+  as [mixing-point-vocabulary](#mixing-point-vocabulary), which is a
+  contradiction of this decision's letter and needs Steve's ruling on whether
+  it re-opens it. *A third finding,* smaller but structural, is that the
+  framework and every model each carry their own ∅ and the two are never
+  identified — [bottom-grade-identity](#bottom-grade-identity). Nothing was
+  patched: this stage's charter is to log what the second model exposes, not
+  to smooth it.
 
 ---
 
@@ -334,6 +361,23 @@ official grade registration?
 - 2026-08-28 — Raised during planning. Note: shipping it quietly unifies
   optional and expected under one framework and likely belongs in the paper's
   rationale either way.
+- 2026-08-30 — The model now EXISTS, test-only, in
+  `tests/beman/transpose/laws.test.cpp`, built by stage
+  [law-harness](transpose-grading-plan.md#law-harness). Still open, and
+  deliberately so: the carrier is a purpose-built `Fallible<T>`, not
+  `std::optional`, because registering `std::optional` as a graded carrier
+  would answer this question by fiat — and would contradict
+  `grade.test.cpp`'s `is_ungraded<std::optional<int>>`, which stage
+  [grade-concept](transpose-grading-plan.md#grade-concept) pinned as part of
+  its ∅-default tripwire. Two facts for whoever answers this. *The price is
+  now measured:* the algebra is ten trivial specializations and slides in
+  cleanly, but the carrier costs four more, all transliterations of
+  `error_set.hpp`'s, and two of the four exist only because of
+  [bottom-grade-identity](#bottom-grade-identity). *The benefit is currently
+  unavailable:* per [mixing-point-vocabulary](#mixing-point-vocabulary) a
+  registered algebra is not a usable one, so shipping this today would
+  register `optional` as graded without letting it join with anything.
+  Answering yes probably wants that resolved first.
 
 ---
 
@@ -563,3 +607,132 @@ is defined to fix.
   AND split into `current_state.test.cpp`. Done before graded-deduction
   starts, so the block can be driven red first: the three negatives flipped
   to their post-stage form fail the build at this commit. Divergence closed.
+
+---
+
+## bottom-grade-identity
+
+**Question:** Is the framework's `unit_grade` the same ∅ as a model's
+`grade_bottom_t<G>`, or a second bottom sitting below every model's?
+**Status:** OPEN
+**Log:**
+- 2026-08-30 — Raised by stage
+  [law-harness](transpose-grading-plan.md#law-harness). Registering the
+  Boolean semilattice as a second model made visible something the shipped
+  model alone hid: the framework and every model each carry their own ∅, and
+  nothing identifies them. Each fact below was confirmed by a negative
+  control — invert or delete it, watch the build break, restore.
+  * They are DISTINCT TYPES, and STRICTLY ORDERED. `unit_grade` and
+    `error_set<>` are not the same type; `grade_subsumes_v<unit_grade,
+    error_set<>>` is true and `grade_subsumes_v<error_set<>, unit_grade>` is
+    false. So the framework's ∅ sits strictly BELOW the model's ∅ in the
+    order the framework itself computes. A bounded join-semilattice has one
+    bottom; what is registered is the model's lattice with a second bottom
+    glued underneath. Everything stays internally consistent — order-from-join
+    is satisfied in both directions — which is why no earlier stage tripped
+    on it.
+  * THE ROUND TRIP FAILS AT THE BOTTOM. `grade_of_t<rebind_grade_t<T,
+    error_set<>>>` is `unit_grade`, not `error_set<>`, because the ∅ carrier
+    is bare `T` ([empty-grade-spelling](#empty-grade-spelling)) and bare `T`
+    reports the framework's ∅. The harness states the round-trip law with
+    that carve-out written into it; removing the carve-out fails the build,
+    so the carve-out is describing reality rather than being defensive.
+  * "RE-INDEX AT ∅" IS TWO DIFFERENT FUNCTIONS.
+    `rebind_grade_t<expected<int, error_set<A,B>>, unit_grade>` is
+    `expected<int, error_set<A,B>>` — the framework's default leaves a
+    carrier alone. `rebind_grade_t<expected<int, error_set<A,B>>,
+    error_set<>>` is `int` — the model's bottom strips the carrier off. Under
+    [empty-grade-spelling](#empty-grade-spelling) the second is what ∅ is
+    supposed to mean, so the framework's single carrier-facing default is the
+    one that is wrong for a graded carrier, and a model can only correct it
+    for its own bottom, never for `unit_grade`.
+  * THE COST TO A SECOND MODEL, measured. The ALGEBRA is ten trivial
+    specializations (four joins, two bottoms, four order facts) and slides in
+    with no friction at all. The CARRIER costs four more — `grade_of` on the
+    carrier, promote-bare at ⊤, do-not-nest at ⊤, and strip-to-bare at ⊥
+    twice, once from the bare value and once from the carrier — and all four
+    are transliterations of `error_set.hpp`'s, with the carrier's name
+    swapped. Deleting any one of them breaks the harness. The framework
+    supplies exactly one carrier specialization, `rebind_grade<CONTEXT,
+    unit_grade>`, and it is the only one of the five no model needs. Two of
+    the model's four exist purely because its ⊥ is not the framework's ∅.
+  * THE FAILURE MODE IS BAD. Omitting one of those registrations produces
+    `invalid use of incomplete type 'rebind_grade<...>'` pointing inside
+    `grade.hpp`, with nothing naming the registration that is missing.
+  * A SENSOR THE HARNESS NOW CARRIES: "one model, one bottom" — every grade
+    in a sample agrees on `grade_bottom_t`. `unit_grade` satisfies
+    `grade_semilattice` yet fails this the moment it is admitted to a model's
+    grade sample, which is the cleanest statement of the problem: the
+    framework's ∅ is a grade that belongs to no model's lattice.
+
+  *Not patched, deliberately.* Candidate resolutions, none obviously right.
+  (a) Identify them: require `grade_bottom_t<G>` to be `unit_grade` for every
+  model, and models stop declaring a bottom type. Smallest, and it lets the
+  framework own carrier-stripping once; but it costs `error_set<>` its
+  standing as a grade while keeping it as the explicit uniform spelling,
+  which reaches [empty-grade-spelling](#empty-grade-spelling) and
+  [uniform-form-surface](#uniform-form-surface). (b) Keep them distinct but
+  give the framework a constrained `rebind_grade` at any model's bottom, so
+  stripping is written once. (c) Accept the duplication and document it as
+  the price of models owning their own lattice. Both halves of the
+  disagreement are now pinned by the harness, so whichever is chosen cannot
+  happen silently.
+
+---
+
+## mixing-point-vocabulary
+
+**Question:** In whose vocabulary is the join at a mixing point computed —
+the framework's `grade_join`, or the model's own?
+**Status:** OPEN
+**Log:**
+- 2026-08-30 — Raised by stage
+  [law-harness](transpose-grading-plan.md#law-harness), and it is the sharp
+  half of what the second model was put there to detect.
+  [grade-generality](#grade-generality) decides that the framework layer
+  speaks only grade vocabulary. That holds for the algebra and the carrier
+  traits — see the leak-detector entry logged there. It does not hold at the
+  mixing point.
+  * `grade_join_t` HAS NO CALLERS. Not one, anywhere in `include/`. The only
+    framework verb any shipped header consumes is `grade_subsume`, in the
+    defaulted `subsume` member of the two CRTP bases. Every join a graded
+    deduction actually performs runs through `detail::joined_error_t` in
+    `expected.hpp`, written end to end in error vocabulary
+    (`error_elements`, `error_set_of_elements`, `error_set<...>`). The
+    framework's join verb is registered by the model, asserted by tests, and
+    used by nothing.
+  * WHERE THEY AGREE, THEY AGREE BY CONSTRUCTION. For two operands that are
+    already graded, the deduced result's grade equals
+    `grade_join_t` of the operand grades. That is now pinned as a sensor —
+    but it is agreement, not dispatch, and a second algebra gets no benefit
+    from it.
+  * WHERE THEY CANNOT AGREE. Lazy join ([grading-footprint](#grading-footprint),
+    no spontaneous singletons) makes `grade_of_t<expected<int, errc>>` equal
+    `unit_grade`. So for the bare mixing point the framework's verbs compute
+    ∅ ∨ ∅ = ∅ and predict a bare `int`, while the instance deduces
+    `expected<int, error_set<errc, io_errc>>`. The step the instance takes
+    and the grade layer cannot express is LIFTING A BARE ERROR TYPE INTO A
+    SINGLETON SET — which is error vocabulary by definition. This is not a
+    bug in either layer; it is the observation that the newly-claimed
+    territory of [grading-footprint](#grading-footprint) is reachable only in
+    the model's language.
+  * THE PRACTICAL CONSEQUENCE. A second algebra can be REGISTERED but not
+    USED. The Boolean model passes every law in the harness and still cannot
+    participate in a graded deduction, because the graded core of
+    `ExpectedApplicativeImpl` produces an `error_set` regardless of which
+    algebra the operands' grades belong to. "An abstraction with one model is
+    renamed, not generic" is the test
+    [grade-generality](#grade-generality) set for itself; on this reading the
+    abstraction currently has one model at the layer that matters.
+
+  *Steve's call, and it may re-open a DECIDED entry.* Logging rather than
+  stopping is what stage [law-harness](transpose-grading-plan.md#law-harness)
+  instructs for exactly this finding, so the stage completed; but this
+  contradicts the letter of [grade-generality](#grade-generality), which is
+  more than a stage-local divergence. *Not patched:* routing the mixing point
+  through `grade_join` needs the grade layer to gain something the ∅ grade
+  currently forbids — either a singleton-lifting operation, or a `grade_of`
+  that reports a singleton for `expected<T,E>`, which
+  [grading-footprint](#grading-footprint) rules out at the deduction level
+  even if not necessarily at the trait level. Either is a design decision,
+  not a stage deliverable.
