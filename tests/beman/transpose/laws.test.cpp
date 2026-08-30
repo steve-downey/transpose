@@ -162,35 +162,32 @@ struct grade_subsumes<may_fail, never_fails> : std::false_type {};
 template <>
 struct grade_subsumes<may_fail, may_fail> : std::true_type {};
 
-// -- The carrier registration. This part does NOT slide in cleanly: every
-// -- specialization below is a line-for-line transliteration of one in
-// -- error_set.hpp, with `Fallible` where `std::expected` stood. See the
-// -- divergence logged at docs/decisions.md#bottom-carrier-ownership.
-
-namespace detail {
-
-template <class T>
-inline constexpr bool is_fallible_v = false;
-
-template <class VALUE>
-inline constexpr bool is_fallible_v<Fallible<VALUE>> = true;
-
-} // namespace detail
+// -- The carrier registration. This part does NOT slide in cleanly: all four
+// -- specializations below are transliterations of ones in error_set.hpp,
+// -- with `Fallible` where `std::expected` stood, and every one of them was
+// -- shown to be load-bearing by deleting it and watching the harness break.
+// -- The framework owns exactly one case of the four (re-indexing at its own
+// -- `unit_grade`) and none of the ones a model actually needs. See the
+// -- divergence at docs/decisions.md#bottom-grade-identity.
+//
+// What did NOT turn out to be needed: the `!is_expected_v`-style negative
+// constraint error_set.hpp puts on its bare-value promotion. Partial ordering
+// already prefers the carrier specialization, so the constraint is redundant
+// -- deleting it here changed nothing. Noted rather than acted on: the
+// shipped header is not this stage's to edit.
 
 template <class VALUE>
 struct grade_of<Fallible<VALUE>> {
     using type = may_fail;
 };
 
-/** Promotion: a bare value re-indexed at ⊤ acquires the carrier. Needs the
- * negative constraint for the same reason error_set.hpp's does -- so that
- * re-indexing a carrier does not nest one inside another. */
+/** Promotion: a bare value re-indexed at ⊤ acquires the carrier. */
 template <class VALUE>
-    requires(!detail::is_fallible_v<VALUE>)
 struct rebind_grade<VALUE, may_fail> {
     using type = Fallible<VALUE>;
 };
 
+/** Re-indexing a carrier at the grade it already has must not nest. */
 template <class VALUE>
 struct rebind_grade<Fallible<VALUE>, may_fail> {
     using type = Fallible<VALUE>;
@@ -198,9 +195,8 @@ struct rebind_grade<Fallible<VALUE>, may_fail> {
 
 /** Re-indexing at the model's OWN ∅ yields the bare value. The framework
  * already says this for `unit_grade`, and says nothing for a model's bottom,
- * so every model writes it again. */
+ * so every model writes it again -- twice, once per direction. */
 template <class VALUE>
-    requires(!detail::is_fallible_v<VALUE>)
 struct rebind_grade<VALUE, never_fails> {
     using type = VALUE;
 };

@@ -249,8 +249,8 @@ consteval auto check_carrier_at() -> bool {
     // at the model's bottom the carrier is the bare value again
     // (docs/decisions.md#empty-grade-spelling), and a bare value reports the
     // FRAMEWORK's ∅ rather than the model's. Two spellings of ∅, not
-    // identified by the algebra. See the Log under
-    // docs/decisions.md#framework-bottom-identity.
+    // identified by the algebra. See
+    // docs/decisions.md#bottom-grade-identity.
     static_assert(
         std::is_same_v<grade_of_t<carrier>, GRADE> ||
             (std::is_same_v<GRADE, grade_bottom_t<GRADE>> &&
@@ -258,6 +258,37 @@ consteval auto check_carrier_at() -> bool {
         "Round trip: re-indexing a value at a grade and then asking for its "
         "grade returns what was asked for -- except at the model's bottom, "
         "where the carrier is the bare value and reports the framework's ∅.");
+
+    // Re-indexing is REPLACEMENT, never nesting: asking a carrier for the
+    // grade it already has changes nothing, and narrowing it to the model's ∅
+    // hands back the bare value rather than a degenerate carrier. The second
+    // of these is the mechanized form of
+    // docs/decisions.md#empty-grade-spelling's sentinel, generalized off the
+    // shipped model: NO model's framework path may materialize an ∅-graded
+    // carrier the user did not write.
+    static_assert(std::is_same_v<rebind_grade_t<carrier, GRADE>, carrier>,
+                  "Re-indexing a carrier at its own grade is the identity. A "
+                  "model that nests here builds carrier<carrier<T>> the first "
+                  "time a grade is recomputed.");
+    static_assert(
+        std::is_same_v<rebind_grade_t<carrier, grade_bottom_t<GRADE>>, VALUE>,
+        "Narrowing a carrier to the model's ∅ yields the BARE value.");
+
+    // THE TWO ∅s DISAGREE, and this pins it rather than hiding it. The
+    // framework's default says re-indexing anything at `unit_grade` leaves it
+    // alone; the model's own bottom strips the carrier off. Both are
+    // defensible in isolation and they are not the same function. This is a
+    // sensor, not an endorsement -- it fires if the two are ever identified,
+    // which is what docs/decisions.md#bottom-grade-identity is open about.
+    static_assert(std::is_same_v<rebind_grade_t<carrier, unit_grade>, carrier>,
+                  "The framework's ∅ leaves a carrier alone.");
+    static_assert(
+        std::is_same_v<GRADE, grade_bottom_t<GRADE>> ||
+            !std::is_same_v<rebind_grade_t<carrier, unit_grade>,
+                            rebind_grade_t<carrier, grade_bottom_t<GRADE>>>,
+        "Two spellings of ∅, two answers: for a genuinely graded carrier, "
+        "re-indexing at the framework's ∅ and at the model's ∅ do not agree. "
+        "See docs/decisions.md#bottom-grade-identity.");
 
     static_assert(
         std::is_same_v<decltype(grade_subsume<GRADE>(
