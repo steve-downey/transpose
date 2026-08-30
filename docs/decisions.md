@@ -472,6 +472,45 @@ one-of form and must be revised before the accumulating object can exist.
 
 ---
 
+## multi-witness-elimination
+
+**Question:** How is a multi-witness `error_set` value eliminated, now that
+`visit` is partial and defined only for the singleton case?
+**Status:** DECIDED 2026-08-29
+**Decision:** `visit` stays the one-of eliminator — partial, precondition
+checked — and is **not** extended to multi-witness. Multi-witness elimination
+is a **static per-type fold over the handled set**, implemented as `recover`'s
+internal mechanism and **not** shipped as a public verb. The impoverished-API
+fence holds until a second client outside `recover` demonstrates the need —
+the same YAGNI posture as [datum-entry-point](#datum-entry-point).
+**Why:** No runtime visitation verb is required, because the handled set {H}
+is a compile-time type-set. Elimination is a static fold over the grade with
+runtime presence filtering: for each E in H, if a witness is present, feed it
+to the handler and remove it. That is expressible entirely in the API that
+already exists — membership plus `witness<E>()` — so a public eliminator would
+be machinery with exactly one caller.
+Note also that the option one reaches for instinctively — statically excluding
+multi-witness visits — does not exist. *Which* witnesses are present is a
+runtime property of the value even though the grade is static, so `visit` is
+*inherently* partial under the witnessed-subset amendment of
+[error-set-identity](#error-set-identity). The only real choice was between a
+checked precondition and a silent leftmost pick, and leftmost is a lie: it
+reports "the error" of a value holding two.
+This retroactively settles the narrowing logged under
+[error-set-identity](#error-set-identity). The absent multi-witness visitation
+verb is not a gap awaiting a verb; it is the fence line.
+**Log:**
+- 2026-08-29 — Raised by the `visit` hardening: making the precondition
+  checked left the multi-witness case with no visitation verb at all, and it
+  was unclear whether that was a hole or a boundary.
+- 2026-08-29 — Answered by Steve, deliberately *before*
+  [recover-narrowing](transpose-grading-plan.md#recover-narrowing) starts. The
+  answer is forced, and under the fresh-agent-per-stage cadence an agent would
+  otherwise hit this wall in its first hour and spend a stop-and-report cycle
+  on a question that was never open.
+
+---
+
 ## golden-vs-scheduled-assertions
 
 **Question:** How does the golden file separate assertions that must never
