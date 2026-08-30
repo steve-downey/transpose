@@ -221,8 +221,20 @@ value-flow reason.
 Deliverables: `recover` with set-difference grade; annotated-and-checked
 grade at fold boundaries per
 [recover-grade-inference](decisions.md#recover-grade-inference).
+Read [multi-witness-elimination](decisions.md#multi-witness-elimination)
+BEFORE starting: it settles how a multi-witness value is eliminated, and the
+answer is that `recover` needs no new public verb. The handled set {H} is a
+compile-time type-set, so elimination is a static fold over the grade with
+runtime presence filtering — membership plus `witness<E>()`, both of which
+already exist. Do not add a public multi-witness eliminator; the absence is
+the fence line, not a gap.
 Acceptance: narrowing verified in deduced types; a recover-inside-fold test
-demonstrating the annotate-and-check path.
+demonstrating the annotate-and-check path. Also cover the CONSUMER story:
+accumulating traverse (stage [accumulating-object](#accumulating-object)) is
+where multi-witness values first reach user hands, so the tests should show
+what a caller actually does with an accumulated error — `witness_count()` and
+`witness<E>()` inspection, and `recover` — so the documented story exists
+before anyone asks for the verb this plan declined to ship.
 Tripwire: implementation pressure to infer via lattice fixpoint → STOP and
 discuss (compile-time cost vs spec complexity).
 
