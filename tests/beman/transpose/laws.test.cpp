@@ -92,27 +92,44 @@ struct never_fails {};
 /** ⊤: this computation may fail. The whole algebra is {⊥, ⊤} with ⊥ ⊑ ⊤. */
 struct may_fail {};
 
-/** The ⊤ carrier: a value, or nothing. Deliberately a distinct type rather
- * than std::optional -- see the section comment. Impoverished on purpose:
- * the harness needs construction from a value, copy/move, and equality, and
- * nothing else. */
-template <class VALUE>
+/** The explicit Boolean carrier: a value at a Boolean grade.
+ *
+ * Deliberately a distinct type rather than std::optional -- see the section
+ * comment. `Fallible<T, never_fails>` is the explicit uniform form; framework
+ * re-indexing at the model bottom still strips back to bare `T`.
+ */
+template <class VALUE, class GRADE>
 class Fallible {
   public:
-    constexpr Fallible() = default;
+    using value_type = VALUE;
+    using grade_type = GRADE;
+
+    constexpr Fallible()
+        requires std::is_same_v<GRADE, may_fail>
+    = default;
 
     // NOLINTNEXTLINE(*-explicit-constructor) -- promotion is a subsumption
     // coercion and must be implicit, exactly as expected's from-T is.
     constexpr Fallible(VALUE value) : d_value(std::move(value)) {}
 
+    template <class OTHER_GRADE>
+        requires bt::grade_subsumes_v<OTHER_GRADE, GRADE>
+    constexpr Fallible(const Fallible<VALUE, OTHER_GRADE> &other)
+        : d_value(other.d_value) {}
+
     constexpr auto has_value() const noexcept -> bool {
         return d_value.has_value();
     }
+
+    constexpr auto operator*() const -> const VALUE & { return *d_value; }
 
     friend auto operator==(const Fallible &, const Fallible &)
         -> bool = default;
 
   private:
+    template <class, class>
+    friend class Fallible;
+
     std::optional<VALUE> d_value;
 };
 
@@ -164,49 +181,132 @@ struct grade_subsumes<may_fail, never_fails> : std::false_type {};
 template <>
 struct grade_subsumes<may_fail, may_fail> : std::true_type {};
 
-// -- The carrier registration. This part does NOT slide in cleanly: all four
-// -- specializations below are transliterations of ones in error_set.hpp,
-// -- with `Fallible` where `std::expected` stood, and every one of them was
-// -- shown to be load-bearing by deleting it and watching the harness break.
-// -- The framework owns exactly one case of the four (re-indexing at its own
-// -- `unit_grade`) and none of the ones a model actually needs. See the
-// -- divergence at docs/decisions.md#bottom-grade-identity.
-//
-// What did NOT turn out to be needed: the `!is_expected_v`-style negative
-// constraint error_set.hpp puts on its bare-value promotion. Partial ordering
-// already prefers the carrier specialization, so the constraint is redundant
-// -- deleting it here changed nothing. Noted rather than acted on: the
-// shipped header is not this stage's to edit.
+struct boolean_grade_model {};
 
-template <class VALUE>
-struct grade_of<Fallible<VALUE>> {
-    using type = may_fail;
+template <>
+struct grade_model<never_fails> {
+    using type = boolean_grade_model;
 };
+
+template <>
+struct grade_model<may_fail> {
+    using type = boolean_grade_model;
+};
+
+template <class CONTEXT>
+inline constexpr bool is_fallible_v = false;
+
+template <class VALUE, class GRADE>
+inline constexpr bool is_fallible_v<Fallible<VALUE, GRADE>> = true;
+
+template <class VALUE, class GRADE>
+struct grade_of<Fallible<VALUE, GRADE>> {
+    using type = GRADE;
+};
+
+template <class CARRIER>
+struct fallible_value_type {
+    using type = CARRIER;
+};
+
+template <class VALUE, class GRADE>
+struct fallible_value_type<Fallible<VALUE, GRADE>> {
+    using type = VALUE;
+};
+
+template <class CARRIER>
+using fallible_value_type_t =
+    typename fallible_value_type<remove_cvref_t<CARRIER>>::type;
 
 /** Promotion: a bare value re-indexed at ⊤ acquires the carrier. */
 template <class VALUE>
 struct rebind_grade<VALUE, may_fail> {
-    using type = Fallible<VALUE>;
+    using type = Fallible<VALUE, may_fail>;
 };
 
 /** Re-indexing a carrier at the grade it already has must not nest. */
-template <class VALUE>
-struct rebind_grade<Fallible<VALUE>, may_fail> {
-    using type = Fallible<VALUE>;
+template <class VALUE, class GRADE>
+struct rebind_grade<Fallible<VALUE, GRADE>, may_fail> {
+    using type = Fallible<VALUE, may_fail>;
 };
 
-/** Re-indexing at the model's OWN ∅ yields the bare value. The framework
- * already says this for `unit_grade`, and says nothing for a model's bottom,
- * so every model writes it again -- twice, once per direction. */
+/** Re-indexing at the model's own bottom yields the bare value. */
 template <class VALUE>
 struct rebind_grade<VALUE, never_fails> {
     using type = VALUE;
 };
 
-template <class VALUE>
-struct rebind_grade<Fallible<VALUE>, never_fails> {
+template <class VALUE, class GRADE>
+struct rebind_grade<Fallible<VALUE, GRADE>, never_fails> {
     using type = VALUE;
 };
+
+template <class CARRIER>
+constexpr auto fallible_failed(const CARRIER &carrier) -> bool {
+    if constexpr (is_fallible_v<remove_cvref_t<CARRIER>>) {
+        return !carrier.has_value();
+    } else {
+        return false;
+    }
+}
+
+template <class CARRIER>
+constexpr auto fallible_value(const CARRIER &carrier) -> decltype(auto) {
+    if constexpr (is_fallible_v<remove_cvref_t<CARRIER>>) {
+        return *carrier;
+    } else {
+        return (carrier);
+    }
+}
+
+template <class VALUE_TYPE, class GRADE>
+struct FallibleApplicativeImpl {
+    template <class VALUE>
+    auto pure(this auto &&, VALUE &&value)
+        -> Fallible<remove_cvref_t<VALUE>, GRADE> {
+        return Fallible<remove_cvref_t<VALUE>, GRADE>{
+            std::forward<VALUE>(value)};
+    }
+
+    template <class FUNCTION, class... CARRIERS>
+        requires(sizeof...(CARRIERS) > 0) &&
+                (is_fallible_v<remove_cvref_t<CARRIERS>> || ...) &&
+                (detail::mixes_with_model<GRADE, CARRIERS> && ...)
+    auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
+        -> detail::mixed_result_t<
+            GRADE,
+            Fallible<remove_cvref_t<std::invoke_result_t<
+                         FUNCTION &,
+                         const fallible_value_type_t<CARRIERS> &...>>,
+                     GRADE>,
+            CARRIERS...> {
+        using Result = remove_cvref_t<std::invoke_result_t<
+            FUNCTION &, const fallible_value_type_t<CARRIERS> &...>>;
+        using Returned =
+            detail::mixed_result_t<GRADE, Fallible<Result, GRADE>, CARRIERS...>;
+
+        if constexpr (std::is_same_v<Returned, Result>) {
+            return std::invoke(function, fallible_value(operands)...);
+        } else {
+            if ((fallible_failed(operands) || ...)) {
+                return Returned{};
+            }
+            return Returned{
+                std::invoke(function, fallible_value(operands)...)};
+        }
+    }
+};
+
+template <class VALUE_TYPE, class GRADE>
+struct FallibleApplicativeMap
+    : Applicative<FallibleApplicativeImpl<VALUE_TYPE, GRADE>> {
+    using FallibleApplicativeImpl<VALUE_TYPE, GRADE>::invoke;
+    using FallibleApplicativeImpl<VALUE_TYPE, GRADE>::pure;
+};
+
+template <class VALUE_TYPE, class GRADE>
+inline constexpr auto applicative_typeclass<Fallible<VALUE_TYPE, GRADE>> =
+    FallibleApplicativeMap<VALUE_TYPE, GRADE>{};
 
 } // namespace beman::transpose
 
@@ -221,20 +321,13 @@ struct boolean_model {
 static_assert(laws::check_graded_laws<boolean_model>());
 
 // =========================================================================
-// WHERE THE GRADE VOCABULARY RUNS OUT.
+// MODEL-DISPATCHED MIXING.
 //
 // The harness above checks the ALGEBRA and the CARRIER TRAITS, and both
-// models pass. It cannot reach the one place the algebra exists FOR -- the
-// mixing point inside an applicative instance -- because a grade sample and
-// a value sample do not name a typeclass instance.
-//
-// So this block is not a law. It is a sensor on the gap: it puts what the
-// framework verbs SAY about a mixing point next to what the library actually
-// DEDUCES there. The two agree in one case and the framework has no answer
-// at all in the other, which is the divergence recorded at
-// docs/decisions.md#mixing-point-vocabulary. Pinned rather than fixed:
-// changing where the join is computed is a design decision, not a stage
-// deliverable.
+// models pass. This block reaches the place the algebra exists for: a real
+// applicative mixing point. The deduced grade must be the framework
+// `grade_join_t` of the operands' semantic `grade_of` readings, and a second
+// model must drive an actual deduction rather than only passing laws.
 // =========================================================================
 
 namespace mixing_point {
@@ -245,9 +338,9 @@ using bare_c = std::expected<int, std::errc>;
 using bare_i = std::expected<int, std::io_errc>;
 using graded_c = std::expected<int, e_c>;
 using graded_i = std::expected<int, e_i>;
+using boolean_may = Fallible<int, may_fail>;
+using boolean_never = Fallible<int, never_fails>;
 
-// -- AGREEMENT, where both operands are genuinely graded. The deduced
-// -- result's grade is exactly the framework's join of the operand grades.
 using graded_mix = decltype(bt::applicative_typeclass<graded_c>.invoke(
     add, std::declval<const graded_c &>(), std::declval<const graded_i &>()));
 
@@ -255,19 +348,11 @@ static_assert(
     std::is_same_v<
         bt::grade_of_t<graded_mix>,
         bt::grade_join_t<bt::grade_of_t<graded_c>, bt::grade_of_t<graded_i>>>,
-    "At a mixing point between two already-graded operands, the deduced "
-    "grade agrees with grade_join_t. Note AGREES WITH, not COMPUTED BY: the "
-    "instance reaches the same answer through error vocabulary.");
+    "The expected mixing point computes the result grade through "
+    "grade_join_t.");
 
-// -- SILENCE, where neither operand is graded. Lazy join means an unmixed
-// -- expected over a bare error type is ∅-graded
-// -- (docs/decisions.md#grading-footprint, no spontaneous singletons), so
-// -- the framework's verbs see ∅ ∨ ∅ = ∅ on both operands and predict a bare
-// -- int. The library deduces a graded carrier. Both are right; they are
-// -- answering different questions, and only one of them is in grade
-// -- vocabulary.
-static_assert(std::is_same_v<bt::grade_of_t<bare_c>, bt::unit_grade>);
-static_assert(std::is_same_v<bt::grade_of_t<bare_i>, bt::unit_grade>);
+static_assert(std::is_same_v<bt::grade_of_t<bare_c>, e_c>);
+static_assert(std::is_same_v<bt::grade_of_t<bare_i>, e_i>);
 
 using bare_mix = decltype(bt::applicative_typeclass<bare_c>.invoke(
     add, std::declval<const bare_c &>(), std::declval<const bare_i &>()));
@@ -278,15 +363,31 @@ static_assert(bt::graded_context<bare_mix>);
 using framework_prediction = bt::rebind_grade_t<
     int, bt::grade_join_t<bt::grade_of_t<bare_c>, bt::grade_of_t<bare_i>>>;
 
-static_assert(std::is_same_v<framework_prediction, int>);
 static_assert(
-    !std::is_same_v<bare_mix, framework_prediction>,
-    "The framework's grade verbs cannot describe the bare mixing point: both "
-    "operands are ∅-graded, so their join is ∅, yet the deduced result is "
-    "graded. This is the previously-ill-formed territory grading claims, and "
-    "reaching it requires lifting a bare error type into a set -- an "
-    "operation the grade layer does not have. See "
-    "docs/decisions.md#mixing-point-vocabulary.");
+    std::is_same_v<bare_mix, framework_prediction>,
+    "Plain-error expected carriers are semantically graded at singleton "
+    "model grades, so grade_of plus grade_join_t predicts the mixed result.");
+
+using boolean_mix = decltype(bt::applicative_typeclass<boolean_may>.invoke(
+    add, std::declval<const boolean_may &>(),
+    std::declval<const boolean_never &>()));
+
+static_assert(std::is_same_v<boolean_mix, Fallible<int, may_fail>>);
+static_assert(
+    std::is_same_v<
+        bt::grade_of_t<boolean_mix>,
+        bt::grade_join_t<bt::grade_of_t<boolean_may>,
+                         bt::grade_of_t<boolean_never>>>,
+    "The Boolean model drives a real mixed deduction through grade_join_t.");
+
+template <class LEFT, class RIGHT>
+concept accepts_boolean_invoke =
+    requires(const LEFT &lhs, const RIGHT &rhs) {
+        bt::applicative_typeclass<boolean_may>.invoke(add, lhs, rhs);
+    };
+
+static_assert(accepts_boolean_invoke<boolean_may, boolean_never>);
+static_assert(!accepts_boolean_invoke<boolean_may, graded_c>);
 
 } // namespace mixing_point
 

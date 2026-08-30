@@ -42,12 +42,12 @@ using set_ab = bt::error_set<alpha, beta>;
 namespace {
 
 // =========================================================================
-// 1. unit_grade is a grade in its own right, and the identity of join in
-//    every algebra. It is what lets the framework say "raises nothing"
-//    without naming an error type.
+// 1. unit_grade is the ungraded sentinel, not a grade in any model lattice.
+//    It is what lets the framework say "not yet in a family" without naming
+//    any model's bottom.
 // =========================================================================
 
-static_assert(bt::grade_semilattice<bt::unit_grade>);
+static_assert(!bt::grade_semilattice<bt::unit_grade>);
 static_assert(bt::grade_semilattice<set_a>);
 static_assert(bt::grade_semilattice<set_ab>);
 
@@ -56,20 +56,6 @@ static_assert(bt::grade_semilattice<set_ab>);
 static_assert(!bt::grade_semilattice<int>);
 static_assert(!bt::grade_semilattice<std::optional<int>>);
 static_assert(!bt::grade_semilattice<std::variant<alpha, beta>>);
-
-static_assert(std::is_same_v<bt::grade_join_t<bt::unit_grade, bt::unit_grade>,
-                             bt::unit_grade>);
-static_assert(
-    std::is_same_v<bt::grade_bottom_t<bt::unit_grade>, bt::unit_grade>);
-
-// ∅ is the identity of the shipped model's join, from either side.
-static_assert(std::is_same_v<bt::grade_join_t<bt::unit_grade, set_ab>, set_ab>);
-static_assert(std::is_same_v<bt::grade_join_t<set_ab, bt::unit_grade>, set_ab>);
-
-// ∅ subsumes into everything; nothing but ∅ subsumes into ∅.
-static_assert(bt::grade_subsumes_v<bt::unit_grade, bt::unit_grade>);
-static_assert(bt::grade_subsumes_v<bt::unit_grade, set_ab>);
-static_assert(!bt::grade_subsumes_v<set_ab, bt::unit_grade>);
 
 // =========================================================================
 // 2. The shipped model, reached through grade vocabulary only. These
@@ -92,17 +78,15 @@ inline constexpr bool order_agrees_with_join =
 
 static_assert(order_agrees_with_join<set_a, set_ab>);
 static_assert(order_agrees_with_join<set_ab, set_a>);
-static_assert(order_agrees_with_join<bt::unit_grade, set_ab>);
-static_assert(order_agrees_with_join<set_ab, bt::unit_grade>);
 
 // =========================================================================
-// 3. STAGE ACCEPTANCE: grade_of on every baseline-capture matrix type
-//    yields ∅ except genuine carriers.
+// 3. STAGE ACCEPTANCE: grade_of on every baseline-capture matrix type yields
+//    the ungraded sentinel except registered carriers.
 //
 // This is the tripwire of stage grade-concept
 // (docs/transpose-grading-plan.md#grade-concept): any matrix type
-// classified as graded that today flows through the identity path means
-// the nominal fence of docs/decisions.md#error-set-identity has a hole.
+// classified as graded without a model decision means the framework has
+// conscripted an unwilling type.
 // =========================================================================
 
 template <class T>
@@ -119,18 +103,19 @@ static_assert(is_ungraded<bt::sender<int>>);
 static_assert(is_ungraded<bt::zip_list<int>>);
 static_assert(is_ungraded<bt::test::Identity<int>>);
 
-// The carrier stage expected-instance introduced. An unmixed expected over a
-// bare error type is UNGRADED -- this is the no-spontaneous-singletons
-// corollary of docs/decisions.md#grading-footprint, at the trait level.
-static_assert(is_ungraded<std::expected<int, std::errc>>);
-static_assert(is_ungraded<std::expected<int, alpha>>);
+// A registered expected carrier with a plain error alternative is
+// semantically graded at the singleton set. Lazy join is a discipline on
+// deduced carrier spelling, not on this type-level grade reading.
+static_assert(!is_ungraded<std::expected<int, std::errc>>);
+static_assert(std::is_same_v<bt::grade_of_t<std::expected<int, alpha>>, set_a>);
 
-// The datum-vs-grade fence. A variant error alternative is a value-level sum
-// and stays ungraded; only the nominal error_set is a grade carrier. If this
-// ever flips, structural detection has started conscripting the unwilling.
-static_assert(is_ungraded<std::expected<int, std::variant<alpha, beta>>>);
+// A variant error alternative is one plain error type whose value-level datum
+// is a sum, so the semantic grade is the singleton containing that type.
+using variant_error = std::variant<alpha, beta>;
+static_assert(std::is_same_v<bt::grade_of_t<std::expected<int, variant_error>>,
+                             bt::error_set<variant_error>>);
 
-// Genuine carriers, and only these.
+// Explicit error_set carriers report their set directly.
 static_assert(!is_ungraded<std::expected<int, set_ab>>);
 static_assert(
     std::is_same_v<bt::grade_of_t<std::expected<int, set_ab>>, set_ab>);
@@ -139,19 +124,13 @@ static_assert(std::is_same_v<bt::grade_of_t<std::expected<int, set_a>>, set_a>);
 // graded_context is the constraint the framework uses to keep the two paths
 // mutually exclusive rather than merely ranked.
 static_assert(bt::graded_context<std::expected<int, set_ab>>);
-static_assert(!bt::graded_context<std::expected<int, std::errc>>);
+static_assert(bt::graded_context<std::expected<int, std::errc>>);
 static_assert(!bt::graded_context<std::optional<int>>);
 static_assert(!bt::graded_context<int>);
 
 // =========================================================================
 // 4. rebind_grade, including the empty-grade-spelling sentinel.
 // =========================================================================
-
-// Re-indexing anything at ∅ leaves it alone -- the framework default.
-static_assert(std::is_same_v<bt::rebind_grade_t<int, bt::unit_grade>, int>);
-static_assert(
-    std::is_same_v<bt::rebind_grade_t<std::optional<int>, bt::unit_grade>,
-                   std::optional<int>>);
 
 // Promotion: a bare value re-indexed at a non-empty set acquires a carrier.
 static_assert(std::is_same_v<bt::rebind_grade_t<int, set_ab>,
@@ -178,9 +157,8 @@ static_assert(!std::is_same_v<bt::rebind_grade_t<int, bt::error_set<>>,
 // Round-trip: grade_of after rebind_grade returns what was asked for.
 static_assert(
     std::is_same_v<bt::grade_of_t<bt::rebind_grade_t<int, set_ab>>, set_ab>);
-static_assert(
-    std::is_same_v<bt::grade_of_t<bt::rebind_grade_t<int, bt::unit_grade>>,
-                   bt::unit_grade>);
+static_assert(std::is_same_v<bt::grade_of_t<bt::rebind_grade_t<int, set_a>>,
+                             set_a>);
 
 } // namespace
 

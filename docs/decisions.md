@@ -171,22 +171,25 @@ normalization = names-not-positions; inclusions unique). Precedents:
 **Question:** Where does grade machinery live — typeclass surface, or
 framework/grade-algebra infrastructure?
 **Status:** DECIDED 2026-08-28
+**Decided by:** Planning discussion; Stage 9 amendments by Steve Downey 2026-08-30.
 **Decision:** Never on the typeclass surface. `grade_of<Ctx>` and
-`rebind_grade<Ctx,G>` are framework traits with structural defaults
-(pattern-match the `error_set` shape; everything else is ∅-graded;
-customizable for exotic carriers). `join`/`bottom`/`subsume` are operations of
-the grade algebra (`grade_semilattice` concept), written once, with
-`error_set` as the shipped model. The CRTP base absorbs promotion of bare
-values at ∅, ap-from-bind, and defaulted subsume as constrained members that
-SFINAE away silently.
+`rebind_grade<Ctx,G>` are framework traits: `grade_of` defaults unregistered
+carriers to the ungraded sentinel, and models specialize registered carriers
+to model grades. `join`/`bottom`/`subsume` are operations of the grade algebra
+(`grade_semilattice` concept), written once, with `error_set` as the shipped
+model. Plain-error `std::expected<T, E>` is semantically graded at
+`error_set<E>` per [plain-error-grade-reading](#plain-error-grade-reading);
+lazy join remains a carrier-spelling rule, not a second grade trait. The CRTP
+base absorbs promotion of bare values at model bottoms, ap-from-bind, and
+defaulted subsume as constrained members that SFINAE away silently.
 **Why:** Gadget-author ergonomics: registering a kind must stay "a couple of
 functions," and duck typing at use sites is a feature to preserve. Invariant:
 an instance that knows nothing about grades works verbatim, treated as
 uniformly ∅-graded; the monad instance remains *identical to* the applicative
 instance because grades ride in deduced return types — there is no separate
 graded spelling to diverge into.
-**Sentinel:** a typeclass instance that must declare grade participation, or
-contains a bare/graded mixed-case overload, means the factoring has leaked.
+**Sentinel:** a typeclass instance that must declare grade participation, or a
+second grade-reading trait beside `grade_of`, means the factoring has leaked.
 **Log:**
 - 2026-08-28 — Adopted.
 - 2026-08-28 — Spelling snag found by
@@ -195,6 +198,8 @@ contains a bare/graded mixed-case overload, means the factoring has leaked.
   [grade-operation-spelling](#grade-operation-spelling); does not disturb the
   decision, which is about where the operations live, not what they are
   called.
+- 2026-08-30 — Amended by [plain-error-grade-reading](#plain-error-grade-reading) and [grade-model-identity](#grade-model-identity).
+  The framework still owns the traits, but the ungraded sentinel is no longer a grade and registered carriers report model grades through the single `grade_of` question.
 
 ---
 
@@ -269,6 +274,8 @@ with one model is renamed, not generic.
   Filed as [mixing-point-vocabulary](#mixing-point-vocabulary), which is a contradiction of this decision's letter and needs Steve's ruling on whether it re-opens it.
   *A third finding,* smaller but structural, is that the framework and every model each carry their own ∅ and the two are never identified — [bottom-grade-identity](#bottom-grade-identity).
   Nothing was patched: this stage's charter is to log what the second model exposes, not to smooth it.
+- 2026-08-30 — REPAIR, by stage [model-dispatched-mixing](transpose-grading-plan.md#model-dispatched-mixing).
+  `grade_join_t` now drives expected mixing points and the Boolean model drives an actual mixed deduction, so the leak detector's positive result has been repaired rather than documented around.
 
 ---
 
@@ -356,6 +363,43 @@ official grade registration?
 
 ---
 
+## plain-error-grade-reading
+
+**Question:** What grade does `grade_of<std::expected<T, E>>` report when `E` is a plain error type rather than an `error_set`?
+**Status:** DECIDED 2026-08-30
+**Decided by:** Steve Downey.
+**Decision:** It reports the singleton model grade `error_set<E>`.
+This is type-level bookkeeping only: an unmixed pipeline still deduces `std::expected<T, E>`, not `std::expected<T, error_set<E>>`.
+Lazy join is a discipline on deduced carrier spellings, not on semantic grade reading.
+There is no parallel grade-reading trait; consumers ask `grade_of` once.
+**Why:** `std::expected<T, E>` is a registered carrier in the `error_set` family, so reporting the framework's ungraded sentinel would violate [bottom-grade-identity](#bottom-grade-identity), which says `grade_of` yields either ungraded or a model grade.
+The singleton reading materializes no new runtime or deduced carrier form; it only lets the framework compute joins in grade vocabulary.
+**Log:**
+- 2026-08-30 — Raised by the Opus sanity check before [grade-concept](transpose-grading-plan.md#grade-concept), but not given its own slug at the time.
+  The grade-concept stage pinned the opposite answer in tests by treating plain-error `expected` as ungraded.
+- 2026-08-30 — Stage [model-dispatched-mixing](transpose-grading-plan.md#model-dispatched-mixing) initially tried to route around the tension with a second per-model `mixing_grade` hook.
+  Steve stopped that direction: two grade-reading traits would make every consumer know which one lies.
+  The repair instead changes `grade_of<std::expected<T, E>>` to the singleton semantic grade and preserves lazy spelling at deduction sites.
+
+---
+
+## grade-model-identity
+
+**Question:** How does the framework know whether two grades belong to the same model?
+**Status:** DECIDED 2026-08-30
+**Decided by:** Steve Downey.
+**Decision:** A public `grade_model<G>` trait maps every model grade to a nominal model tag.
+Same-model constraints compare those tags.
+The tag carries identity only: joins, bottoms, and subsumption remain operations on grades through `grade_join`, `grade_bottom`, and `grade_subsumes`.
+Join-fold and sentinel-lift helpers used by implementation code stay in `detail`.
+**Why:** [cross-model-mixing](#cross-model-mixing) needs a way to reject operands from different grade models without inventing a product model.
+Nominal model tags are the smallest public vocabulary that expresses that constraint while keeping model operations on the existing grade algebra hooks.
+**Log:**
+- 2026-08-30 — Added by stage [model-dispatched-mixing](transpose-grading-plan.md#model-dispatched-mixing) under Steve's ruling.
+  The aborted `mixing_grade` direction was not kept; the only new public framework hook is model identity.
+
+---
+
 ## expected-instance-introduction
 
 **Question:** Where does the *ungraded* `std::expected` applicative/monad
@@ -365,22 +409,26 @@ grading introduce `expected` to this library already graded?
 **Status:** DECIDED 2026-08-28
 **Decision:** Ungraded first, as its own stage. `std::expected<T,E>` is
 registered as an ordinary applicative and monad — one pinned error type per
-instance object, so mixing `E1` with `E2` remains ill-formed — and folded into
-the golden deduction matrix, before any grade machinery reaches it. Placed
-immediately after [baseline-capture](transpose-grading-plan.md#baseline-capture)
-as stage [expected-instance](transpose-grading-plan.md#expected-instance),
-earlier than the "before graded-deduction" minimum the question asked for.
+instance object, so mixing `E1` with `E2` remains ill-formed until
+[graded-deduction](transpose-grading-plan.md#graded-deduction) — and folded
+into the golden deduction matrix before grade machinery reaches its
+deductions. Placed immediately after
+[baseline-capture](transpose-grading-plan.md#baseline-capture) as stage
+[expected-instance](transpose-grading-plan.md#expected-instance), earlier than
+the "before graded-deduction" minimum the question asked for. Amended by
+[plain-error-grade-reading](#plain-error-grade-reading): once grade machinery
+exists, `grade_of<std::expected<T, E>>` reports the singleton semantic grade;
+the ungraded-first before-state is about carrier spelling and typeclass
+registration, not the final grade trait answer.
 **Why:** Without an ungraded before-state the no-spontaneous-singletons
 corollary of [grading-footprint](#grading-footprint) has nothing to be true
 *of*: "unmixed pipelines never become `expected<T, error_set<E>>`" would be an
 assertion about a type that never existed, unfalsifiable by the goldens that
 exist to falsify exactly that. Registering it before
 [grade-concept](transpose-grading-plan.md#grade-concept) rather than after
-also puts `expected<T,E>` into the matrix that stage must classify as
-∅-graded, which is a far sharper test of the ∅-default-for-unrecognized-types
-mechanism than `optional` alone — `expected` is precisely the type a leaky
-structural detector would misclassify, and its tripwire should fire on the
-hard case. Keeping one error type per instance object is what holds the
+also puts `expected<T,E>` into the matrix before graded deduction can change
+its carrier spelling, which is the hard case the no-spontaneous-singletons
+corollary needs. Keeping one error type per instance object is what holds the
 previously-ill-formed territory closed until
 [graded-deduction](transpose-grading-plan.md#graded-deduction) opens it
 deliberately.
@@ -404,6 +452,10 @@ deliberately.
   arrives earlier than the plan's ordering suggests.
 - 2026-08-28 — Answered: ungraded first, as a new stage placed directly after
   baseline-capture. Divergence closed; work resumed.
+- 2026-08-30 — Amended by [plain-error-grade-reading](#plain-error-grade-reading).
+  The original "ungraded first" answer remains true for the staged
+  introduction and the deduced carrier spellings, but not for the final
+  semantic `grade_of` reading after grade machinery is installed.
 
 ---
 
@@ -636,6 +688,8 @@ The Boolean model exposed that duplication by forcing the framework bottom and m
 - 2026-08-30 — Ruling by Steve: choose the sentinel interpretation, not identification and not documented duplication.
   Framework-∅ is the model-less state "not yet in a family"; model bottoms remain model-owned.
   The repair belongs in stage [model-dispatched-mixing](transpose-grading-plan.md#model-dispatched-mixing), where promotion at a mixing point lifts ungraded operands to that point's model bottom.
+- 2026-08-30 — Implemented by stage [model-dispatched-mixing](transpose-grading-plan.md#model-dispatched-mixing).
+  `unit_grade` no longer models `grade_semilattice`, `rebind_grade<CONTEXT, unit_grade>` no longer exists, and implementation helpers lift the sentinel to the current model's bottom only inside model-dispatched joins.
 
 ---
 
@@ -680,6 +734,8 @@ The repair must happen while Steve is still the sole client, because after a sec
   Either is a design decision, not a stage deliverable.
 - 2026-08-30 — Ruling by Steve: this is a design bug with the same root cause as [bottom-grade-identity](#bottom-grade-identity), not an acceptable documented limitation.
   The next stage must make the Boolean model drive an actual mixed deduction before [paper-revision](transpose-grading-plan.md#paper-revision) starts.
+- 2026-08-30 — Implemented by stage [model-dispatched-mixing](transpose-grading-plan.md#model-dispatched-mixing).
+  The aborted `mixing_grade` direction was removed; mixing deductions use `grade_of`, same-model checks via `grade_model`, and `grade_join_t` folded over operands after lifting only ungraded operands to the current model bottom.
 
 ---
 
