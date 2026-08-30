@@ -552,6 +552,17 @@ constexpr auto combine_errors(const error_set_of<ERRORS...> &lhs,
     return error_set_combine(lhs, rhs);
 }
 
+namespace detail {
+
+template <class... ERRORS>
+constexpr auto combine_grade_evidence(const error_set_of<ERRORS...> &lhs,
+                                      const error_set_of<ERRORS...> &rhs)
+    -> error_set_of<ERRORS...> {
+    return error_set_combine(lhs, rhs);
+}
+
+} // namespace detail
+
 // -- recover: narrowing the grade by set difference ------------------------
 // Stage recover-narrowing (docs/transpose-grading-plan.md#recover-narrowing).
 // Error vocabulary, per grade.hpp's own comment that `recover` lives in the
@@ -840,6 +851,13 @@ inline constexpr bool is_expected_v<std::expected<VALUE, ERROR>> = true;
 
 } // namespace detail
 
+struct error_set_model {};
+
+template <class... ERRORS>
+struct grade_model<error_set_of<ERRORS...>> {
+    using type = error_set_model;
+};
+
 template <class... LEFT, class... RIGHT>
 struct grade_join<error_set_of<LEFT...>, error_set_of<RIGHT...>> {
     using type =
@@ -857,13 +875,18 @@ struct grade_subsumes<error_set_of<LEFT...>, error_set_of<RIGHT...>>
           error_set_subsumes_v<error_set_of<LEFT...>, error_set_of<RIGHT...>>> {
 };
 
-/** Structural grade detection: an expected whose error alternative IS an
- * error_set is graded at that set.
+/** Semantic grade detection for expected in the error_set model.
  *
- * Nominality is what makes this sound -- it conscripts only the willing. An
- * `expected<T, std::variant<A,B>>` is a value-level sum error and stays
- * ∅-graded, because the user did not say otherwise at the declaration site.
+ * A plain error alternative contributes the singleton grade `error_set<E>`;
+ * an explicit error_set alternative reports that set directly. Lazy join is
+ * a discipline on the carrier spelling deduced by expected's typeclass
+ * operations, not on this type-level grade reading.
  */
+template <class VALUE, class ERROR>
+struct grade_of<std::expected<VALUE, ERROR>> {
+    using type = error_set<ERROR>;
+};
+
 template <class VALUE, class... ERRORS>
 struct grade_of<std::expected<VALUE, error_set_of<ERRORS...>>> {
     using type = error_set_of<ERRORS...>;

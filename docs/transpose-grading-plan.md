@@ -90,6 +90,12 @@ client. The agent should know their one-line forms cold:
   recover-narrowed grades are annotated and checked, not inferred.
 - [grade-generality](decisions.md#grade-generality) — `error_set` is one model
   of a `grade_semilattice` concept; non-idempotent grades excluded.
+- [plain-error-grade-reading](decisions.md#plain-error-grade-reading) —
+  `grade_of<std::expected<T, E>>` reports the singleton model grade
+  `error_set<E>`; lazy join constrains deduced carrier spelling, not semantic
+  grade reading.
+- [grade-model-identity](decisions.md#grade-model-identity) — `grade_model<G>`
+  maps each model grade to a nominal model tag for same-model constraints.
 - [bottom-grade-identity](decisions.md#bottom-grade-identity) — framework ∅ is
   a pure ungraded sentinel; bottoms and carrier machinery exist only per
   model.
@@ -279,6 +285,13 @@ Deliverables:
   [bottom-grade-identity](decisions.md#bottom-grade-identity): `grade_of`
   yields either ungraded or a model grade, and the sentinel has no lattice
   membership or carrier machinery.
+- Change plain-error expected grade reading per
+  [plain-error-grade-reading](decisions.md#plain-error-grade-reading):
+  `grade_of<std::expected<T, E>>` is the singleton `error_set<E>` even though
+  unmixed deductions keep spelling the carrier as `std::expected<T, E>`.
+- Add public model identity per
+  [grade-model-identity](decisions.md#grade-model-identity): model grades
+  specialize `grade_model<G>`, and same-model constraints compare those tags.
 - Route every mixing-point deduction through the operands' grade model per
   [mixing-point-vocabulary](decisions.md#mixing-point-vocabulary):
   `rebind_grade<Carrier, grade_join<g1, g2>>`, with ungraded operands lifted
@@ -297,8 +310,9 @@ That is the abstraction-boundary leak [grade-generality](decisions.md#grade-gene
 was designed to detect, and paper-revision must not start while the artifact
 only half demonstrates the claim.
 Acceptance: Boolean mixed deduction green; cross-model mixing rejected by
-constraint; baseline goldens unchanged; no shipped mixing-point code mentions
-`error_set` outside the model layer; `make TOOLCHAIN=gcc-16 compile`,
+constraint; baseline goldens unchanged; no parallel grade-reading trait
+exists; no shipped mixing-point deduction code mentions `error_set` outside
+the model layer; `make TOOLCHAIN=gcc-16 compile`,
 `make TOOLCHAIN=gcc-16 ctest`, and `make TOOLCHAIN=gcc-16 compile-headers`
 green.
 Tripwire: needing a product of grade models, changing the golden baseline, or

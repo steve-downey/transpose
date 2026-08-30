@@ -114,22 +114,11 @@ static_assert(
                    boxed<std::vector<int>>>);
 
 // =========================================================================
-// 2. subsume is present on every instance, and is the identity at ∅.
+// 2. subsume is present on every instance for model grades.
 //
-// The instance did not ask for this member and cannot tell it is there.
+// The instance did not ask for this member and cannot tell it is there. The
+// framework sentinel itself is not a grade and is not a subsumption target.
 // =========================================================================
-
-inline constexpr const auto &boxed_app = bt::applicative_typeclass<boxed<int>>;
-inline constexpr const auto &opt_app =
-    bt::applicative_typeclass<std::optional<int>>;
-
-static_assert(
-    std::is_same_v<decltype(boxed_app.template subsume<bt::unit_grade>(
-                       std::declval<const boxed<int> &>())),
-                   boxed<int>>);
-static_assert(std::is_same_v<decltype(opt_app.template subsume<bt::unit_grade>(
-                                 std::declval<const std::optional<int> &>())),
-                             std::optional<int>>);
 
 // A ∅-graded carrier cannot be widened to a grade its algebra does not
 // license... except that ∅ subsumes into everything, which is the promotion
@@ -157,11 +146,9 @@ static_assert(
                        std::declval<const std::expected<int, set_a> &>())),
                    std::expected<int, set_ab>>);
 
-// Promotion at ∅ is the identity, and in particular does NOT manufacture
-// expected<int, error_set<>> -- the sentinel again, now at the value level.
-static_assert(std::is_same_v<decltype(bt::grade_subsume<bt::unit_grade>(
-                                 std::declval<const int &>())),
-                             int>);
+// Promotion at the model bottom is the identity, and in particular does NOT
+// manufacture expected<int, error_set<>> -- the sentinel again, now at the
+// value level.
 static_assert(std::is_same_v<decltype(bt::grade_subsume<bt::error_set<>>(
                                  std::declval<const int &>())),
                              int>);

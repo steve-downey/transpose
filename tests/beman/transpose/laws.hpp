@@ -158,6 +158,9 @@ consteval auto check_unary_grade_laws() -> bool {
                                  grade_bottom_t<GRADE>>,
                   "Bottom is its own bottom: the model has one ∅, and "
                   "asking ∅ for its ∅ does not move.");
+    static_assert(std::is_same_v<grade_model_t<GRADE>,
+                                 grade_model_t<grade_bottom_t<GRADE>>>,
+                  "A grade and its bottom belong to the same model.");
     static_assert(grade_subsumes_v<GRADE, GRADE>,
                   "Reflexivity: every grade subsumes into itself. Follows "
                   "from idempotence by order-from-join; checked separately "
@@ -166,15 +169,6 @@ consteval auto check_unary_grade_laws() -> bool {
                   "Bottom is least: a computation that raises nothing is "
                   "usable wherever one that may raise something is.");
 
-    // The FRAMEWORK's ∅ (`unit_grade`) against the model's grades. This is
-    // the interoperation the framework promises: `unit_grade` composes with
-    // any model's grades without the framework naming the model.
-    static_assert(std::is_same_v<grade_join_t<unit_grade, GRADE>, GRADE>,
-                  "The framework's ∅ is a left unit for every model.");
-    static_assert(std::is_same_v<grade_join_t<GRADE, unit_grade>, GRADE>,
-                  "The framework's ∅ is a right unit for every model.");
-    static_assert(grade_subsumes_v<unit_grade, GRADE>,
-                  "The framework's ∅ is below every model grade.");
     return true;
 }
 
@@ -208,6 +202,9 @@ consteval auto check_binary_grade_laws() -> bool {
     static_assert(
         std::is_same_v<grade_bottom_t<LEFT>, grade_bottom_t<RIGHT>>,
         "One model, one bottom: every grade in a sample must agree on ∅.");
+    static_assert(std::is_same_v<grade_model_t<LEFT>, grade_model_t<RIGHT>>,
+                  "One sample, one model: law checks quantify within a "
+                  "single grade model.");
     return true;
 }
 
@@ -248,9 +245,7 @@ consteval auto check_carrier_at() -> bool {
     // grade_of ∘ rebind_grade is the identity, with ONE licensed exception:
     // at the model's bottom the carrier is the bare value again
     // (docs/decisions.md#empty-grade-spelling), and a bare value reports the
-    // FRAMEWORK's ∅ rather than the model's. Two spellings of ∅, not
-    // identified by the algebra. See
-    // docs/decisions.md#bottom-grade-identity.
+    // framework's ungraded sentinel rather than a model grade.
     static_assert(
         std::is_same_v<grade_of_t<carrier>, GRADE> ||
             (std::is_same_v<GRADE, grade_bottom_t<GRADE>> &&
@@ -273,22 +268,6 @@ consteval auto check_carrier_at() -> bool {
     static_assert(
         std::is_same_v<rebind_grade_t<carrier, grade_bottom_t<GRADE>>, VALUE>,
         "Narrowing a carrier to the model's ∅ yields the BARE value.");
-
-    // THE TWO ∅s DISAGREE, and this pins it rather than hiding it. The
-    // framework's default says re-indexing anything at `unit_grade` leaves it
-    // alone; the model's own bottom strips the carrier off. Both are
-    // defensible in isolation and they are not the same function. This is a
-    // sensor, not an endorsement -- it fires if the two are ever identified,
-    // which is what docs/decisions.md#bottom-grade-identity is open about.
-    static_assert(std::is_same_v<rebind_grade_t<carrier, unit_grade>, carrier>,
-                  "The framework's ∅ leaves a carrier alone.");
-    static_assert(
-        std::is_same_v<GRADE, grade_bottom_t<GRADE>> ||
-            !std::is_same_v<rebind_grade_t<carrier, unit_grade>,
-                            rebind_grade_t<carrier, grade_bottom_t<GRADE>>>,
-        "Two spellings of ∅, two answers: for a genuinely graded carrier, "
-        "re-indexing at the framework's ∅ and at the model's ∅ do not agree. "
-        "See docs/decisions.md#bottom-grade-identity.");
 
     static_assert(
         std::is_same_v<decltype(grade_subsume<GRADE>(
