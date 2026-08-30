@@ -360,6 +360,181 @@ consteval auto count_after_combining_same_type() -> std::size_t {
 
 static_assert(count_after_combining_same_type() == 1);
 
+// =========================================================================
+// recover (docs/transpose-grading-plan.md#recover-narrowing): narrows the
+// grade by set difference. HANDLED is ANNOTATED (explicit template
+// arguments) and CHECKED (membership, and the handler's result shape) --
+// docs/decisions.md#recover-grade-inference. Elimination is a static fold
+// over HANDLED with runtime presence filtering, built from the existing
+// public API only -- docs/decisions.md#multi-witness-elimination.
+// =========================================================================
+
+using exp_ab = std::expected<int, set_ab>;
+using exp_a = std::expected<int, set_a>;
+using exp_b = std::expected<int, set_b>;
+
+auto recover_to_int = [](const alpha &a) { return a.value; };
+
+// -- Narrowing verified in deduced types -----------------------------------
+
+static_assert(
+    std::is_same_v<decltype(bt::recover<alpha>(std::declval<const exp_ab &>(),
+                                               recover_to_int)),
+                   exp_b>);
+
+// Handling every member of the grade collapses to the bare value: ∅ is bare
+// T, per docs/decisions.md#empty-grade-spelling, and rebind_grade already
+// mechanizes that collapse.
+static_assert(std::is_same_v<decltype(bt::recover<alpha, beta>(
+                                 std::declval<const exp_ab &>(),
+                                 [](const auto &e) { return e.value; })),
+                             int>);
+
+// A handler that can itself raise widens the "raised" side of the formula:
+// (e \ HANDLED) ∪ raised.
+using set_g = bt::error_set<gamma>;
+auto recover_may_raise_gamma = [](const alpha &a) -> std::expected<int, set_g> {
+    if (a.value < 0) {
+        return std::expected<int, set_g>{std::unexpect, gamma{a.value}};
+    }
+    return std::expected<int, set_g>{a.value};
+};
+static_assert(
+    std::is_same_v<decltype(bt::recover<alpha>(std::declval<const exp_ab &>(),
+                                               recover_may_raise_gamma)),
+                   std::expected<int, bt::error_set<beta, gamma>>>);
+
+TEST_CASE("recover: a value that never held the handled type passes through "
+          "unchanged, just narrower") {
+    exp_ab held_beta{std::unexpect, set_ab{beta{9}}};
+
+    auto result = bt::recover<alpha>(held_beta, recover_to_int);
+
+    static_assert(std::is_same_v<decltype(result), exp_b>);
+    REQUIRE_FALSE(result.has_value());
+    REQUIRE(result.error().holds<beta>());
+    REQUIRE(result.error().witness<beta>() == std::optional{beta{9}});
+}
+
+TEST_CASE("recover: the handled type present and alone recovers to a value") {
+    exp_ab held_alpha{std::unexpect, set_ab{alpha{4}}};
+
+    auto result = bt::recover<alpha>(held_alpha, recover_to_int);
+
+    static_assert(std::is_same_v<decltype(result), exp_b>);
+    REQUIRE(result.has_value());
+    REQUIRE(*result == 4);
+}
+
+TEST_CASE("recover: an already-successful computation passes through, just "
+          "re-typed at the narrower grade") {
+    exp_ab already_ok{7};
+
+    auto result = bt::recover<alpha>(already_ok, recover_to_int);
+
+    static_assert(std::is_same_v<decltype(result), exp_b>);
+    REQUIRE(result.has_value());
+    REQUIRE(*result == 7);
+}
+
+TEST_CASE("recover: handling every member of the grade collapses to the "
+          "bare value type") {
+    exp_ab held_alpha{std::unexpect, set_ab{alpha{4}}};
+
+    auto result = bt::recover<alpha, beta>(
+        held_alpha, [](const auto &e) { return e.value; });
+
+    static_assert(std::is_same_v<decltype(result), int>);
+    REQUIRE(result == 4);
+}
+
+// -- The multi-witness case: "set-difference at the value level" ----------
+// docs/decisions.md#accumulation-evidence, in the section's own words:
+// "recovering type A from a value that raised {a,b} ... the handler
+// consumes the A witness, {b} remains an error, empty means success."
+
+TEST_CASE("recover: a multi-witness value keeps the unhandled witness as a "
+          "still-failing, narrower error") {
+    set_ab both = bt::error_set_combine(set_ab{alpha{1}}, set_ab{beta{2}});
+    exp_ab computation{std::unexpect, both};
+    REQUIRE(computation.error().witness_count() == 2);
+
+    auto result = bt::recover<alpha>(computation, recover_to_int);
+
+    static_assert(std::is_same_v<decltype(result), exp_b>);
+    REQUIRE_FALSE(result.has_value()); // {b} remains -- not empty, not success
+    REQUIRE(result.error().holds<beta>());
+    REQUIRE(result.error().witness<beta>() == std::optional{beta{2}});
+}
+
+TEST_CASE("recover: handling every witnessed type in a multi-witness value "
+          "is success -- empty means success") {
+    set_ab both = bt::error_set_combine(set_ab{alpha{1}}, set_ab{beta{2}});
+    exp_ab computation{std::unexpect, both};
+
+    auto result = bt::recover<alpha, beta>(
+        computation, [](const auto &e) { return e.value * 10; });
+
+    static_assert(std::is_same_v<decltype(result), int>);
+    // Leftmost by canonical order wins when more than one handled witness is
+    // simultaneously present and every one independently recovers --
+    // alpha precedes beta.
+    REQUIRE(result == 10);
+}
+
+// -- A handler that can itself raise ---------------------------------------
+
+TEST_CASE("recover: a handler that raises widens the result with the fresh "
+          "error, alongside any surviving unhandled witness") {
+    exp_ab held_alpha{std::unexpect, set_ab{alpha{-1}}};
+
+    auto result = bt::recover<alpha>(held_alpha, recover_may_raise_gamma);
+
+    static_assert(
+        std::is_same_v<decltype(result),
+                       std::expected<int, bt::error_set<beta, gamma>>>);
+    REQUIRE_FALSE(result.has_value());
+    REQUIRE(result.error().holds<gamma>());
+    REQUIRE_FALSE(result.error().holds<beta>());
+    REQUIRE(result.error().witness<gamma>() == std::optional{gamma{-1}});
+}
+
+TEST_CASE("recover: a handler that succeeds still narrows, and drops the "
+          "would-be-raised alternative entirely from the value") {
+    exp_ab held_alpha{std::unexpect, set_ab{alpha{5}}};
+
+    auto result = bt::recover<alpha>(held_alpha, recover_may_raise_gamma);
+
+    static_assert(
+        std::is_same_v<decltype(result),
+                       std::expected<int, bt::error_set<beta, gamma>>>);
+    REQUIRE(result.has_value());
+    REQUIRE(*result == 5);
+}
+
+// -- Negative controls, per docs/decisions.md#recover-grade-inference's
+// CHECKED half. Both static_asserts below were hand-verified to fire:
+// inverted (recover<gamma> against set_ab; a handler returning `double`
+// instead of `int`/`std::expected<int,...>`), the build failed with the
+// static_assert's own message naming the reason, then restored. A
+// permanently-failing translation unit cannot live in this suite, so the
+// verification is documented rather than encoded, matching the precedent in
+// accumulating_object.test.cpp for the accumulating object's refused bind.
+//
+//   bt::recover<gamma>(std::declval<const exp_ab &>(), recover_to_int);
+//     -- fails: "recover's HANDLED types must be members of the
+//        computation's grade"
+//   bt::recover<alpha>(std::declval<const exp_ab &>(),
+//                      [](const alpha &) -> double { return 0.0; });
+//     -- fails: "recover's handler must return either the recovered VALUE
+//        directly, or std::expected<VALUE, error_set<...>>"
+
+TEST_CASE("recover: negative controls on the CHECKED half were hand-verified") {
+    SUCCEED("recover<gamma>(exp_ab, ...) and a wrong-return-type handler both "
+            "fail to compile with the static_assert's own message; see the "
+            "comment above for how this was verified");
+}
+
 TEST_CASE("error_set: witness_count reports how many alternatives did raise") {
     set_ab single{alpha{1}};
     REQUIRE(single.witness_count() == 1);

@@ -273,3 +273,148 @@ TEST_CASE("accumulating-object: no Monad instance is registered for it") {
                                  exp_mixed>);
     SUCCEED("carrier-level bind remains the short-circuit one only");
 }
+
+// =========================================================================
+// 6. THE CONSUMER STORY (docs/transpose-grading-plan.md#recover-narrowing).
+// Accumulating traverse is where a multi-witness value first reaches user
+// hands. This is what a caller actually does with one: check with
+// witness_count(), inspect with witness<E>(), and narrow it with recover --
+// the story that has to exist before anyone asks for the multi-witness
+// eliminator the plan declined to ship
+// (docs/decisions.md#multi-witness-elimination).
+// =========================================================================
+
+TEST_CASE("recover-narrowing: the consumer story -- inspect an accumulated "
+          "error, then narrow it with recover") {
+    auto classify = [](int x) -> exp_mixed {
+        if (x == 1) {
+            return fails_alpha(x);
+        }
+        if (x == 2) {
+            return fails_beta(x);
+        }
+        return ok(x);
+    };
+
+    auto accumulated =
+        bt::traverse(classify, std::vector<int>{0, 1, 2, 3},
+                     bt::accumulating_applicative_typeclass<exp_mixed>);
+    REQUIRE_FALSE(accumulated.has_value());
+
+    // Inspection: witness_count() and witness<E>(), the two verbs
+    // docs/decisions.md#multi-witness-elimination leaves as the whole story
+    // for a multi-witness value.
+    REQUIRE(accumulated.error().witness_count() == 2);
+    REQUIRE(accumulated.error().witness<alpha>() == std::optional{alpha{1}});
+    REQUIRE(accumulated.error().witness<beta>() == std::optional{beta{2}});
+
+    // Narrowing: recover consumes alpha, leaving beta as a still-failing,
+    // narrower error -- "set-difference at the value level"
+    // (docs/decisions.md#accumulation-evidence).
+    // The handler produces the computation's VALUE, which here is the
+    // TRAVERSED VECTOR and not the witness's int: recovery substitutes a
+    // whole result, not an element of one. Getting this wrong is easy
+    // precisely because the witness carries an int.
+    auto narrowed = bt::recover<alpha>(
+        accumulated, [](const alpha &a) { return std::vector<int>{a.value}; });
+
+    static_assert(
+        std::is_same_v<decltype(narrowed),
+                       std::expected<std::vector<int>, bt::error_set<beta>>>);
+    REQUIRE_FALSE(narrowed.has_value());
+    REQUIRE(narrowed.error().holds<beta>());
+    REQUIRE(narrowed.error().witness<beta>() == std::optional{beta{2}});
+}
+
+TEST_CASE("recover-narrowing: consuming every accumulated witness recovers "
+          "to a plain value -- empty means success") {
+    auto classify = [](int x) -> exp_mixed {
+        if (x == 1) {
+            return fails_alpha(x);
+        }
+        if (x == 2) {
+            return fails_beta(x);
+        }
+        return ok(x);
+    };
+
+    auto accumulated =
+        bt::traverse(classify, std::vector<int>{1, 2},
+                     bt::accumulating_applicative_typeclass<exp_mixed>);
+    REQUIRE(accumulated.error().witness_count() == 2);
+
+    auto recovered =
+        bt::recover<alpha, beta>(accumulated, [](const auto &error) {
+            return std::vector<int>{error.value};
+        });
+
+    // Every witness was recovered, so the resulting grade is empty -- and an
+    // empty grade is spelled as the BARE value type, never
+    // expected<T, error_set<>> (docs/decisions.md#empty-grade-spelling).
+    static_assert(std::is_same_v<decltype(recovered), std::vector<int>>);
+    // Leftmost by canonical order (alpha precedes beta) wins when both
+    // recover independently.
+    REQUIRE(recovered == std::vector<int>{1});
+}
+
+// =========================================================================
+// 7. recover INSIDE A FOLD: the annotate-and-check path
+// (docs/decisions.md#recover-grade-inference). `recovering` below is the
+// per-element function of a `traverse` -- a fold boundary. Its return type
+// is an ANNOTATION the author writes down (`-> std::expected<int,
+// bt::error_set<beta>>`), not something inferred by a lattice fixpoint over
+// the traversal; the compiler CHECKS it against what `recover<alpha>`
+// actually computes for a single element, ordinary trailing-return-type
+// deduction, no recursion. The fold itself (traverse) then joins those
+// per-element results by the framework's existing, non-fixpoint fold of
+// joins -- exactly why recover-grade-inference tripwires on fixpoint
+// pressure: none is needed here, or anywhere in this stage's scope.
+// =========================================================================
+
+using recovered_grade = bt::error_set<beta>;
+using exp_recovered = std::expected<int, recovered_grade>;
+
+/** ANNOTATED return type. Hand-verified negative control: replacing the
+ * trailing return type below with `std::expected<int, bt::error_set<alpha>>`
+ * (the wrong remaining member) fails to compile -- `recover<alpha>`'s actual
+ * result, `std::expected<int, bt::error_set<beta>>`, is not convertible to
+ * it (incomparable error_sets do not convert in either direction,
+ * docs/decisions.md#error-set-identity) -- then was restored. This is the
+ * CHECK half of annotate-and-check, exercised at the fold boundary itself
+ * rather than on a standalone recover call.
+ */
+auto recovering(int x) -> exp_recovered {
+    auto classified = [](int y) -> exp_mixed {
+        if (y == 1) {
+            return fails_alpha(y);
+        }
+        if (y == 2) {
+            return fails_beta(y);
+        }
+        return ok(y);
+    }(x);
+    return bt::recover<alpha>(classified,
+                              [](const alpha &a) { return a.value; });
+}
+
+TEST_CASE("recover-narrowing: recover inside a fold, annotated and checked "
+          "at the boundary") {
+    // traverse is SHAPE-PRESERVING: the per-element effect exp_recovered
+    // transposes into one effect over the vector, carrying the narrowed
+    // grade out with it. The element type and the traversed type are not
+    // the same thing, which is exactly what this stage is checking.
+    auto folded = bt::traverse(recovering, std::vector<int>{0, 1, 3});
+    static_assert(
+        std::is_same_v<decltype(folded),
+                       std::expected<std::vector<int>, recovered_grade>>);
+    REQUIRE(folded.has_value());
+    REQUIRE(*folded == std::vector<int>{0, 1, 3});
+
+    auto still_fails = bt::traverse(recovering, std::vector<int>{0, 1, 2});
+    static_assert(
+        std::is_same_v<decltype(still_fails),
+                       std::expected<std::vector<int>, recovered_grade>>);
+    REQUIRE_FALSE(still_fails.has_value());
+    REQUIRE(still_fails.error().holds<beta>());
+    REQUIRE(still_fails.error().witness<beta>() == std::optional{beta{2}});
+}
