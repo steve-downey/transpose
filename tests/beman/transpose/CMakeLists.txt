@@ -7,6 +7,7 @@ set(transpose_tests
     dual_monoid
     error_set
     crtp_absorption
+    accumulating_object
     functor
     apply
     expected
