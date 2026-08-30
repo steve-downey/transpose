@@ -54,6 +54,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <expected>
+#include <functional>
 #include <optional>
 #include <string_view>
 #include <tuple>
@@ -549,6 +550,276 @@ constexpr auto combine_errors(const error_set_of<ERRORS...> &lhs,
                               const error_set_of<ERRORS...> &rhs)
     -> error_set_of<ERRORS...> {
     return error_set_combine(lhs, rhs);
+}
+
+// -- recover: narrowing the grade by set difference ------------------------
+// Stage recover-narrowing (docs/transpose-grading-plan.md#recover-narrowing).
+// Error vocabulary, per grade.hpp's own comment that `recover` lives in the
+// model's header, not the framework's.
+//
+// docs/decisions.md#recover-grade-inference: the handled set {H} is
+// ANNOTATED -- explicit template arguments, never inferred from the
+// handler's shape -- and CHECKED: one static_assert enforces H is a subset
+// of the computation's grade (reusing error_set_of::contains, the same
+// membership primitive docs/decisions.md#multi-witness-elimination names),
+// another enforces the handler's result shape. The resulting grade
+// `(e \ H) ∪ raised` is then a direct, non-recursive computation -- no
+// lattice fixpoint, because one recover call is not a recursive fold
+// ("inference only where no fixpoint is required").
+//
+// docs/decisions.md#multi-witness-elimination: recover needs no new public
+// verb. Elimination is a static fold over H with runtime presence
+// filtering, built entirely from the existing public API --
+// error_set_of's injecting constructor and `combined_with` -- never from
+// private access to the representation.
+
+namespace detail {
+
+// -- Type-level: set difference and list concatenation --------------------
+
+/** FROM_LIST with every member of REMOVE_LIST taken out. */
+template <class REMOVE_LIST, class FROM_LIST>
+struct list_subtract;
+
+template <class FROM_LIST>
+struct list_subtract<type_list<>, FROM_LIST> {
+    using type = FROM_LIST;
+};
+
+template <class HEAD, class... TAIL, class FROM_LIST>
+struct list_subtract<type_list<HEAD, TAIL...>, FROM_LIST> {
+    using type = typename list_subtract<
+        type_list<TAIL...>, typename list_remove<HEAD, FROM_LIST>::type>::type;
+};
+
+template <class REMOVE_LIST, class FROM_LIST>
+using list_subtract_t = typename list_subtract<REMOVE_LIST, FROM_LIST>::type;
+
+/** Concatenates any number of type_lists, left to right. */
+template <class... LISTS>
+struct list_concat_all;
+
+template <>
+struct list_concat_all<> {
+    using type = type_list<>;
+};
+
+template <class... ERRORS>
+struct list_concat_all<type_list<ERRORS...>> {
+    using type = type_list<ERRORS...>;
+};
+
+template <class... LEFT, class... RIGHT, class... REST>
+struct list_concat_all<type_list<LEFT...>, type_list<RIGHT...>, REST...>
+    : list_concat_all<type_list<LEFT..., RIGHT...>, REST...> {};
+
+template <class... LISTS>
+using list_concat_all_t = typename list_concat_all<LISTS...>::type;
+
+/** The canonical error_set for an arbitrary (possibly unsorted, possibly
+ * duplicate-bearing) type_list -- the type_list-input counterpart of the
+ * canonicalizing `error_set<...>` alias, which takes a flat pack instead. */
+template <class LIST>
+using error_set_of_list_t = typename error_set_from_list<
+    typename list_sort<typename list_dedupe<LIST>::type>::type>::type;
+
+// -- What a handler call may return ----------------------------------------
+// Exactly two shapes are licensed: unconditional recovery (the handler
+// returns VALUE directly) or a recovery attempt that can itself raise
+// (`std::expected<VALUE, error_set<...>>`). A bare-error result is not
+// licensed: error vocabulary is confined to error_set, so a handler wanting
+// to raise a plain type wraps it in a singleton error_set itself.
+
+template <class RESULT, class VALUE>
+inline constexpr bool is_valid_recover_result_v = std::is_same_v<RESULT, VALUE>;
+
+template <class VALUE, class... RS>
+inline constexpr bool is_valid_recover_result_v<
+    std::expected<VALUE, error_set_of<RS...>>, VALUE> = true;
+
+/** The elements a handler call for H may contribute to the joined "raised"
+ * grade: none, for unconditional recovery; the raised error_set's own
+ * elements otherwise. */
+template <class RESULT, class VALUE>
+struct raised_by_result {
+    using type = type_list<>;
+};
+
+template <class VALUE, class... RS>
+struct raised_by_result<std::expected<VALUE, error_set_of<RS...>>, VALUE> {
+    using type = type_list<RS...>;
+};
+
+template <class HANDLER, class VALUE, class H>
+struct handler_result_of {
+    using type = remove_cvref_t<std::invoke_result_t<HANDLER, const H &>>;
+};
+
+/** The final grade `recover<HANDLED...>` produces: `(GRADE \ HANDLED) ∪
+ * raised`, where `raised` is the join, over every HANDLED type, of what a
+ * handler call for it may contribute. Computed once and shared between the
+ * function's trailing return type and its body. */
+template <class HANDLER, class VALUE, class GRADE, class... HANDLED>
+struct recover_final_grade;
+
+template <class HANDLER, class VALUE, class... ERRORS, class... HANDLED>
+struct recover_final_grade<HANDLER, VALUE, error_set_of<ERRORS...>,
+                           HANDLED...> {
+    using remainder =
+        list_subtract_t<type_list<HANDLED...>, type_list<ERRORS...>>;
+    using raised = list_concat_all_t<typename raised_by_result<
+        typename handler_result_of<HANDLER, VALUE, HANDLED>::type,
+        VALUE>::type...>;
+    using type = error_set_of_list_t<list_concat_all_t<remainder, raised>>;
+};
+
+template <class HANDLER, class VALUE, class GRADE, class... HANDLED>
+using recover_final_grade_t =
+    typename recover_final_grade<HANDLER, VALUE, GRADE, HANDLED...>::type;
+
+template <class HANDLER, class VALUE, class GRADE, class... HANDLED>
+using recover_return_t =
+    rebind_grade_t<VALUE,
+                   recover_final_grade_t<HANDLER, VALUE, GRADE, HANDLED...>>;
+
+// -- Value level: carrying witnesses forward through the PUBLIC API only ---
+// No private access, no friendship: exactly the injecting constructor and
+// `combined_with` that any user of error_set already has. This is what makes
+// the multi-witness-elimination fence a fence rather than an oversight --
+// recover's mechanism is not privileged.
+
+/** If SOURCE currently witnesses E, E is not in HANDLED_LIST, and TARGET can
+ * name E, injects that witness into `accumulated` (creating it if absent,
+ * combining left-biased if already present). A no-op otherwise, including
+ * when TARGET cannot name E at all -- which is exactly the case for a
+ * HANDLED type once it has left the result grade. */
+template <class E, class HANDLED_LIST, class TARGET, class SOURCE>
+constexpr void carry_witness(std::optional<TARGET> &accumulated,
+                             const SOURCE &source) {
+    if constexpr (!list_contains_v<E, HANDLED_LIST> &&
+                  TARGET::template contains<E>()) {
+        if (source.template holds<E>()) {
+            TARGET injected(*source.template witness<E>());
+            accumulated = accumulated.has_value()
+                              ? accumulated->combined_with(injected)
+                              : injected;
+        }
+    }
+}
+
+/** Folds every witness a raised error_set carries into `accumulated`,
+ * unconditionally (nothing is excluded -- these are freshly raised, not
+ * being narrowed away). */
+template <class TARGET, class VALUE, class... RS>
+constexpr void
+carry_raised(std::optional<TARGET> &accumulated,
+             const std::expected<VALUE, error_set_of<RS...>> &result) {
+    (carry_witness<RS, type_list<>>(accumulated, result.error()), ...);
+}
+
+/** If `error` witnesses H, invokes `handler` on that witness: records the
+ * recovered VALUE (first one wins, leftmost by canonical order, matching
+ * error_set_of::combined_with's own tie-break), or folds a raised error_set
+ * into `accumulated`. A no-op when H is not witnessed. */
+template <class H, class HANDLER, class VALUE, class TARGET, class SOURCE>
+constexpr void apply_handler(HANDLER &handler, std::optional<VALUE> &recovered,
+                             std::optional<TARGET> &accumulated,
+                             const SOURCE &error) {
+    if (error.template holds<H>()) {
+        auto result = std::invoke(handler, *error.template witness<H>());
+        if constexpr (std::is_same_v<remove_cvref_t<decltype(result)>, VALUE>) {
+            if (!recovered.has_value()) {
+                recovered = std::move(result);
+            }
+        } else {
+            if (result.has_value()) {
+                if (!recovered.has_value()) {
+                    recovered = *result;
+                }
+            } else {
+                carry_raised(accumulated, result);
+            }
+        }
+    }
+}
+
+} // namespace detail
+
+/** Recovers from the HANDLED error types in a witnessed value, narrowing the
+ * grade to `(e \ HANDLED) ∪ raised` -- see the section comment above for
+ * the annotate-and-check story and docs/decisions.md#recover-grade-inference.
+ *
+ * `handler` is invoked, per docs/decisions.md#multi-witness-elimination, as a
+ * static fold over HANDLED with runtime presence filtering: for each H in
+ * HANDLED that `computation`'s error currently witnesses, `handler` receives
+ * that witness. It returns either VALUE (unconditional recovery) or
+ * `std::expected<VALUE, error_set<...>>` (the recovery attempt can itself
+ * raise). Witnesses for types outside HANDLED, and any raised by a handler
+ * call, survive into the result unchanged -- "set-difference at the value
+ * level" (docs/decisions.md#accumulation-evidence): recovering type A from a
+ * value that raised {a,b} leaves {b}, still an error. Overall success
+ * requires EVERY present witness to end up recovered -- "empty means
+ * success."
+ *
+ * If more than one HANDLED type is witnessed simultaneously and every one of
+ * them independently recovers to a VALUE, the leftmost by canonical order
+ * wins, matching `error_set_of::combined_with`'s own tie-break.
+ */
+template <class... HANDLED, class VALUE, class... ERRORS, class HANDLER>
+constexpr auto
+recover(const std::expected<VALUE, error_set_of<ERRORS...>> &computation,
+        HANDLER &&handler)
+    -> detail::recover_return_t<HANDLER, VALUE, error_set_of<ERRORS...>,
+                                HANDLED...> {
+    static_assert(sizeof...(HANDLED) > 0,
+                  "recover needs at least one HANDLED type.");
+    static_assert(
+        (error_set_of<ERRORS...>::template contains<HANDLED>() && ...),
+        "recover's HANDLED types must be members of the computation's grade "
+        "-- CHECKED, per docs/decisions.md#recover-grade-inference. The "
+        "handled set is ANNOTATED (explicit template arguments on recover), "
+        "never inferred.");
+    static_assert(
+        (detail::is_valid_recover_result_v<
+             typename detail::handler_result_of<HANDLER, VALUE, HANDLED>::type,
+             VALUE> &&
+         ...),
+        "recover's handler must return either the recovered VALUE directly, "
+        "or std::expected<VALUE, error_set<...>> if the recovery attempt can "
+        "itself raise. See docs/decisions.md#recover-grade-inference.");
+
+    using Grade = error_set_of<ERRORS...>;
+    using FinalGrade =
+        detail::recover_final_grade_t<HANDLER, VALUE, Grade, HANDLED...>;
+    using Return = detail::recover_return_t<HANDLER, VALUE, Grade, HANDLED...>;
+
+    if (computation.has_value()) {
+        return Return(*computation);
+    }
+
+    const Grade &error = computation.error();
+    std::optional<VALUE> recovered;
+    std::optional<FinalGrade> accumulated;
+
+    (detail::carry_witness<ERRORS, detail::type_list<HANDLED...>>(accumulated,
+                                                                  error),
+     ...);
+    (detail::apply_handler<HANDLED>(handler, recovered, accumulated, error),
+     ...);
+
+    if constexpr (std::is_same_v<Return, VALUE>) {
+        // FinalGrade is ∅: every carry_witness/carry_raised call above was a
+        // no-op by construction (TARGET::contains<E>() is unconditionally
+        // false for error_set_of<>), so `accumulated` can never actually hold
+        // a value here -- every present witness was necessarily HANDLED and
+        // recovered.
+        return *recovered;
+    } else {
+        if (accumulated.has_value()) {
+            return Return(std::unexpect, *accumulated);
+        }
+        return Return(*recovered);
+    }
 }
 
 // -- Registration as a model of the grade algebra -------------------------
