@@ -5,6 +5,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <optional>
 #include <type_traits>
 
 namespace bt = beman::transpose;
@@ -16,12 +17,18 @@ namespace beman_transpose_error_probes {
 
 struct alpha {
     int value{};
+
+    friend auto operator==(const alpha &, const alpha &) -> bool = default;
 };
 struct beta {
     int value{};
+
+    friend auto operator==(const beta &, const beta &) -> bool = default;
 };
 struct gamma {
     int value{};
+
+    friend auto operator==(const gamma &, const gamma &) -> bool = default;
 };
 
 } // namespace beman_transpose_error_probes
@@ -217,4 +224,93 @@ TEST_CASE("error_set: laws hold in a consteval context") {
     // the coverage visible to ctest rather than silently passing by being a
     // translation unit that merely compiled.
     SUCCEED("normalization, semilattice laws, and conversion fences compiled");
+}
+
+// =========================================================================
+// Value-level amendment (docs/decisions.md#accumulation-evidence): a value
+// is a non-empty WITNESSED SUBSET, not a one-of union. The tests above
+// already cover the singleton case -- every one of them holds exactly one
+// witness, which is the short-circuit special case of the general
+// invariant. These tests exercise the general case: more than one witness
+// present at once, and the left-biased combine that produces it.
+// =========================================================================
+
+TEST_CASE("error_set: combining distinct types unions their witnesses") {
+    set_ab from_alpha{alpha{1}};
+    set_ab from_beta{beta{2}};
+
+    auto combined = bt::error_set_combine(from_alpha, from_beta);
+
+    REQUIRE(combined.holds<alpha>());
+    REQUIRE(combined.holds<beta>());
+    REQUIRE(combined.witness<alpha>() == std::optional{alpha{1}});
+    REQUIRE(combined.witness<beta>() == std::optional{beta{2}});
+}
+
+TEST_CASE("error_set: combining the same type keeps the LEFT witness") {
+    set_a left{alpha{10}};
+    set_a right{alpha{20}};
+
+    auto combined = bt::error_set_combine(left, right);
+
+    REQUIRE(combined.holds<alpha>());
+    REQUIRE(combined.witness<alpha>() == std::optional{alpha{10}});
+
+    // Combine is not commutative on the WITNESS (only the type-level join
+    // is): swapping the operands changes which witness survives.
+    auto swapped = bt::error_set_combine(right, left);
+    REQUIRE(swapped.witness<alpha>() == std::optional{alpha{20}});
+}
+
+TEST_CASE("error_set: combining is left-biased per type, not wholesale") {
+    // Left holds alpha only, right holds both alpha and beta. The combined
+    // result keeps left's alpha (left-biased) but still picks up right's
+    // beta, since left never witnessed beta at all.
+    set_ab left{alpha{100}};
+    set_ab right{beta{200}};
+    // Give `right` a beta witness and, via a second combine, an alpha
+    // witness too, to show a per-type -- not per-value -- decision.
+    auto right_both = bt::error_set_combine(right, set_ab{alpha{999}});
+    REQUIRE(right_both.holds<alpha>());
+    REQUIRE(right_both.holds<beta>());
+
+    auto combined = bt::error_set_combine(left, right_both);
+    REQUIRE(combined.witness<alpha>() == std::optional{alpha{100}}); // left's
+    REQUIRE(combined.witness<beta>() == std::optional{beta{200}});   // right's
+}
+
+TEST_CASE("error_set: equality is same present set, equal witnesses") {
+    set_ab both_a_b{alpha{1}};
+    auto with_beta_too = bt::error_set_combine(both_a_b, set_ab{beta{2}});
+
+    // Different present set: unequal even though alpha's witness agrees.
+    REQUIRE_FALSE(both_a_b == with_beta_too);
+
+    // Same present set, same witness values: equal.
+    REQUIRE(with_beta_too ==
+            bt::error_set_combine(set_ab{alpha{1}}, set_ab{beta{2}}));
+
+    // Same present set, DIFFERENT witness value: unequal. This is the
+    // "equal witnesses" half of the amendment -- presence alone is not
+    // enough.
+    auto different_witness =
+        bt::error_set_combine(set_ab{alpha{1}}, set_ab{beta{99}});
+    REQUIRE_FALSE(with_beta_too == different_witness);
+}
+
+TEST_CASE("error_set: combine is associative, allocation-free evidence") {
+    // Associativity is what makes combine well-defined as a fold over any
+    // number of failures regardless of grouping, exactly like the type-level
+    // join it sits beside.
+    set_abc a{alpha{1}};
+    set_abc b{beta{2}};
+    set_abc c{gamma{3}};
+
+    auto left_first = bt::error_set_combine(bt::error_set_combine(a, b), c);
+    auto right_first = bt::error_set_combine(a, bt::error_set_combine(b, c));
+
+    REQUIRE(left_first == right_first);
+    REQUIRE(left_first.holds<alpha>());
+    REQUIRE(left_first.holds<beta>());
+    REQUIRE(left_first.holds<gamma>());
 }

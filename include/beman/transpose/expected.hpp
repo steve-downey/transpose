@@ -297,6 +297,179 @@ inline constexpr auto
     applicative_typeclass<std::expected<VALUE_TYPE, ERROR_TYPE>> =
         ExpectedApplicativeMap<VALUE_TYPE, ERROR_TYPE>{};
 
+// -- The accumulating applicative instance ---------------------------------
+//
+// The second NTTP-pinned object over the SAME carrier and grade algebra as
+// ExpectedApplicativeMap above, per docs/decisions.md#applicative-objects.
+// Stage accumulating-object of docs/transpose-grading-plan.md.
+//
+// Where the short-circuit object above keeps only the LEFTMOST failing
+// operand's witness, this object COMBINES every failing operand's witness
+// via `combine_errors` (error_set.hpp), left-biased per type: two failures
+// of the SAME error type still keep only the leftmost (there is only one
+// slot for that type), but failures of genuinely DIFFERENT types both
+// survive into the result. That is the whole difference, and it is exactly
+// docs/decisions.md#accumulation-evidence's "the error_set value itself, as
+// a non-empty witnessed subset" cashed out at the one place a computation
+// can accumulate more than a type-level union: examining every operand
+// instead of stopping at the first.
+//
+// Structurally this mirrors ExpectedApplicativeImpl's ungraded/graded split
+// exactly -- same two constraints, same complementary coverage, same
+// bare-operand promotion. Only the failure-collecting step differs.
+
+namespace detail {
+
+/** Folds `combine_errors` over every failing operand's error, left to right.
+ * `EXTRACT` maps an operand to `std::optional<ERROR>` -- present exactly
+ * when that operand failed -- so this one loop serves both the ungraded core
+ * (operands are already all `ERROR_TYPE`) and the graded core (operands are
+ * widened into the joined type first).
+ */
+template <class ERROR, class EXTRACT, class... OPERANDS>
+constexpr auto accumulate_failures(EXTRACT &&extract,
+                                   const OPERANDS &...operands)
+    -> std::optional<ERROR> {
+    std::optional<ERROR> accumulated;
+    auto fold_in = [&accumulated, &extract](const auto &operand) {
+        auto this_one = extract(operand);
+        if (!this_one.has_value()) {
+            return;
+        }
+        if (accumulated.has_value()) {
+            accumulated = combine_errors(*accumulated, *this_one);
+        } else {
+            accumulated = std::move(this_one);
+        }
+    };
+    (fold_in(operands), ...);
+    return accumulated;
+}
+
+} // namespace detail
+
+/** Accumulating applicative instance for std::expected<VALUE_TYPE,
+ * ERROR_TYPE>. Same carrier as ExpectedApplicativeImpl; see the section
+ * comment above for how the two differ.
+ */
+template <class VALUE_TYPE, class ERROR_TYPE>
+struct AccumulatingExpectedApplicativeImpl {
+    template <class VALUE>
+    auto pure(this auto &&, VALUE &&value)
+        -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE> {
+        return std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>{
+            std::forward<VALUE>(value)};
+    }
+
+    /** N-ary core: all operands share ERROR_TYPE. When ERROR_TYPE is itself
+     * a witnessed subset (the traverse case: one function, one declared
+     * error, possibly several members), failures of distinct members all
+     * survive; otherwise there is one slot and this degrades to
+     * leftmost-wins, same as the short-circuit object.
+     */
+    template <class FUNCTION, class FIRST, class... REST>
+    auto invoke(this auto &&, FUNCTION &&function,
+                const std::expected<FIRST, ERROR_TYPE> &first,
+                const std::expected<REST, ERROR_TYPE> &...rest)
+        -> std::expected<remove_cvref_t<std::invoke_result_t<
+                             FUNCTION &, const FIRST &, const REST &...>>,
+                         ERROR_TYPE> {
+        using Result = remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
+        using Returned = std::expected<Result, ERROR_TYPE>;
+
+        auto extract_failure =
+            [](const auto &operand) -> std::optional<ERROR_TYPE> {
+            if (operand.has_value()) {
+                return std::nullopt;
+            }
+            return operand.error();
+        };
+        auto accumulated = detail::accumulate_failures<ERROR_TYPE>(
+            extract_failure, first, rest...);
+
+        if (accumulated.has_value()) {
+            return Returned{std::unexpect, std::move(*accumulated)};
+        }
+        return Returned{std::invoke(function, *first, *rest...)};
+    }
+
+    /** Graded n-ary core: the mixing point, mirroring
+     * ExpectedApplicativeImpl's, but accumulating every failing operand's
+     * witness into the joined grade instead of keeping only the first.
+     */
+    template <class FUNCTION, class... CARRIERS>
+        requires(sizeof...(CARRIERS) > 0) &&
+                (detail::is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+                (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>)
+    auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
+        -> std::expected<
+            remove_cvref_t<std::invoke_result_t<
+                FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
+            detail::joined_error_t<CARRIERS...>> {
+        using Result = remove_cvref_t<std::invoke_result_t<
+            FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
+        using Joined = detail::joined_error_t<CARRIERS...>;
+        using Returned = std::expected<Result, Joined>;
+
+        auto extract_failure =
+            [](const auto &operand) -> std::optional<Joined> {
+            if constexpr (detail::is_expected_v<
+                              remove_cvref_t<decltype(operand)>>) {
+                if (detail::operand_failed(operand)) {
+                    return Joined(operand.error());
+                }
+            }
+            return std::nullopt;
+        };
+        auto accumulated =
+            detail::accumulate_failures<Joined>(extract_failure, operands...);
+
+        if (accumulated.has_value()) {
+            return Returned{std::unexpect, std::move(*accumulated)};
+        }
+        return Returned{
+            std::invoke(function, detail::operand_value(operands)...)};
+    }
+};
+
+template <class VALUE_TYPE, class ERROR_TYPE>
+struct AccumulatingExpectedApplicativeMap
+    : Applicative<AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
+    using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke;
+    using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure;
+
+    /** Bind is refused, not merely absent, per
+     * docs/decisions.md#applicative-objects: sequencing needs a value from
+     * the first computation to feed the continuation, and when that
+     * computation failed there is none -- a value-flow obstruction, not
+     * something grade bookkeeping can fix. The framework never derives bind
+     * for this object. `always_false_v` defers the static_assert to the
+     * point of an actual call, so merely naming this type (as
+     * `accumulating_applicative_typeclass<T>` does) stays well-formed; only
+     * calling `.bind(...)` on it fails, with this message.
+     */
+    template <class... ARGS>
+    constexpr auto bind(ARGS &&...) const {
+        static_assert(
+            always_false_v<ARGS...>,
+            "The accumulating applicative object has no bind: sequencing "
+            "needs a value from the first computation to feed the "
+            "continuation, and there is none when that computation failed "
+            "-- a value-flow obstruction, not something grade bookkeeping "
+            "can fix. Use the short-circuit (monad-derived) applicative "
+            "object (applicative_typeclass) for sequential composition. "
+            "See docs/decisions.md#applicative-objects.");
+    }
+};
+
+/** Accumulating applicative instance for `std::expected<VALUE_TYPE,
+ * ERROR_TYPE>`. */
+template <class VALUE_TYPE, class ERROR_TYPE>
+inline constexpr auto
+    accumulating_applicative_typeclass<std::expected<VALUE_TYPE, ERROR_TYPE>> =
+        AccumulatingExpectedApplicativeMap<VALUE_TYPE, ERROR_TYPE>{};
+
 /** Monad instance for std::expected<VALUE_TYPE, ERROR_TYPE>.
  * bind short-circuits on the error alternative. The continuation must return
  * an expected carrying the same ERROR_TYPE; the constraint says so directly
