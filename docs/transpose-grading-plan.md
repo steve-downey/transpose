@@ -109,7 +109,8 @@ client. The agent should know their one-line forms cold:
   — `expected` is registered ungraded first, one pinned error type per
   instance object, before any grade machinery reaches it.
 - [grade-operation-spelling](decisions.md#grade-operation-spelling) — the
-  grade algebra is spelled `grade_join` / `grade_bottom` / `grade_subsume`;
+  grade algebra is spelled `grade_join` / `grade_bottom` /
+  `grade_subsumes`, with carrier coercion spelled `grade_subsume`;
   unqualified `join` remains the monadic join.
 
 ## 3. Work plan — beman.transpose {#work-plan}
@@ -398,5 +399,4 @@ Tracked as OPEN entries in the decision log, same namespace as decisions
 (answering one graduates it in place; links never break):
 [uniform-form-surface](decisions.md#uniform-form-surface),
 [datum-entry-point](decisions.md#datum-entry-point),
-[traverse-policy-surface](decisions.md#traverse-policy-surface),
 [optional-grade-model](decisions.md#optional-grade-model).
