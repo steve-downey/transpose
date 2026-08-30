@@ -4,10 +4,12 @@
 #include "laws.hpp"
 
 #include <beman/transpose/error_set.hpp>
+#include <beman/transpose/expected.hpp>
 #include <beman/transpose/grade.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <expected>
 #include <future>
 #include <memory>
 #include <optional>
@@ -217,6 +219,76 @@ struct boolean_model {
 };
 
 static_assert(laws::check_graded_laws<boolean_model>());
+
+// =========================================================================
+// WHERE THE GRADE VOCABULARY RUNS OUT.
+//
+// The harness above checks the ALGEBRA and the CARRIER TRAITS, and both
+// models pass. It cannot reach the one place the algebra exists FOR -- the
+// mixing point inside an applicative instance -- because a grade sample and
+// a value sample do not name a typeclass instance.
+//
+// So this block is not a law. It is a sensor on the gap: it puts what the
+// framework verbs SAY about a mixing point next to what the library actually
+// DEDUCES there. The two agree in one case and the framework has no answer
+// at all in the other, which is the divergence recorded at
+// docs/decisions.md#mixing-point-vocabulary. Pinned rather than fixed:
+// changing where the join is computed is a design decision, not a stage
+// deliverable.
+// =========================================================================
+
+namespace mixing_point {
+
+constexpr auto add(const int &lhs, const int &rhs) -> int { return lhs + rhs; }
+
+using bare_c = std::expected<int, std::errc>;
+using bare_i = std::expected<int, std::io_errc>;
+using graded_c = std::expected<int, e_c>;
+using graded_i = std::expected<int, e_i>;
+
+// -- AGREEMENT, where both operands are genuinely graded. The deduced
+// -- result's grade is exactly the framework's join of the operand grades.
+using graded_mix = decltype(bt::applicative_typeclass<graded_c>.invoke(
+    add, std::declval<const graded_c &>(), std::declval<const graded_i &>()));
+
+static_assert(
+    std::is_same_v<
+        bt::grade_of_t<graded_mix>,
+        bt::grade_join_t<bt::grade_of_t<graded_c>, bt::grade_of_t<graded_i>>>,
+    "At a mixing point between two already-graded operands, the deduced "
+    "grade agrees with grade_join_t. Note AGREES WITH, not COMPUTED BY: the "
+    "instance reaches the same answer through error vocabulary.");
+
+// -- SILENCE, where neither operand is graded. Lazy join means an unmixed
+// -- expected over a bare error type is ∅-graded
+// -- (docs/decisions.md#grading-footprint, no spontaneous singletons), so
+// -- the framework's verbs see ∅ ∨ ∅ = ∅ on both operands and predict a bare
+// -- int. The library deduces a graded carrier. Both are right; they are
+// -- answering different questions, and only one of them is in grade
+// -- vocabulary.
+static_assert(std::is_same_v<bt::grade_of_t<bare_c>, bt::unit_grade>);
+static_assert(std::is_same_v<bt::grade_of_t<bare_i>, bt::unit_grade>);
+
+using bare_mix = decltype(bt::applicative_typeclass<bare_c>.invoke(
+    add, std::declval<const bare_c &>(), std::declval<const bare_i &>()));
+
+static_assert(std::is_same_v<bare_mix, std::expected<int, e_ci>>);
+static_assert(bt::graded_context<bare_mix>);
+
+using framework_prediction = bt::rebind_grade_t<
+    int, bt::grade_join_t<bt::grade_of_t<bare_c>, bt::grade_of_t<bare_i>>>;
+
+static_assert(std::is_same_v<framework_prediction, int>);
+static_assert(
+    !std::is_same_v<bare_mix, framework_prediction>,
+    "The framework's grade verbs cannot describe the bare mixing point: both "
+    "operands are ∅-graded, so their join is ∅, yet the deduced result is "
+    "graded. This is the previously-ill-formed territory grading claims, and "
+    "reaching it requires lifting a bare error type into a set -- an "
+    "operation the grade layer does not have. See "
+    "docs/decisions.md#mixing-point-vocabulary.");
+
+} // namespace mixing_point
 
 TEST_CASE("laws: the shipped model satisfies the graded laws") {
     // Compile-time only; reaching here means the static_assert above held.
