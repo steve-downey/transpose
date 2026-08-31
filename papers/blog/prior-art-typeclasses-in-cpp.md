@@ -1,8 +1,8 @@
-<div class="abstract" id="orgfd634a6">
+<div class="abstract" id="orge886ce8">
 <p>
 The variable-template concept map from parts two and three was not invented in a vacuum.
 Bringing functional and typeclass-style programming to C++ is a decades-old sport, and every serious attempt makes a real trade.
-This closing part places the pattern among its neighbours &#x2014; an ancestor from before C++ had lambdas, a whole category-theory hierarchy, a library that extends the standard vocabulary types, and a safe-iteration model on an entirely different axis &#x2014; and asks what it is that keeps getting reinvented.
+This closing part places the pattern among its neighbours &#x2014; an ancestor from before C++ had lambdas, a whole category-theory hierarchy, a library that extends the standard vocabulary types, and a safe-iteration model on a different axis &#x2014; and asks what it is that keeps getting reinvented.
 </p>
 
 </div>
@@ -14,7 +14,7 @@ This closing part places the pattern among its neighbours &#x2014; an ancestor f
 
 Parts two and three argued for a single pattern: a variable template used as a concept map, a looked-up *dictionary* of a concept's operations, bundled, statically dispatched, attachable to types you do not own. Making that case without showing the neighbours would be a cheat. People have been bringing functional and typeclass-style programming to C++ for twenty-five years, and each attempt is the right answer to a slightly different question.
 
-What follows is four of them, plus the one the standard itself tried and dropped. I checked every claim here against the primary sources rather than the summaries around them; where the popular retelling overstates, I say so, because a fair comparison is the only kind worth making.
+What follows is four of them, plus the one the standard itself tried and dropped. I checked every claim here against the primary sources, not the summaries around them; where the popular retelling overstates, I say so, because a fair comparison is the only kind worth making.
 
 
 # FC++: the ancestor, before the language helped
@@ -23,7 +23,7 @@ Two decades ago &#x2014; before C++ had lambdas, before `auto` &#x2014; Brian Mc
 
 Its unit is the *functoid*: a function-object class carrying a nested `Sig` member template that computes its own return type. On that foundation FC++ delivered genuinely higher-order polymorphic functions, automatic currying (call a function with some of its arguments and get back a function awaiting the rest), a subtyping rule for functions themselves (covariant in the result, contravariant in the arguments), lazy and infinite lists, and more than fifty functions lifted straight from the Haskell Prelude.
 
-Be precise about the cost, because the folklore overstates it. The paper concedes that a type error "reports the full template instantiation stack," but it calls its own error reporting "adequate"; and the famous order-of-magnitude speed-up was a gain over FC++'s *own earlier* version on lazy-list-heavy benchmarks, not an absolute claim that functional C++ runs ten times faster than anything. The real lesson of FC++ is not that it was slow or ugly. It is that all of this was reachable in C++ *before the language offered any help* &#x2014; and that reaching it took heroic machinery: the `Sig` return-type protocol, hand-built curryable combinators, reference-counted list cells. Much of the language evolution since has been, in effect, a project to make that machinery unnecessary.
+Be precise about the cost, because the folklore overstates it. The paper concedes that a type error "reports the full template instantiation stack," but it calls its own error reporting "adequate"; and the famous order-of-magnitude speed-up was a gain over FC++'s *own earlier* version on lazy-list-heavy benchmarks, not an absolute claim that functional C++ runs ten times faster than anything. The real lesson of FC++ is not that it was slow or ugly. It is that all of this was reachable in C++ *before the language offered any help* &#x2014; and that reaching it took heroic machinery: the `Sig` return-type protocol, hand-built curryable combinators, reference-counted list cells. Much of the language evolution since has been, in effect, a project to make it unnecessary.
 
 
 # awgn/cat: the whole hierarchy, on traits
@@ -46,7 +46,7 @@ The contrast with out-of-band adaptation is still real, and it is not about safe
 
 [`Flux`](https://github.com/tcbrindle/flux) belongs in this survey precisely because it is *not* a customization mechanism. Tristan Brindle's Flux is a C++20 sequence library that replaces STL iterators with *cursors*. Where an iterator generalizes a pointer and knows how to advance itself, a Flux cursor generalizes an *index* and knows nothing: every operation &#x2014; `first`, `is_last`, `inc`, `read_at` &#x2014; takes the sequence and the cursor together. Because the sequence is always in hand, bounds checking is cheap and universal, one cursor type serves both const and mutable access, and a dangling cursor is impossible by construction. (Flux is careful about what it promises here: it does *not* claim cursors survive reallocation, only that a stale position is caught by the next bounds check rather than reading freed memory.)
 
-Why include it at all? Because `traverse` and `transpose` from part one are *internal-iteration* operations, and Flux is what a safe internal-iteration substrate looks like. It is a neighbour, not a rival. Flux answers "how do we iterate without dangling"; the concept map answers "how do we adapt a type to a concept." Those are orthogonal, and they compose &#x2014; you could imagine the traversal verbs riding on a cursor-safe sequence rather than on raw iterators.
+Why include it at all? Because `traverse` and `transpose` from part one are *internal-iteration* operations, and Flux is what a safe internal-iteration substrate looks like. It is a neighbour, not a rival. Flux answers "how do we iterate without dangling"; the concept map answers "how do we adapt a type to a concept." Those are orthogonal, and they compose &#x2014; you could imagine the traversal verbs riding on a cursor-safe sequence instead of raw iterators.
 
 
 # The one the standard already lost
@@ -65,16 +65,16 @@ So why not simply write the code in one of those languages and be done? Because 
 
 # Where the pattern sits &#x2014; and what it costs
 
-Line the attempts up and the niche states itself.
+Line the attempts up and the niche is obvious.
 
 -   FC++ proved functional C++ was possible before the language helped, at the cost of heroic machinery.
 -   `cat` builds the entire hierarchy out of band, as a framework to adopt.
 -   libfn improves the standard types themselves, by deriving new types from them.
--   Flux makes iteration safe, on a different axis entirely.
+-   Flux makes iteration safe, on a different axis.
 
 The variable-template concept map takes a narrower bet than any of them: adapt a type you *cannot touch* &#x2014; `std::optional`, a third-party sender, a hardware SIMD register &#x2014; to a *bundle* of operations, from the outside, with static dispatch, no ADL, no inheritance, and no reopening; and let generic algorithms look that bundle up as a value.
 
-The honest cost is the one parts two and three already named: you call the operations *through* the looked-up object, not as free functions or member syntax. It is more explicit &#x2014; more verbose &#x2014; than a CPO or an overloaded operator. That verbosity is the price of the properties, and it is a price worth naming rather than hiding. What it buys is a customization surface that is a value you can name, pin, and swap, over types whose authors will never know your concept exists.
+The honest cost is the one parts two and three already named: you call the operations *through* the looked-up object, not as free functions or member syntax. It is more explicit &#x2014; more verbose &#x2014; than a CPO or an overloaded operator. That verbosity is the price of the properties, and it is a price worth stating, not hiding. What it buys is a customization surface that is a value you can name, pin, and swap, over types whose authors will never know your concept exists.
 
 
 # Why the recurrence is the argument
