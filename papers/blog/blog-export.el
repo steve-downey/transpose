@@ -17,6 +17,20 @@
 
 (require 'org)
 
+;; The "with running code" posts capture program output through sh src blocks
+;; (:results output :exports results) that run example binaries during export.
+;; The repo init.el loads ob-shell inside a use-package form gated on flycheck,
+;; which never triggers in batch, so load it here and let the blocks run
+;; unprompted.
+(require 'ob-shell)
+(setq org-confirm-babel-evaluate nil)
+
+;; Also normally set by the flycheck-gated use-package form: without it the
+;; exporter re-indents transcluded src blocks and mangles continuation lines.
+(setq org-src-preserve-indentation t)
+;; And keep that re-indentation from introducing tabs into all-space sources.
+(setq-default indent-tabs-mode nil)
+
 (setq org-export-global-macros
       (append '(("TEASER_END" . ""))
               (and (boundp 'org-export-global-macros) org-export-global-macros)))
