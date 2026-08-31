@@ -30,3 +30,11 @@ Read it in order, or jump to the part you need.
 3. [[file:adapting-a-type-to-a-typeclass.org][Adapting a Type to a Typeclass]] --- three lines to opt in, and you never reopen anyone's class.
 4. [[file:writing-algorithms-with-typeclass-objects.org][Writing Algorithms with Typeclass Objects]] --- one algorithm, every instance, no ADL and no registry.
 5. [[file:prior-art-typeclasses-in-cpp.org][Prior Art: How Others Have Brought Typeclasses to C++]] --- FC++, ~cat~, libfn, Flux, and the customization point that keeps getting reinvented.
+
+* With running code
+
+A second arc: the same operations demonstrated from compiled examples, with the program output captured in the posts.
+
+6. [@6] [[file:graded-gadgets.org][Graded Gadgets]] --- indexing fallible computation by the set of errors it can raise; ~error_set~, lazy joins, and ~recover~.
+7. [[file:transpose-at-work.org][Transpose at Work]] --- ~transpose~ run over optionals, senders, and hardware SIMD lanes, with receipts.
+8. [[file:traverse-does-all-the-work.org][Traverse Does All the Work]] --- ~transpose~ is ~traverse~ with identity, and an applicative object is the whole contract.

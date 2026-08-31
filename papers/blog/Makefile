@@ -7,10 +7,18 @@
 #   make            # build all posts to HTML
 #   make blog-md    # convert all posts to GFM markdown (blog style)
 #   make test       # smoke test: render all posts to HTML
+#   make examples   # build the gcc-16 example binaries the posts run
 #   make clean      # remove generated HTML/MD and dep files
 #
 # First run installs the Emacs packages named in .emacs.d/init.el into
 # .emacs.d/elpa-<version> (needs network once); the store is gitignored.
+#
+# The "with running code" posts (graded-gadgets, transpose-at-work,
+# traverse-does-all-the-work) execute org-babel shell blocks during export
+# that run binaries from $(ROOT)/.build/build-gcc-16-cxx26/examples/RelWithDebInfo.
+# Run `make examples` (or `make -C $(ROOT) TOOLCHAIN=gcc-16-cxx26
+# CONFIG=RelWithDebInfo compile`) before exporting them; gcc-16 is what
+# provides <simd> for the SIMD output.
 
 EMACS     ?= emacs
 ROOT      := $(shell git rev-parse --show-toplevel)
@@ -21,9 +29,12 @@ ORGFILES  := $(wildcard *.org)
 HTML      := $(ORGFILES:.org=.html)
 MD        := $(ORGFILES:.org=.md)
 
-.PHONY: all blog-md test clean
+.PHONY: all blog-md test clean examples
 
 all: $(HTML)
+
+examples:
+	$(MAKE) -C $(ROOT) TOOLCHAIN=gcc-16-cxx26 CONFIG=RelWithDebInfo compile
 
 blog-md: $(MD)
 
@@ -39,7 +50,7 @@ test: $(HTML)
 	  --eval "(org-transclusion-mode t)" \
 	  --eval "(org-export-to-file 'html \"$@\")"
 	@echo "$@ : \\" > $@.deps
-	@echo "  $<" >> $@.deps
+	@echo "  $<" \\ >> $@.deps
 	@sed -n "s/^.*\[\[file:\(\S*\)::.*$$/\1/p" < $< | sort -u | xargs -r printf "  %s \\\\\n" >> $@.deps
 
 %.md : %.org $(EXPORT_EL)
@@ -53,7 +64,7 @@ test: $(HTML)
 	  --eval "(require 'ox-gfm)" \
 	  --eval "(org-export-to-file 'gfm \"$(abspath $@)\")"
 	@echo "$@ : \\" > $@.deps
-	@echo "  $<" >> $@.deps
+	@echo "  $<" \\ >> $@.deps
 	@sed -n "s/^.*\[\[file:\(\S*\)::.*$$/\1/p" < $< | sort -u | xargs -r printf "  %s \\\\\n" >> $@.deps
 
 -include $(ORGFILES:%.org=%.html.deps)
