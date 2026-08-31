@@ -1,8 +1,8 @@
-<div class="abstract" id="org9209adb">
+<div class="abstract" id="orgbbb2c5a">
 <p>
 Part two showed how cheap it is to make a type an instance of a typeclass.
 This is the other side of the trade: you are writing the algorithm, and you want it to run over <i>every</i> instance &#x2014; the optional, the tree, the SIMD lanes &#x2014; with the operation names reading as if they belong to your code, dispatched statically, with no ADL and no central registry.
-This is where the bundled typeclass object earns its place over traits, CPOs, and concepts alone, and why that argument is really an argument about the standard library.
+This is where the bundled typeclass object beats traits, CPOs, and concepts alone, and why that argument is really an argument about the standard library.
 </p>
 
 </div>
@@ -157,9 +157,9 @@ auto result = algorithm::validate(
 
 There is a second thing the algorithm author gets, and it is easy to miss because it is a thing that *does not happen*.
 
-The typeclass operation names &#x2014; `fold_map`, `traverse`, `invoke` &#x2014; are abstract and, frankly, not the names a domain expert would choose. That is correct. They name what the *concept* does, not what the *type* calls it. It is fine that they are generic to the point of blandness, because they live in the plumbing.
+The typeclass operation names &#x2014; `fold_map`, `traverse`, `invoke` &#x2014; are abstract, and not the names a domain expert would choose. That is correct. They name what the *concept* does, not what the *type* calls it. It is fine that they are generic to the point of blandness, because they live below the surface.
 
-The concrete types keep their good, domain-specific names: `push_back`, `pop_min`, `insert`, `to_string`. Generic code targets the plumbing layer; users targeting a concrete type get the porcelain.
+The concrete types keep their good, domain-specific names: `push_back`, `pop_min`, `insert`, `to_string`. Generic code targets that abstract layer; users targeting a concrete type get the good names.
 
 The payoff is that you never have to lie. A design that dispatches on member names has to insist that every functor-shaped type spell its mapping operation `transform`, whether or not `transform` means anything sane for that type. Here the mapping operation is `fmap` in the adaptation layer and stays whatever it wants to be on the type's own surface. The abstraction does not colonize the vocabulary of every type it touches.
 
@@ -196,22 +196,22 @@ A Rust trait bundles operations with default implementations, types `impl` it ex
 
 # Where it matters, and why it belongs in the standard
 
-This is not a demonstration written once against one type. In this proposal's own repository the same fold and traversal algorithms run, unchanged, over a `BinaryTree<T>` (`examples/binary_tree.hpp`) *and* over the contextual types from part one &#x2014; `optional`, `std::execution` senders, and lanewise ~zip\_list~/SIMD &#x2014; which share nothing with a tree and nothing with each other, yet enter the identical front door.
+This is not a demonstration written once against one type. In this proposal's own repository the same fold and traversal algorithms run, unchanged, over a `BinaryTree<T>` (`examples/binary_tree.hpp`) *and* over the contextual types from part one &#x2014; `optional`, `std::execution` senders, and lanewise ~zip\_list~/SIMD &#x2014; which share nothing with a tree and nothing with each other, yet enter through the identical mechanism.
 
 The same `foldable_typeclass` / `traversable_typeclass` machinery reaches further in the coordinated paper set, over structures this paper deliberately leaves to its companions:
 
 -   a persistent, concatenable *measured sequence* of finger-tree lineage (Ralf Hinze and Ross Paterson, 2006) &#x2014; the subject of the companion persistent-sequence paper (Paper C)
 -   a recursive fixpoint tree `Fix<F>` &#x2014; the subject of the companion recursive-tree-algorithms paper (Paper D)
 
-Those belong to separate papers on purpose: this one standardizes the traversal/transposition front door and the customization mechanism behind it, not a menagerie of containers. What matters here is that a *single* adaptation mechanism already spans a flat container, a balanced tree, a persistent sequence, a recursive fixpoint, and three computational contexts &#x2014; each instance in its own header, none of them knowing about the others.
+Those belong to separate papers on purpose: this one standardizes the traversal/transposition entry point and the customization mechanism behind it, not a menagerie of containers. What matters here is that a *single* adaptation mechanism already spans a flat container, a balanced tree, a persistent sequence, a recursive fixpoint, and three computational contexts &#x2014; each instance in its own header, none of them knowing about the others.
 
 The type definitions do not know about the typeclasses. The typeclasses do not know about each other. The call site does not change when the representation changes. Independent extension points that compose &#x2014; no reopening classes, no monkey-patching, no registry.
 
-Which is the real argument of this series. Part one showed that `transpose` is one operation the standard library has no spelling for, appearing today over `optional`, over `std::execution` senders, over lanewise SIMD. Part two opened the machinery: a Traversable structure, an Applicative context built on `pure` + `invoke`, and `transpose` as `traverse` of the identity. Part three showed that adapting a type to feed that operation costs about three lines and never reopens a class. Part four shows that consuming it &#x2014; writing the algorithms &#x2014; is where a *bundle* beats every à la carte alternative, because the applicative family only holds together when its operations derive from a small coherent core rather than being scattered across independent hooks.
+Which is the real argument of this series. `transpose` is one operation the standard library has no spelling for, and consuming it &#x2014; writing the algorithms &#x2014; is where a *bundle* beats every à la carte alternative, because the applicative family only holds together when its operations derive from a small coherent core rather than being scattered across independent hooks.
 
 Standardizing `transpose` and `traverse` without standardizing something like this substrate would push the customization story back toward trait-only or `tag_invoke`-heavy designs &#x2014; exactly the designs that fracture the family, scattering `pure`, `invoke`, `apply`, `map`, and `zip_with` across independent hooks with no shared place to derive one from another. The verbs need a mechanism strong enough to keep their primitive and derived operations coherent across unrelated types. That is what a typeclass object is.
 
-And it degrades gracefully. If C++ later grows richer generic facilities &#x2014; pattern matching, a real return of concept maps &#x2014; this API should get *simpler*. It should not need to be replaced. That is the mark of proposing the right shape rather than a workaround: the workaround gets thrown away when the language catches up; the right shape just gets better plumbing underneath.
+And it degrades gracefully. If C++ later grows richer generic facilities &#x2014; pattern matching, a real return of concept maps &#x2014; this API should get *simpler*. It should not need to be replaced. That is the mark of proposing the right shape rather than a workaround: the workaround gets thrown away when the language catches up; the right shape just gets a better implementation underneath.
 
 That leaves one question the series has not yet answered: if the shape is right, why has no one standardized it &#x2014; and what has everyone built instead? That is part five, [Prior Art: How Others Have Brought Typeclasses to C++](prior-art-typeclasses-in-cpp.md).
 
