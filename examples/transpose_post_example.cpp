@@ -58,8 +58,7 @@ void sender_section() {
             return value * value;
         }};
     };
-    std::vector<bt::sender<int>> senders{deferred(1), deferred(2),
-                                         deferred(3)};
+    std::vector<bt::sender<int>> senders{deferred(1), deferred(2), deferred(3)};
 
     auto composed = bt::transpose(senders);
     std::cout << "composed vector<sender<int>> into sender<vector<int>>; "
