@@ -90,5 +90,6 @@ inline constexpr auto applicative_typeclass<std::simd::basic_vec<T, ABI>> =
 
 } // namespace beman::transpose
 
-#endif // __has_include(<simd>) && __cplusplus > 202302L && defined(__glibcxx_simd)
+#endif // __has_include(<simd>) && __cplusplus > 202302L &&
+       // defined(__glibcxx_simd)
 #endif // BEMAN_TRANSPOSE_SIMD_HPP
