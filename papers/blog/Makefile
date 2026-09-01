@@ -1,8 +1,16 @@
 # papers/blog/Makefile --- render the transpose persuasive blog series
 #
 # Reuses the repo's Org toolchain (../../.emacs.d/init.el: org, htmlize,
-# citeproc, org-transclusion, ox-gfm) plus blog-export.el for the org2blog
-# TEASER_END macro and the orgit-file link shim.
+# citeproc, org-transclusion, ox-gfm, and the orgit-file-transclusion adapter)
+# plus blog-export.el for the org2blog TEASER_END macro.
+#
+# Posts transclude source with [[orgit-file:REPO::REV::PATH::UUID]] links
+# pinned to an annotated blog/<post-basename> tag (see pins.md), so the code
+# in a post is frozen at the revision its prose was written against. That is
+# also why the .deps rules below extract nothing for these posts: a pinned
+# transclusion cannot change when the worktree does, so the only dependency is
+# the .org file itself. The sed stays for any future worktree-resolved
+# [[file:...::...]] link, which would depend on the source and does need one.
 #
 #   make            # build all posts to HTML
 #   make blog-md    # convert all posts to GFM markdown (blog style)

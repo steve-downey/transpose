@@ -1,6 +1,6 @@
 **DRAFT &#x2014; pending author revision**
 
-<div class="abstract" id="org371cc30">
+<div class="abstract" id="orge842495">
 <p>
 <a href="transposing-structure-and-context.html">The opening post of this series</a> argued that <code>vector&lt;optional&lt;T&gt;&gt;</code> to <code>optional&lt;vector&lt;T&gt;&gt;</code> is one operation, <code>transpose</code>, and that the same verb covers deferred and lanewise computation.
 This post runs it.
@@ -51,8 +51,7 @@ To make the laziness visible, each sender announces itself when it actually exec
             return value * value;
         }};
     };
-    std::vector<bt::sender<int>> senders{deferred(1), deferred(2),
-                                         deferred(3)};
+    std::vector<bt::sender<int>> senders{deferred(1), deferred(2), deferred(3)};
 
     auto composed = bt::transpose(senders);
     std::cout << "composed vector<sender<int>> into sender<vector<int>>; "

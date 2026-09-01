@@ -1,4 +1,4 @@
-<div class="abstract" id="orgbbb2c5a">
+<div class="abstract" id="orgb92429d">
 <p>
 Part two showed how cheap it is to make a type an instance of a typeclass.
 This is the other side of the trade: you are writing the algorithm, and you want it to run over <i>every</i> instance &#x2014; the optional, the tree, the SIMD lanes &#x2014; with the operation names reading as if they belong to your code, dispatched statically, with no ADL and no central registry.
@@ -36,7 +36,7 @@ No ADL fired. No overload set was assembled from the argument's namespace. You a
 
 Pass a specific instance at the call site. Because the object is an ordinary value, you can substitute a different one &#x2014; local policy override, with no change to the type involved.
 
-From `examples/lookup_modes_example.cpp`:
+From [``examples/lookup_modes_example.cpp``](https://github.com/steve-downey/transpose/blob/blog/writing-algorithms-with-typeclass-objects/examples/lookup_modes_example.cpp):
 
 ```cpp
 auto explicit_object_lookup_example() -> std::optional<int> {
@@ -54,7 +54,7 @@ This is the thing a trait or a CPO cannot hand you: the ability to swap the *imp
 
 Bind the looked-up object as a non-type template parameter with a default. Lookup happens once, at instantiation, and callers can override the default but do not have to.
 
-From `tests/beman/transpose/fold.test.cpp`:
+From [``tests/beman/transpose/fold.test.cpp``](https://github.com/steve-downey/transpose/blob/blog/writing-algorithms-with-typeclass-objects/tests/beman/transpose/fold.test.cpp):
 
 ```cpp
 template <class STRUCTURE,
@@ -73,7 +73,7 @@ Reaching an operation through a lookup object is fine for a one-liner. But when 
 
 So inherit from the instance. The typeclass objects are empty structs, so inheriting adds no data and slicing is a non-issue; the inheritance exists only to pull the operation names into the algorithm's own scope.
 
-From `examples/algorithm_object_example.cpp`:
+From [``examples/algorithm_object_example.cpp``](https://github.com/steve-downey/transpose/blob/blog/writing-algorithms-with-typeclass-objects/examples/algorithm_object_example.cpp):
 
 ```cpp
 template <class T,
@@ -196,7 +196,7 @@ A Rust trait bundles operations with default implementations, types `impl` it ex
 
 # Where it matters, and why it belongs in the standard
 
-This is not a demonstration written once against one type. In this proposal's own repository the same fold and traversal algorithms run, unchanged, over a `BinaryTree<T>` (`examples/binary_tree.hpp`) *and* over the contextual types from part one &#x2014; `optional`, `std::execution` senders, and lanewise ~zip\_list~/SIMD &#x2014; which share nothing with a tree and nothing with each other, yet enter through the identical mechanism.
+This is not a demonstration written once against one type. In this proposal's own repository the same fold and traversal algorithms run, unchanged, over a `BinaryTree<T>` ([``examples/binary_tree.hpp``](https://github.com/steve-downey/transpose/blob/blog/writing-algorithms-with-typeclass-objects/examples/binary_tree.hpp)) *and* over the contextual types from part one &#x2014; `optional`, `std::execution` senders, and lanewise ~zip\_list~/SIMD &#x2014; which share nothing with a tree and nothing with each other, yet enter through the identical mechanism.
 
 The same `foldable_typeclass` / `traversable_typeclass` machinery reaches further in the coordinated paper set, over structures this paper deliberately leaves to its companions:
 
