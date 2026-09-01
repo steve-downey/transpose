@@ -74,20 +74,30 @@ concept traversable_registered =
 // -- Probe callables -------------------------------------------------------
 // Defined, not merely declared: deducing a return type instantiates the
 // template body, and an undefined callee would fail to link.
+//
+// [[maybe_unused]] because every use below is unevaluated: an internal-linkage
+// function that is named only inside decltype is never odr-used, so no
+// definition is emitted and clang's -Wunneeded-internal-declaration fires. The
+// attribute states the intent -- the body exists to be linkable if a deduction
+// ever needs it, not because this TU calls it.
 
-constexpr auto to_double(const int &x) -> double { return x * 2.0; }
-constexpr auto add(const int &x, const int &y) -> int { return x + y; }
+[[maybe_unused]] constexpr auto to_double(const int &x) -> double {
+    return x * 2.0;
+}
+[[maybe_unused]] constexpr auto add(const int &x, const int &y) -> int {
+    return x + y;
+}
 
-auto opt_of(const int &x) -> std::optional<int> {
+[[maybe_unused]] auto opt_of(const int &x) -> std::optional<int> {
     return std::optional<int>{x};
 }
-auto opt_double_of(const int &x) -> std::optional<double> {
+[[maybe_unused]] auto opt_double_of(const int &x) -> std::optional<double> {
     return std::optional<double>{static_cast<double>(x)};
 }
-auto sender_of(const int &x) -> bt::sender<int> {
+[[maybe_unused]] auto sender_of(const int &x) -> bt::sender<int> {
     return bt::sender<int>::ready(x);
 }
-auto zip_of(const int &x) -> bt::zip_list<int> {
+[[maybe_unused]] auto zip_of(const int &x) -> bt::zip_list<int> {
     return bt::zip_list<int>::repeat(x);
 }
 
@@ -304,8 +314,9 @@ static_assert(functor_registered<vec_int>);
 // grade out of an unmixed pipeline, which is the thing the corollary forbids.
 // =========================================================================
 
-auto exp_of(const int &x) -> exp_int { return exp_int{x}; }
-auto exp_double_of(const int &x) -> std::expected<double, std::errc> {
+[[maybe_unused]] auto exp_of(const int &x) -> exp_int { return exp_int{x}; }
+[[maybe_unused]] auto exp_double_of(const int &x)
+    -> std::expected<double, std::errc> {
     return std::expected<double, std::errc>{static_cast<double>(x)};
 }
 
@@ -357,7 +368,8 @@ static_assert(std::is_same_v<decltype(bt::transpose(
 using exp_io = std::expected<int, std::io_errc>;
 using mixed_errors = bt::error_set<std::errc, std::io_errc>;
 
-auto exp_io_of(const int &x) -> std::expected<double, std::io_errc> {
+[[maybe_unused]] auto exp_io_of(const int &x)
+    -> std::expected<double, std::io_errc> {
     return std::expected<double, std::io_errc>{static_cast<double>(x)};
 }
 
