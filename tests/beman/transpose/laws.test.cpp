@@ -275,10 +275,10 @@ struct FallibleApplicativeImpl {
     auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
         -> detail::mixed_result_t<
             GRADE,
-            Fallible<remove_cvref_t<std::invoke_result_t<
-                         FUNCTION &,
-                         const fallible_value_type_t<CARRIERS> &...>>,
-                     GRADE>,
+            Fallible<
+                remove_cvref_t<std::invoke_result_t<
+                    FUNCTION &, const fallible_value_type_t<CARRIERS> &...>>,
+                GRADE>,
             CARRIERS...> {
         using Result = remove_cvref_t<std::invoke_result_t<
             FUNCTION &, const fallible_value_type_t<CARRIERS> &...>>;
@@ -291,8 +291,7 @@ struct FallibleApplicativeImpl {
             if ((fallible_failed(operands) || ...)) {
                 return Returned{};
             }
-            return Returned{
-                std::invoke(function, fallible_value(operands)...)};
+            return Returned{std::invoke(function, fallible_value(operands)...)};
         }
     }
 };
@@ -344,12 +343,11 @@ using boolean_never = Fallible<int, never_fails>;
 using graded_mix = decltype(bt::applicative_typeclass<graded_c>.invoke(
     add, std::declval<const graded_c &>(), std::declval<const graded_i &>()));
 
-static_assert(
-    std::is_same_v<
-        bt::grade_of_t<graded_mix>,
-        bt::grade_join_t<bt::grade_of_t<graded_c>, bt::grade_of_t<graded_i>>>,
-    "The expected mixing point computes the result grade through "
-    "grade_join_t.");
+static_assert(std::is_same_v<bt::grade_of_t<graded_mix>,
+                             bt::grade_join_t<bt::grade_of_t<graded_c>,
+                                              bt::grade_of_t<graded_i>>>,
+              "The expected mixing point computes the result grade through "
+              "grade_join_t.");
 
 static_assert(std::is_same_v<bt::grade_of_t<bare_c>, e_c>);
 static_assert(std::is_same_v<bt::grade_of_t<bare_i>, e_i>);
@@ -374,32 +372,30 @@ using boolean_mix = decltype(bt::applicative_typeclass<boolean_may>.invoke(
 
 static_assert(std::is_same_v<boolean_mix, Fallible<int, may_fail>>);
 static_assert(
-    std::is_same_v<
-        bt::grade_of_t<boolean_mix>,
-        bt::grade_join_t<bt::grade_of_t<boolean_may>,
-                         bt::grade_of_t<boolean_never>>>,
+    std::is_same_v<bt::grade_of_t<boolean_mix>,
+                   bt::grade_join_t<bt::grade_of_t<boolean_may>,
+                                    bt::grade_of_t<boolean_never>>>,
     "The Boolean model drives a real mixed deduction through grade_join_t.");
 
 template <class LEFT, class RIGHT>
-concept accepts_boolean_invoke =
-    requires(const LEFT &lhs, const RIGHT &rhs) {
-        bt::applicative_typeclass<boolean_may>.invoke(add, lhs, rhs);
-    };
+concept accepts_boolean_invoke = requires(const LEFT &lhs, const RIGHT &rhs) {
+    bt::applicative_typeclass<boolean_may>.invoke(add, lhs, rhs);
+};
 
 static_assert(accepts_boolean_invoke<boolean_may, boolean_never>);
 static_assert(!accepts_boolean_invoke<boolean_may, graded_c>);
 
-constexpr auto accepts_expected_value_and_foreign_carrier(
-    const int &expected_value, const boolean_may &) -> int {
+constexpr auto
+accepts_expected_value_and_foreign_carrier(const int &expected_value,
+                                           const boolean_may &) -> int {
     return expected_value;
 }
 
 template <class LEFT, class RIGHT>
-concept accepts_expected_invoke =
-    requires(const LEFT &lhs, const RIGHT &rhs) {
-        bt::applicative_typeclass<bare_c>.invoke(
-            accepts_expected_value_and_foreign_carrier, lhs, rhs);
-    };
+concept accepts_expected_invoke = requires(const LEFT &lhs, const RIGHT &rhs) {
+    bt::applicative_typeclass<bare_c>.invoke(
+        accepts_expected_value_and_foreign_carrier, lhs, rhs);
+};
 
 template <class LEFT, class RIGHT>
 concept accepts_accumulating_expected_invoke =

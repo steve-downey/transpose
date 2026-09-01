@@ -157,8 +157,8 @@ static_assert(!std::is_same_v<bt::rebind_grade_t<int, bt::error_set<>>,
 // Round-trip: grade_of after rebind_grade returns what was asked for.
 static_assert(
     std::is_same_v<bt::grade_of_t<bt::rebind_grade_t<int, set_ab>>, set_ab>);
-static_assert(std::is_same_v<bt::grade_of_t<bt::rebind_grade_t<int, set_a>>,
-                             set_a>);
+static_assert(
+    std::is_same_v<bt::grade_of_t<bt::rebind_grade_t<int, set_a>>, set_a>);
 
 } // namespace
 

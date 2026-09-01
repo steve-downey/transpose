@@ -74,9 +74,8 @@ void context_section() {
     };
 
     auto result = bt::traverse(checked, std::vector<int>{2, 3, 6});
-    static_assert(
-        std::is_same_v<decltype(result),
-                       std::expected<std::vector<int>, std::errc>>);
+    static_assert(std::is_same_v<decltype(result),
+                                 std::expected<std::vector<int>, std::errc>>);
     std::cout << "expected context: has_value = " << std::boolalpha
               << result.has_value() << '\n';
     // 4e59fcf2-1ec2-4568-858f-836533f9fe89 end
@@ -93,8 +92,8 @@ void identity_section() {
         bt::traverse([](const std::optional<int> &x) { return x; }, maybes);
     auto via_transpose = bt::transpose(maybes);
 
-    static_assert(std::is_same_v<decltype(via_traverse),
-                                 decltype(via_transpose)>);
+    static_assert(
+        std::is_same_v<decltype(via_traverse), decltype(via_transpose)>);
     std::cout << "traverse(identity) == transpose: " << std::boolalpha
               << (via_traverse == via_transpose) << '\n';
     // 5160d30d-ab74-4fa8-8370-4c784b8b085c end

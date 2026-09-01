@@ -174,20 +174,20 @@ using grade_lifted_into_model_t =
 
 template <class MODEL_GRADE, class RAW_GRADE>
 struct mixes_with_model_impl
-    : std::bool_constant<
-          std::is_same_v<grade_model_t<RAW_GRADE>, grade_model_t<MODEL_GRADE>>> {
-};
+    : std::bool_constant<std::is_same_v<grade_model_t<RAW_GRADE>,
+                                        grade_model_t<MODEL_GRADE>>> {};
 
 template <class MODEL_GRADE>
 struct mixes_with_model_impl<MODEL_GRADE, unit_grade> : std::true_type {};
 
 template <class MODEL_GRADE, class OPERAND>
-concept mixes_with_model = mixes_with_model_impl<
-    MODEL_GRADE, grade_of_t<remove_cvref_t<OPERAND>>>::value;
+concept mixes_with_model =
+    mixes_with_model_impl<MODEL_GRADE,
+                          grade_of_t<remove_cvref_t<OPERAND>>>::value;
 
 template <class MODEL_GRADE, class... OPERANDS>
     requires(sizeof...(OPERANDS) > 0) &&
-            (mixes_with_model<MODEL_GRADE, OPERANDS> && ...)
+                (mixes_with_model<MODEL_GRADE, OPERANDS> && ...)
 using mixed_grade_t =
     grade_join_all_t<grade_lifted_into_model_t<MODEL_GRADE, OPERANDS>...>;
 
@@ -228,7 +228,7 @@ template <class TARGET_GRADE, class CARRIER>
     requires grade_semilattice<TARGET_GRADE> &&
              (std::is_same_v<grade_of_t<remove_cvref_t<CARRIER>>, unit_grade> ||
               grade_subsumes_v<grade_of_t<remove_cvref_t<CARRIER>>,
-                                TARGET_GRADE>) &&
+                               TARGET_GRADE>) &&
              std::constructible_from<
                  rebind_grade_t<remove_cvref_t<CARRIER>, TARGET_GRADE>, CARRIER>
 constexpr auto grade_subsume(CARRIER &&value)
