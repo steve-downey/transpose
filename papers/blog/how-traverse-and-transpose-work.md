@@ -1,4 +1,4 @@
-<div class="abstract" id="org10fa4c0">
+<div class="abstract" id="org0af3a19">
 <p>
 Part one flipped <code>structure&lt;context&lt;T&gt;&gt;</code> into <code>context&lt;structure&lt;T&gt;&gt;</code> with one verb, <code>transpose</code>, across three contexts that share nothing &#x2014; and left the machinery unopened.
 This part opens it, and there is less inside than the names suggest.

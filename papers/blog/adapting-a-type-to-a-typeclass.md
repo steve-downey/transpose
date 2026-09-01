@@ -1,4 +1,4 @@
-<div class="abstract" id="orgf07db56">
+<div class="abstract" id="org0c713e1">
 <p>
 Part one ended on a puzzle: <code>optional</code>, a <code>std::execution</code> sender, and a lanewise SIMD value share no base class, no common header, no member named <code>transpose</code> &#x2014; yet each answers to the same call.
 This is how, from the side that matters most to you if you own a type: what does it cost to make <i>your</i> type join in?
@@ -25,7 +25,7 @@ The version this series is built on generalizes `numeric_limits` in three small 
 
 Here is that name for Foldable.
 
-From `include/beman/transpose/fold.hpp`:
+From [``include/beman/transpose/fold.hpp``](https://github.com/steve-downey/transpose/blob/blog/adapting-a-type-to-a-typeclass/include/beman/transpose/fold.hpp):
 
 ```cpp
 template <class T>
@@ -39,7 +39,7 @@ The default is `std::false_type`: no instance. A type is Foldable exactly when s
 
 Here is a type opting in.
 
-From `examples/binary_tree.hpp`:
+From [``examples/binary_tree.hpp``](https://github.com/steve-downey/transpose/blob/blog/adapting-a-type-to-a-typeclass/examples/binary_tree.hpp):
 
 ```cpp
 template <class T>
@@ -77,7 +77,7 @@ Take the smallest typeclass, Functor. Its primitive is `fmap`; its derived opera
 
 ****Layer 1 &#x2014; the primitive.**** You write `fmap` for your type. Here it is for `std::optional`:
 
-From `include/beman/transpose/functor.hpp`:
+From [``include/beman/transpose/functor.hpp``](https://github.com/steve-downey/transpose/blob/blog/adapting-a-type-to-a-typeclass/include/beman/transpose/functor.hpp):
 
 ```cpp
 template <class VALUE_TYPE>

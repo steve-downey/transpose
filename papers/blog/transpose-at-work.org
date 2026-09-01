@@ -35,7 +35,7 @@ The code is transcluded from a compiled example in the [[https://github.com/bema
 The problem from the first post: all of the values if every element is present, nothing if any element is missing.
 Here it is as a call, once with no gaps and once with one.
 
-#+transclude: [[file:../../examples/transpose_post_example.cpp::05ce0358-d2a6-4908-a5b3-ec09da449bbd]] :lines 2- :src cpp :end "05ce0358-d2a6-4908-a5b3-ec09da449bbd end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/transpose-at-work::examples/transpose_post_example.cpp::05ce0358-d2a6-4908-a5b3-ec09da449bbd]] :lines 2- :src cpp :end "05ce0358-d2a6-4908-a5b3-ec09da449bbd end"
 
 #+begin_src sh :results output :exports results
 ../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.transpose_post_example optional
@@ -51,7 +51,7 @@ The interesting property is what ~transpose~ must /not/ do: composing a vector o
 
 To make the laziness visible, each sender announces itself when it actually executes.
 
-#+transclude: [[file:../../examples/transpose_post_example.cpp::680950c9-7c4f-4aac-9e7b-bd32d9c7056a]] :lines 2- :src cpp :end "680950c9-7c4f-4aac-9e7b-bd32d9c7056a end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/transpose-at-work::examples/transpose_post_example.cpp::680950c9-7c4f-4aac-9e7b-bd32d9c7056a]] :lines 2- :src cpp :end "680950c9-7c4f-4aac-9e7b-bd32d9c7056a end"
 
 #+begin_src sh :results output :exports results
 ../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.transpose_post_example sender
@@ -68,7 +68,7 @@ The transposition rearranged types, not execution.
 The lanewise context is ~simd_lanes<T, N>~: an ~N~-lane array, filled here from real ~std::simd::vec~ registers (P1928, in GCC 16).
 Three positions of four lanes each transpose into four complete result vectors, one per hardware lane.
 
-#+transclude: [[file:../../examples/transpose_post_example.cpp::e916da84-685b-40b3-aee5-c9df63321855]] :lines 2- :src cpp :end "e916da84-685b-40b3-aee5-c9df63321855 end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/transpose-at-work::examples/transpose_post_example.cpp::e916da84-685b-40b3-aee5-c9df63321855]] :lines 2- :src cpp :end "e916da84-685b-40b3-aee5-c9df63321855 end"
 
 #+begin_src sh :results output :exports results
 ../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.transpose_post_example simd

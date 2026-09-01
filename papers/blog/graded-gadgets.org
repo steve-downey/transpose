@@ -42,7 +42,7 @@ The applicative ~invoke~ from [[file:how-traverse-and-transpose-work.org][earlie
 Every operand had to be an ~expected~ with the same error type.
 That refusal turns out to be the opportunity: the combination was ill-formed, so giving it a meaning breaks no existing code.
 
-#+transclude: [[file:../../examples/graded_gadgets_example.cpp::c74dfc6a-4ae4-4f21-82fa-2097a17d8b87]] :lines 2- :src cpp :end "c74dfc6a-4ae4-4f21-82fa-2097a17d8b87 end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::c74dfc6a-4ae4-4f21-82fa-2097a17d8b87]] :lines 2- :src cpp :end "c74dfc6a-4ae4-4f21-82fa-2097a17d8b87 end"
 
 #+begin_src sh :results output :exports results
 ../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.graded_gadgets_example mixing
@@ -56,9 +56,9 @@ Nobody wrote ~error_set<errc, io_errc>~ at the call site; the deduction computed
 The union needs a spelling, and the spelling has to not care about order.
 ~error_set~ canonicalizes at construction: the pack is sorted and deduplicated, so however two grades meet, the same set is the same type.
 
-#+transclude: [[file:../../examples/graded_gadgets_example.cpp::70faaeb2-f44d-44d8-8fdc-abf8ce74d7ef]] :lines 2- :src cpp :end "70faaeb2-f44d-44d8-8fdc-abf8ce74d7ef end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::70faaeb2-f44d-44d8-8fdc-abf8ce74d7ef]] :lines 2- :src cpp :end "70faaeb2-f44d-44d8-8fdc-abf8ce74d7ef end"
 
-#+transclude: [[file:../../examples/graded_gadgets_example.cpp::5c70a8c3-c9d4-433d-9f11-2c433cfef7df]] :lines 2- :src cpp :end "5c70a8c3-c9d4-433d-9f11-2c433cfef7df end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::5c70a8c3-c9d4-433d-9f11-2c433cfef7df]] :lines 2- :src cpp :end "5c70a8c3-c9d4-433d-9f11-2c433cfef7df end"
 
 Sorting types requires ordering them, which the language does not yet provide; the implementation orders by type name as an interim stand-in for P2830 reflection-based ordering, and static-asserts that no two members render to the same name.
 
@@ -72,7 +72,7 @@ There's no discriminated union inside, and no allocation.
 A plain ~int~ has no error types to contribute.
 Its grade is the empty set, and joining with the empty set is a no-op, so mixing a bare value into a graded computation leaves no trace in the deduced type.
 
-#+transclude: [[file:../../examples/graded_gadgets_example.cpp::a1b0528a-16f7-4a62-9ae8-684b05fbc8ed]] :lines 2- :src cpp :end "a1b0528a-16f7-4a62-9ae8-684b05fbc8ed end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::a1b0528a-16f7-4a62-9ae8-684b05fbc8ed]] :lines 2- :src cpp :end "a1b0528a-16f7-4a62-9ae8-684b05fbc8ed end"
 
 #+begin_src sh :results output :exports results
 ../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.graded_gadgets_example lazy-join
@@ -88,9 +88,9 @@ When several operands fail, what should the error be?
 The default object keeps the answer ~expected~ has always given: the leftmost failure wins and the rest are never examined.
 A second object, reached through ~accumulating_applicative_typeclass~, visits every operand and keeps one witness per distinct error type.
 
-#+transclude: [[file:../../examples/graded_gadgets_example.cpp::ae466cba-1a93-4a1d-b148-497958a86145]] :lines 2- :src cpp :end "ae466cba-1a93-4a1d-b148-497958a86145 end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::ae466cba-1a93-4a1d-b148-497958a86145]] :lines 2- :src cpp :end "ae466cba-1a93-4a1d-b148-497958a86145 end"
 
-#+transclude: [[file:../../examples/graded_gadgets_example.cpp::045991c1-1dd4-4f93-af8a-b3ac53ce7702]] :lines 2- :src cpp :end "045991c1-1dd4-4f93-af8a-b3ac53ce7702 end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::045991c1-1dd4-4f93-af8a-b3ac53ce7702]] :lines 2- :src cpp :end "045991c1-1dd4-4f93-af8a-b3ac53ce7702 end"
 
 #+begin_src sh :results output :exports results
 ../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.graded_gadgets_example accumulate
@@ -105,7 +105,7 @@ Sequencing needs the first computation's value to feed the continuation, and the
 Grades widen at every mixing point, so there had better be a way back down.
 ~recover<E...>~ handles the named alternatives and subtracts them from the grade: handle one member and the set shrinks, handle all of them and you are left holding a plain value.
 
-#+transclude: [[file:../../examples/graded_gadgets_example.cpp::fb4194b2-a5cf-43eb-bed8-d50c09601efd]] :lines 2- :src cpp :end "fb4194b2-a5cf-43eb-bed8-d50c09601efd end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::fb4194b2-a5cf-43eb-bed8-d50c09601efd]] :lines 2- :src cpp :end "fb4194b2-a5cf-43eb-bed8-d50c09601efd end"
 
 #+begin_src sh :results output :exports results
 ../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.graded_gadgets_example recover
@@ -120,7 +120,7 @@ And the empty grade is spelled ~int~, not ~expected<int, error_set<>>~, so fully
 The gadgets compose with the rest of the library.
 ~traverse~ maps a fallible function over a vector and transposes the failures out; the grade of the per-element function becomes the grade of the whole traversal, and the accumulating object slots in as an ordinary trailing argument.
 
-#+transclude: [[file:../../examples/graded_gadgets_example.cpp::8ec1b0e5-e4e8-4dbb-8644-6293fc959e42]] :lines 2- :src cpp :end "8ec1b0e5-e4e8-4dbb-8644-6293fc959e42 end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::8ec1b0e5-e4e8-4dbb-8644-6293fc959e42]] :lines 2- :src cpp :end "8ec1b0e5-e4e8-4dbb-8644-6293fc959e42 end"
 
 #+begin_src sh :results output :exports results
 ../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.graded_gadgets_example traverse

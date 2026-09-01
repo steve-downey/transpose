@@ -1,6 +1,6 @@
 **DRAFT &#x2014; pending author revision**
 
-<div class="abstract" id="org9870920">
+<div class="abstract" id="org97815f0">
 <p>
 <a href="transpose-at-work.html">The previous post</a> ran <code>transpose</code> over three contexts and ended on a claim: <code>transpose</code> is <code>traverse</code> with the identity function.
 This post makes the claim concrete with running code.
@@ -63,9 +63,8 @@ Nothing in that call named `optional`. `traverse` deduces the context by asking 
     };
 
     auto result = bt::traverse(checked, std::vector<int>{2, 3, 6});
-    static_assert(
-        std::is_same_v<decltype(result),
-                       std::expected<std::vector<int>, std::errc>>);
+    static_assert(std::is_same_v<decltype(result),
+                                 std::expected<std::vector<int>, std::errc>>);
     std::cout << "expected context: has_value = " << std::boolalpha
               << result.has_value() << '\n';
 ```
@@ -95,8 +94,8 @@ Now the claim from last time. If the elements already *are* contextual values, t
         bt::traverse([](const std::optional<int> &x) { return x; }, maybes);
     auto via_transpose = bt::transpose(maybes);
 
-    static_assert(std::is_same_v<decltype(via_traverse),
-                                 decltype(via_transpose)>);
+    static_assert(
+        std::is_same_v<decltype(via_traverse), decltype(via_transpose)>);
     std::cout << "traverse(identity) == transpose: " << std::boolalpha
               << (via_traverse == via_transpose) << '\n';
 ```

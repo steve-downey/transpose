@@ -1,4 +1,4 @@
-<div class="abstract" id="orge886ce8">
+<div class="abstract" id="org3189422">
 <p>
 The variable-template concept map from parts two and three was not invented in a vacuum.
 Bringing functional and typeclass-style programming to C++ is a decades-old sport, and every serious attempt makes a real trade.

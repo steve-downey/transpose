@@ -1,6 +1,6 @@
 **DRAFT &#x2014; pending author revision**
 
-<div class="abstract" id="orge171443">
+<div class="abstract" id="org87d6c0e">
 <p>
 Combining an <code>expected&lt;int, errc&gt;</code> with an <code>expected&lt;int, io_errc&gt;</code> used to be ill-formed; the applicative demanded that every operand agree on the error type.
 Now it compiles, and the result type is computed for you: <code>expected&lt;int, error_set&lt;errc, io_errc&gt;&gt;</code>.
@@ -30,15 +30,15 @@ The applicative `invoke` from [earlier in this series](how-traverse-and-transpos
     // Two operands, two DIFFERENT error types. Before grading this call was
     // ill-formed; now the deduced error type is the join of the two grades.
     auto both_ok = app.invoke(add, exp_sys{5}, exp_io{10});
-    static_assert(
-        std::is_same_v<decltype(both_ok),
-                       std::expected<int, bt::error_set<std::errc, std::io_errc>>>);
+    static_assert(std::is_same_v<
+                  decltype(both_ok),
+                  std::expected<int, bt::error_set<std::errc, std::io_errc>>>);
     std::cout << "join deduced: expected<int, error_set<errc, io_errc>>\n";
     std::cout << "both ok:      " << *both_ok << '\n';
 
     // A failing operand widens into the joined set, keeping its identity.
-    auto io_failed = app.invoke(
-        add, exp_sys{5}, exp_io{std::unexpect, std::io_errc::stream});
+    auto io_failed = app.invoke(add, exp_sys{5},
+                                exp_io{std::unexpect, std::io_errc::stream});
     std::cout << "io failed:    holds<io_errc> = " << std::boolalpha
               << io_failed.error().holds<std::io_errc>()
               << ", holds<errc> = " << io_failed.error().holds<std::errc>()
@@ -202,10 +202,9 @@ The gadgets compose with the rest of the library. `traverse` maps a fallible fun
     // short-circuiting at the first failure by default.
     auto all_ok = bt::traverse(classify, std::vector<int>{1, 2, 3});
     static_assert(
-        std::is_same_v<
-            decltype(all_ok),
-            std::expected<std::vector<int>,
-                          bt::error_set<parse_error, range_error>>>);
+        std::is_same_v<decltype(all_ok),
+                       std::expected<std::vector<int>,
+                                     bt::error_set<parse_error, range_error>>>);
     std::cout << "all ok: [";
     for (std::size_t i = 0; i < all_ok->size(); ++i) {
         std::cout << (i ? ", " : "") << (*all_ok)[i];

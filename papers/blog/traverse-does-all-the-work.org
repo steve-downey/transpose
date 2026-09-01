@@ -36,9 +36,9 @@ That pair of ideas is McBride and Paterson's applicative functor and Gibbons and
 Start with ~traverse~ doing something ~transpose~ can not: mapping while it walks.
 ~halve~ produces a value only for even input.
 
-#+transclude: [[file:../../examples/traverse_post_example.cpp::7fbe2092-2dc3-499e-aeb7-2ad36826be76]] :lines 2- :src cpp :end "7fbe2092-2dc3-499e-aeb7-2ad36826be76 end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/traverse-does-all-the-work::examples/traverse_post_example.cpp::7fbe2092-2dc3-499e-aeb7-2ad36826be76]] :lines 2- :src cpp :end "7fbe2092-2dc3-499e-aeb7-2ad36826be76 end"
 
-#+transclude: [[file:../../examples/traverse_post_example.cpp::a62a5add-27fc-4491-b242-e39f21029abe]] :lines 2- :src cpp :end "a62a5add-27fc-4491-b242-e39f21029abe end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/traverse-does-all-the-work::examples/traverse_post_example.cpp::a62a5add-27fc-4491-b242-e39f21029abe]] :lines 2- :src cpp :end "a62a5add-27fc-4491-b242-e39f21029abe end"
 
 #+begin_src sh :results output :exports results
 ../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.traverse_post_example traverse
@@ -54,7 +54,7 @@ Nothing in that call named ~optional~.
 ~traverse~ deduces the context by asking what the function returns for one element, then looks up ~applicative_typeclass~ for that type.
 Change the function's return type and a different context's rules apply; the traversal does not change.
 
-#+transclude: [[file:../../examples/traverse_post_example.cpp::4e59fcf2-1ec2-4568-858f-836533f9fe89]] :lines 2- :src cpp :end "4e59fcf2-1ec2-4568-858f-836533f9fe89 end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/traverse-does-all-the-work::examples/traverse_post_example.cpp::4e59fcf2-1ec2-4568-858f-836533f9fe89]] :lines 2- :src cpp :end "4e59fcf2-1ec2-4568-858f-836533f9fe89 end"
 
 #+begin_src sh :results output :exports results
 ../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.traverse_post_example context
@@ -73,7 +73,7 @@ const auto &applicative = applicative_typeclass<Context>;
 Now the claim from last time.
 If the elements already /are/ contextual values, there is nothing to map; hand ~traverse~ a function that returns its argument unchanged and only the effect-combining remains.
 
-#+transclude: [[file:../../examples/traverse_post_example.cpp::5160d30d-ab74-4fa8-8370-4c784b8b085c]] :lines 2- :src cpp :end "5160d30d-ab74-4fa8-8370-4c784b8b085c end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/traverse-does-all-the-work::examples/traverse_post_example.cpp::5160d30d-ab74-4fa8-8370-4c784b8b085c]] :lines 2- :src cpp :end "5160d30d-ab74-4fa8-8370-4c784b8b085c end"
 
 #+begin_src sh :results output :exports results
 ../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.traverse_post_example identity
@@ -102,7 +102,7 @@ Everything above leans on one object per context.
 What does a context actually have to provide?
 Two things: ~pure~, which lifts a plain value in, and ~invoke~, which applies a plain function across contextual arguments.
 
-#+transclude: [[file:../../examples/traverse_post_example.cpp::e0374a39-17e5-464f-b2bf-792c698fbe46]] :lines 2- :src cpp :end "e0374a39-17e5-464f-b2bf-792c698fbe46 end"
+#+transclude: [[orgit-file:~/src/transpose/main::blog/traverse-does-all-the-work::examples/traverse_post_example.cpp::e0374a39-17e5-464f-b2bf-792c698fbe46]] :lines 2- :src cpp :end "e0374a39-17e5-464f-b2bf-792c698fbe46 end"
 
 #+begin_src sh :results output :exports results
 ../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.traverse_post_example applicative

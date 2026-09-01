@@ -1,4 +1,4 @@
-<div class="abstract" id="org2142028">
+<div class="abstract" id="org44303ec">
 <p>
 One operation &#x2014; <code>transpose</code> &#x2014; turns out to hide a whole customization mechanism behind it.
 The series starts from a loop everyone has written, names the two typeclasses underneath, shows what it costs a type to opt in and an algorithm to consume it, and ends among the prior art that kept reinventing the same idea.
