@@ -15,6 +15,7 @@
 #include <iostream>
 #include <optional>
 #include <string_view>
+#include <version>
 #include <vector>
 
 namespace bt = beman::transpose;
@@ -70,7 +71,10 @@ void sender_section() {
     print_ints("  ", values);
 }
 
-#if __has_include(<simd>) && __cplusplus > 202302L
+// __has_include(<simd>) alone is not enough: libstdc++ ships the <simd>
+// header unconditionally but leaves it empty unless the toolchain also
+// supports expansion statements (P1306), so check its readiness macro too.
+#if __has_include(<simd>) && __cplusplus > 202302L && defined(__glibcxx_simd)
 
 void simd_section() {
     // e916da84-685b-40b3-aee5-c9df63321855
