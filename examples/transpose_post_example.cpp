@@ -15,8 +15,8 @@
 #include <iostream>
 #include <optional>
 #include <string_view>
-#include <version>
 #include <vector>
+#include <version>
 
 namespace bt = beman::transpose;
 
