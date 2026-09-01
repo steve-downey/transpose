@@ -41,24 +41,11 @@
 (with-eval-after-load 'oc
   (setq org-cite-export-processors '((t basic))))
 
-;; The posts reference source with `orgit-file:PATH' links (an Emacs/magit link
-;; type).  Without the orgit package those links are unresolvable, and since the
-;; posts set `#+OPTIONS: broken-links:nil' an unresolvable link aborts the whole
-;; export.  Register a lightweight export handler so the links resolve to a
-;; monospaced anchor at PATH.
-;;
-;; NOTE: these PATHs are still the trees-repo layout (src/smd/...); they need to
-;; be repointed at this repo's include/beman/transpose/... (or a GitHub URL)
-;; before publishing.  For now they render as visible references.
-(with-eval-after-load 'ox
-  (org-link-set-parameters
-   "orgit-file"
-   :export (lambda (path desc backend _info)
-             (let ((label (or desc path)))
-               (pcase backend
-                 ((or 'html 're-reveal)
-                  (format "<a href=\"%s\"><code>%s</code></a>" path label))
-                 (_ label))))))
+;; The `orgit-file:' links (both the `#+transclude:' ones and the inline source
+;; permalinks) are handled by `.emacs.d/lisp/orgit-file-transclusion.el', which
+;; the repo init.el requires.  It resolves REPO::REV::PATH::UUID against a
+;; pinned git revision and registers the export handler that turns an inline
+;; link into a forge permalink at that revision.  Nothing is needed here.
 
 (provide 'blog-export)
 ;;; blog-export.el ends here

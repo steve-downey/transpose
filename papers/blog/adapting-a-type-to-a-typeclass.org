@@ -46,7 +46,7 @@ That last change is what lets ~optional~, a sender, and a lanewise value --- thr
 
 Here is that name for Foldable.
 
-From [[orgit-file:include/beman/transpose/fold.hpp][=include/beman/transpose/fold.hpp=]]:
+From [[orgit-file:~/src/transpose/main::blog/adapting-a-type-to-a-typeclass::include/beman/transpose/fold.hpp][=include/beman/transpose/fold.hpp=]]:
 
 #+begin_src cpp
 template <class T>
@@ -61,7 +61,7 @@ Nothing is Foldable until it opts in, and opting in is a specialization.
 
 Here is a type opting in.
 
-From [[orgit-file:examples/binary_tree.hpp][=examples/binary_tree.hpp=]]:
+From [[orgit-file:~/src/transpose/main::blog/adapting-a-type-to-a-typeclass::examples/binary_tree.hpp][=examples/binary_tree.hpp=]]:
 
 #+begin_src cpp
 template <class T>
@@ -119,7 +119,7 @@ Its primitive is ~fmap~; its derived operation is ~replace~.
 You write ~fmap~ for your type.
 Here it is for ~std::optional~:
 
-From [[orgit-file:include/beman/transpose/functor.hpp][=include/beman/transpose/functor.hpp=]]:
+From [[orgit-file:~/src/transpose/main::blog/adapting-a-type-to-a-typeclass::include/beman/transpose/functor.hpp][=include/beman/transpose/functor.hpp=]]:
 
 #+begin_src cpp
 template <class VALUE_TYPE>
