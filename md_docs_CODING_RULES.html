@@ -94,11 +94,11 @@ $(document).ready(function(){initNavTree('md_docs_CODING_RULES.html',''); initRe
   <div class="headertitle"><div class="title">CODING_RULES </div></div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><h1><a class="anchor" id="autotoc_md0"></a>
+<div class="textblock"><h1><a class="anchor" id="autotoc_md7"></a>
 Coding Rules</h1>
 <p>This document defines project coding rules for all contributors. These rules apply to human and AI authors.</p>
 <p>This file supersedes rules that previously lived under import-only trees.</p>
-<h2><a class="anchor" id="autotoc_md1"></a>
+<h2><a class="anchor" id="autotoc_md8"></a>
 Semantic Defaults</h2>
 <ul>
 <li>Default tree Applicative semantics are monad-derived.</li>
@@ -107,7 +107,7 @@ Semantic Defaults</h2>
 <li>ZipList Applicative models positional parallel behavior.</li>
 </ul>
 <p>When older slideware guidance conflicts with these defaults, this file wins.</p>
-<h2><a class="anchor" id="autotoc_md2"></a>
+<h2><a class="anchor" id="autotoc_md9"></a>
 Project Layout</h2>
 <ul>
 <li>This project uses Beman split layout.</li>
@@ -117,7 +117,7 @@ Project Layout</h2>
 <li>Model each logical component as: <code>&lt;name&gt;.hpp</code> (header), <code>&lt;name&gt;.cpp</code> (implementation, if needed), and <code>&lt;name&gt;.test.cpp</code> (test).</li>
 <li>Prefer <code>.hpp</code> and <code>.test.cpp</code> for all new work.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md3"></a>
+<h2><a class="anchor" id="autotoc_md10"></a>
 File Prolog and Includes</h2>
 <ul>
 <li>Put a canonical repository-relative path comment and Emacs mode line on the first line of source-like files.</li>
@@ -127,7 +127,7 @@ File Prolog and Includes</h2>
 <li>Never include project headers via . or .. relative paths.</li>
 <li>Never depend on non-canonical relative include spelling.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md4"></a>
+<h2><a class="anchor" id="autotoc_md11"></a>
 CMake and Build Graph</h2>
 <ul>
 <li>Use target-based CMake.</li>
@@ -144,7 +144,7 @@ CMake and Build Graph</h2>
 <li>Prefer find_package for dependencies.</li>
 <li>Any fallback download mechanism must be opt-in and outside normal target definitions.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md5"></a>
+<h2><a class="anchor" id="autotoc_md12"></a>
 C++ Structure</h2>
 <ul>
 <li>Declare functions before defining them.</li>
@@ -161,7 +161,7 @@ C++ Structure</h2>
 <li>Multiple namespace levels are allowed.</li>
 <li>Namespace levels should correspond to directories.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md6"></a>
+<h2><a class="anchor" id="autotoc_md13"></a>
 Language and Tooling</h2>
 <ul>
 <li>Prefer C++23 for new code.</li>
@@ -171,7 +171,7 @@ Language and Tooling</h2>
 <li>Assume clang-format, CMake formatting, spell check, and pre-commit checks are required.</li>
 <li>Write code that tools can normalize cleanly.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md7"></a>
+<h2><a class="anchor" id="autotoc_md14"></a>
 Typeclass Design</h2>
 <ul>
 <li>Typeclass interfaces are concept-map-like records of named operations.</li>
@@ -180,14 +180,14 @@ Typeclass Design</h2>
 <li>Datatypes and typeclass adaptations are separate concerns.</li>
 <li>Do not place Foldable, Applicative, or Traversable specialization logic directly into core data-structure headers unless that header is the designated adapter location.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md8"></a>
+<h2><a class="anchor" id="autotoc_md15"></a>
 Foldable Rules</h2>
 <ul>
 <li><code>fold_map</code> is the semantic center.</li>
 <li><code>length</code>, <code>to_vector</code>, <code>fold_left</code>, and <code>fold_right</code> should be derived where practical.</li>
 <li>Tree traversal order is part of the instance contract and must be documented.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md9"></a>
+<h2><a class="anchor" id="autotoc_md16"></a>
 Applicative Rules</h2>
 <ul>
 <li>The public surface is <code>invoke(f, ax, ay, ...)</code>.</li>
@@ -195,7 +195,7 @@ Applicative Rules</h2>
 <li>Tree Applicative semantics must be explicit.</li>
 <li>Alternate semantics that flatten, duplicate, expand, or reorder structure may exist as alternate maps, not silent replacements for the default.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md10"></a>
+<h2><a class="anchor" id="autotoc_md17"></a>
 Traversable Rules</h2>
 <ul>
 <li><code>traverse</code> is the minimal operation.</li>
@@ -203,7 +203,7 @@ Traversable Rules</h2>
 <li>Traversal uses the documented Foldable order unless explicitly documented otherwise.</li>
 <li>Effect order is observable and therefore part of the contract.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md11"></a>
+<h2><a class="anchor" id="autotoc_md18"></a>
 Test Rules</h2>
 <ul>
 <li>New tests use Catch2.</li>
@@ -211,10 +211,11 @@ Test Rules</h2>
 <li>Keep optional Applicative test support separate from monoid test support when possible.</li>
 <li>Include idempotent-header checks in test translation units where practical and low-noise.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md12"></a>
+<h2><a class="anchor" id="autotoc_md19"></a>
 Slide and Transclusion Rules</h2>
 <ul>
 <li>Code shown in slides should come from real source via UUID anchors.</li>
+<li>Blog posts under <code>papers/blog/</code> transclude the same way; the <code>// &lt;uuid&gt;</code> ... <code>// &lt;uuid&gt; end</code> pairs in <code>examples/</code> are load-bearing anchors. Do not delete, rename, or nest them when editing example code.</li>
 <li>Do not transclude include guards, duplicate includes, or physical boilerplate.</li>
 <li>Prefer short executable examples for transclusion.</li>
 <li>One UUID block should represent one slide concept.</li>
@@ -222,7 +223,7 @@ Slide and Transclusion Rules</h2>
 <li>Do not invent illustrative code that does not compile.</li>
 <li>Prefer example files under <code>examples/</code> for slide snippets over transcluding production headers directly.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md13"></a>
+<h2><a class="anchor" id="autotoc_md20"></a>
 Prose and Documentation Formatting</h2>
 <ul>
 <li>Use one sentence per line in Markdown, Org, and LaTeX sources.</li>

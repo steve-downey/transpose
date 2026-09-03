@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['transpose_2dgrading_2dplan_2emd_0',['transpose-grading-plan.md',['../transpose-grading-plan_8md.html',1,'']]],
-  ['typeclass_2dobject_2dpattern_1',['typeclass-object-pattern',['../md_docs_typeclass_object_pattern.html',1,'']]],
-  ['typeclass_2dobject_2dpattern_2emd_2',['typeclass-object-pattern.md',['../typeclass-object-pattern_8md.html',1,'']]]
+  ['provenance_2emd_0',['provenance.md',['../provenance_8md.html',1,'']]],
+  ['provenance_3a_20extraction_20of_20paper_20a_20into_20beman_2etranspose_1',['Provenance: extraction of Paper A into beman.transpose',['../md_docs_provenance.html',1,'']]]
 ];
