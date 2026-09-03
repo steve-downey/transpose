@@ -23,7 +23,7 @@ IFS=$'\n\t'
 readonly REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 SPECGEN="${SPECGEN:-specgen}"
-OUT_DIR="${1:-$REPO_ROOT/papers/wg21/wording}"
+OUT_DIR="${1:-$REPO_ROOT/papers/wording}"
 
 # Headers to generate wording from, paired with the stable-name stem their
 # subclauses live under. Add a header here once it carries specgen markup and
