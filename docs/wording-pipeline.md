@@ -4,13 +4,13 @@
 
 P3200's normative wording is generated from the headers, not written by hand.
 `beman.specgen` lowers the specgen markup on each in-scope header to a semantic
-IR and renders mpark/wg21 markdown; `papers/wg21/D3200R0.md` splices the
+IR and renders mpark/wg21 markdown; `papers/D3200R0.md` splices the
 fragments in at build time. See [`decisions.md#wording-generation`](decisions.md).
 
 ## The loop
 
 ```sh
-make wording        # regenerate papers/wg21/wording from the headers
+make wording        # regenerate papers/wording from the headers
 make wording-check  # fail if the checked-in fragments have drifted
 make papers         # regenerate, then build the PDF
 ```
@@ -85,7 +85,7 @@ declaration and the parsed one, so the item appears twice.
 
 ## Transclusion
 
-[`papers/wg21/filters/transclude.py`](../papers/wg21/filters/transclude.py)
+[`papers/filters/transclude.py`](../papers/filters/transclude.py)
 replaces a fenced div carrying the `include` class with the parsed blocks of
 the file it names:
 
@@ -94,31 +94,41 @@ the file it names:
 :::
 ```
 
-It is selected by [`papers/wg21/defaults.yaml`](../papers/wg21/defaults.yaml),
-which the vendored MPark.WG21 Makefile already layers after its own defaults.
+It is selected by [`papers/defaults.yaml`](../papers/defaults.yaml), which
+MPark.WG21's `base.mk` already layers after its own `doc` and `formatting`
+defaults.
 A defaults file *replaces* a list-valued key rather than merging into it, so
 that file restates the whole filter chain; transclusion runs first, so the
 `[x]{.pnum}` and `[stable.name]{- .sref}` spans inside a fragment reach
 `wg21.py` exactly as if they had been typed into the paper.
 
-The fragments must not become prerequisites of the paper: the vendored
-Makefile computes its pandoc inputs as `$(filter %.md, $^)` and would hand each
-fragment to pandoc as a further input file. The dependency is on
-`wording/.stamp` instead, which `make wording` writes.
+The fragments must not become prerequisites of the paper: `base.mk` computes
+its pandoc inputs as `$(filter %.md, $^)` and would hand each fragment to
+pandoc as a further input file. [`papers/Makefile`](../papers/Makefile) depends
+on `wording/.stamp` instead, which `make wording` writes.
 
 Building the paper prints `mpark/wg21: stable name transpose.* not found` for
 every new subclause. That is expected: the names are not in the C++ draft's
-`annex-f` index, so `wg21.py` cannot resolve them to a link target.
+stable-name database, so they render as plain bracketed text rather than as a
+link.
 
-## Local repairs to the vendored paper build
+## The vendored framework
 
-The vendored MPark.WG21 tree did not build in this repository before this work
-landed, for reasons unrelated to it. Two repairs were needed:
+MPark.WG21 is a squashed subtree at `papers/wg21`, so it updates with
 
-- `data/templates/` was missing `wg21.html` and `highlighting.html`. Upstream
-  generates the first by patching pandoc's default HTML template with the
-  `wg21.html.patch` that was vendored beside it; both are now generated and
-  checked in next to their LaTeX counterparts.
-- `data/filters/wg21.py` removed the `unnumbered` class from the generated
-  references header unconditionally. Newer citeproc does not set it, so the
-  filter raised `ValueError` on every paper. The removal is now guarded.
+```sh
+git subtree pull --prefix=papers/wg21 wg21-upstream master --squash
+```
+
+given a `wg21-upstream` remote pointing at <https://github.com/mpark/wg21>.
+The subtree is unpatched, and should stay that way: everything this project
+adds lives beside it in `papers/`, which is the layout `wg21/flat.mk`
+documents.
+
+[`papers/filters/bibliography-header.py`](../papers/filters/bibliography-header.py)
+is the one shim. `wg21.py` removes an `unnumbered` class from the generated
+references header unconditionally, and pandoc 3.9's citeproc does not set it,
+so every paper carrying a citation aborts the filter with `ValueError`. A
+twelve-line paper with one `[@Pnnnn]` reproduces it. The shim runs between
+citeproc and `wg21.py` and puts the class back; delete it once upstream guards
+the removal.

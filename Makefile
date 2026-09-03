@@ -166,7 +166,7 @@ realclean: ## Delete the generated build infrastructure
 env:
 	$(foreach v, $(.VARIABLES), $(info $(v) = $($(v))))
 
-WORDING_DIR ?= papers/wg21/wording
+WORDING_DIR ?= papers/wording
 
 .PHONY: wording
 wording: ## Regenerate the P3200 wording fragments from the headers
@@ -187,17 +187,17 @@ clean: clean-wording
 .PHONY: papers
 papers: wording
 papers:
-	$(MAKE) -C papers/wg21 pdf
+	$(MAKE) -C papers pdf
 
 .PHONY: clean-papers
 clean-papers: ## Clean generated paper outputs
-	$(MAKE) -C papers/wg21 clean
+	$(MAKE) -C papers clean
 
 clean: clean-papers
 
 .PHONY: realclean-papers
 realclean-papers: ## Delete generated paper infrastructure
-	$(MAKE) -C papers/wg21 realclean
+	$(MAKE) -C papers distclean
 
 realclean: realclean-papers
 
