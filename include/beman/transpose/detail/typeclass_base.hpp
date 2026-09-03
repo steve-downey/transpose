@@ -18,6 +18,19 @@ namespace beman::transpose {
 template <class T>
 using remove_cvref_t = std::remove_cvref_t<T>;
 
+/** Always false, but dependent on a template parameter pack.
+ *
+ * A `static_assert` written directly with `false` fires as soon as the
+ * enclosing template is parsed, even if the member it guards is never
+ * called. Making the condition depend on the pack defers the check to
+ * instantiation, so it fires only when someone actually calls the guarded
+ * operation -- which is what lets a member give a custom "this operation
+ * does not exist, here is why" diagnostic instead of a bare "no member"
+ * error.
+ */
+template <class...>
+inline constexpr bool always_false_v = false;
+
 /** Trait that extracts the element type from an applicative container.
  * Primary template uses the nested `value_type` alias when present.
  */

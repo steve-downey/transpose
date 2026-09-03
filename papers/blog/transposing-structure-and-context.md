@@ -1,9 +1,9 @@
-<div class="abstract" id="org9a12254">
+<div class="abstract" id="org5d6161e">
 <p>
 You have a <code>vector&lt;optional&lt;T&gt;&gt;</code> and you want an <code>optional&lt;vector&lt;T&gt;&gt;</code>.
 You have written the loop. So has everyone.
 It is the same loop for futures, for parsed results, for lanewise computation &#x2014; and it does not have to be a loop at all.
-This is the opening: the problem, and the single front door that solves it. What follows opens the machinery behind the door, then works the two sides of the mechanism &#x2014; a type that wants in, and an algorithm that wants to use it &#x2014; before placing the whole approach among its predecessors.
+This is the opening: the problem, and the single verb that solves it. What follows opens the machinery behind that verb, then works the two sides of the mechanism &#x2014; a type that wants in, and an algorithm that wants to use it &#x2014; before placing the whole approach among its predecessors.
 </p>
 
 </div>
@@ -50,7 +50,7 @@ That is a **transpose**, in the same sense as transposing a matrix. A `vector` o
 Once you have the name, you see it everywhere.
 
 
-# One front door, several contexts
+# One verb, several contexts
 
 [`beman.transpose`](https://github.com/bemanproject/transpose) provides exactly one verb for this: `transpose`. The fallible case is the loop above, gone:
 
@@ -73,7 +73,7 @@ auto out = bt::transpose(lanes);  // out : zip_list<vector<int>> --- 2 lanes of 
 
 Same verb. No per-domain loop, no per-domain overload at the call site. The hand-written version of *that* one is a double loop with a min-width calculation and a transpose-the-ragged-matrix nested index &#x2014; the kind of code that is correct exactly once.
 
-And `zip_list` is the portable stand-in. The lanewise applicative that actually goes through the front door is `simd_lanes<T, N>` &#x2014; an `N`-lane array. Because it is an array it *can* hold a whole `vector`, so `simd_lanes<vector<T>, N>` is a real type and `transpose` flips a `vector<simd_lanes<T, N>>` into one lane-array of vectors, exactly as `zip_list` did above.
+And `zip_list` is the portable stand-in. The lanewise applicative that `transpose` actually runs on is `simd_lanes<T, N>` &#x2014; an `N`-lane array. Because it is an array it *can* hold a whole `vector`, so `simd_lanes<vector<T>, N>` is a real type and `transpose` flips a `vector<simd_lanes<T, N>>` into one lane-array of vectors, as `zip_list` did above.
 
 And the lanes can be real hardware. Since GCC 16 you can compute each lane with [`std::simd::vec`](https://en.cppreference.com/w/cpp/numeric/simd) &#x2014; an actual SIMD register &#x2014; and pour the results into a `simd_lanes` that then transposes:
 
@@ -87,7 +87,7 @@ dp::vec<float, 4> hyp([&](auto lane) { return std::hypot(xs[lane], ys[lane]); })
 // hyp's four lanes fill a bt::simd_lanes<float, 4> --- which transposes.
 ```
 
-There is one honest caveat, and it is the revealing one. `std::simd::vec` holds only scalars, so `vec<vector<T>>` is not a type: a bare register of lanes is not something you can `transpose` directly. That is exactly why the front door runs on `simd_lanes` for transposition (an array, which *can* hold a vector), with `std::simd::vec` as the hardware that fills the lanes. The register is not left outside, though: `std::simd::vec` is a registered applicative context in its own right &#x2014; `map` and `zip_with` run lane by lane through the same front door as `optional` and senders &#x2014; it just is not a *structure* that can be walked and rebuilt. Part two makes that distinction precise, and the precise point where the real register stops typechecking is the precise point where the abstraction earns its keep.
+There is one honest caveat, and it is the revealing one. `std::simd::vec` holds only scalars, so `vec<vector<T>>` is not a type: a bare register of lanes is not something you can `transpose` directly. That is why `transpose` runs on `simd_lanes` for transposition (an array, which *can* hold a vector), with `std::simd::vec` as the hardware that fills the lanes. The register is not left outside, though: `std::simd::vec` is a registered applicative context in its own right &#x2014; `map` and `zip_with` run lane by lane through the same mechanism as `optional` and senders &#x2014; it just is not a *structure* that can be walked and rebuilt. Part two makes that distinction precise, and the precise point where the real register stops typechecking is the precise point where the abstraction pays for itself.
 
 The third context is the interesting one for modern C++: a **deferred** computation, a `std::execution` sender. A vector of senders transposes into one sender of a vector &#x2014; "run these and gather the results" &#x2014; with nothing executed until the composed sender is run:
 
@@ -113,13 +113,13 @@ The per-element computations here are **independent**. Gathering a vector of sen
 
 That independence is what separates this from `and_then` / `flat_map` style chaining, where each step depends on the value the previous step produced. The standard library already serves *sequential dependence* well: monadic `optional`, sender adaptors, coroutines. What it has no uniform spelling for is *independent* composition over a structure.
 
-The independence is not a limitation to apologize for. It is the property that lets `transpose` be specified once &#x2014; shape preserved, effects combined left to right &#x2014; and then work without modification for fallible, deferred, and lanewise contexts. A design built on chaining cannot make that promise, because chaining bakes in an evaluation-order dependence that these contexts neither need nor want.
+The independence isn't a defect. It is the property that lets `transpose` be specified once &#x2014; shape preserved, effects combined left to right &#x2014; and then work without modification for fallible, deferred, and lanewise contexts. A design built on chaining cannot make that promise, because chaining bakes in an evaluation-order dependence that these contexts neither need nor want.
 
 
 # The question this leaves open
 
 So one verb collapses three hand-written loops, across three contexts that have nothing to do with each other, with one specification.
 
-Which should make you suspicious. What actually holds those three contexts together? `optional`, a sender, and a lanewise list share no base class, no member named `transpose`, no common header. `std::optional` lives in `std` and cannot be reopened. Yet each one plugs into the same front door, statically, with no virtual calls and no central registry.
+Which should make you suspicious. What actually holds those three contexts together? `optional`, a sender, and a lanewise list share no base class, no member named `transpose`, no common header. `std::optional` lives in `std` and cannot be reopened. Yet each one plugs into the same mechanism, statically, with no virtual calls and no central registry.
 
-The thing that makes that work is a small, old idea &#x2014; a variable template used as a concept map &#x2014; dressed up with C++23. But the operation itself deserves an explanation before the mechanism does. Part two, [Context is Applicative, Structure is Traversable](how-traverse-and-transpose-work.md), opens `traverse` and `transpose` from scratch: the structure is *Traversable*, the context is *Applicative*, and that pair is the whole of the theory. Part three, [Adapting a Type to a Typeclass](adapting-a-type-to-a-typeclass.md), takes the side of a type that wants in: what it costs to make `optional`, or a sender, or your own type answer to the same front door (about three lines, and you never reopen a class you don't own). Part four, [Writing Algorithms with Typeclass Objects](writing-algorithms-with-typeclass-objects.md), takes the side of the algorithm author: how one algorithm runs over every one of those types at once, and why this bundled mechanism beats the customization tools C++ already has &#x2014; the argument for why it belongs in the standard. Part five, [Prior Art: How Others Have Brought Typeclasses to C++](prior-art-typeclasses-in-cpp.md), steps back to place the approach among the other attempts &#x2014; FC++, `cat`, libfn, Flux, and the concept maps the standard itself dropped.
+The thing that makes that work is a small, old idea &#x2014; a variable template used as a concept map &#x2014; dressed up with C++23. But the operation itself needs an explanation before the mechanism does. Part two, [Context is Applicative, Structure is Traversable](how-traverse-and-transpose-work.md), opens `traverse` and `transpose` from scratch: the structure is *Traversable*, the context is *Applicative*, and that pair is the entire theory. Part three, [Adapting a Type to a Typeclass](adapting-a-type-to-a-typeclass.md), takes the side of a type that wants in: what it costs to make `optional`, or a sender, or your own type answer to the same call (about three lines, and you never reopen a class you don't own). Part four, [Writing Algorithms with Typeclass Objects](writing-algorithms-with-typeclass-objects.md), takes the side of the algorithm author: how one algorithm runs over every one of those types at once, and why this bundled mechanism beats the customization tools C++ already has &#x2014; the argument for why it belongs in the standard. Part five, [Prior Art: How Others Have Brought Typeclasses to C++](prior-art-typeclasses-in-cpp.md), steps back to place the approach among the other attempts &#x2014; FC++, `cat`, libfn, Flux, and the concept maps the standard itself dropped.
