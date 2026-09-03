@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['typeclass_2dobject_2dpattern_0',['typeclass-object-pattern',['../md_docs_typeclass_object_pattern.html',1,'']]]
+  ['provenance_3a_20extraction_20of_20paper_20a_20into_20beman_2etranspose_0',['Provenance: extraction of Paper A into beman.transpose',['../md_docs_provenance.html',1,'']]]
 ];

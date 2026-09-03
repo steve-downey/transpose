@@ -96,7 +96,7 @@ $(document).ready(function(){initNavTree('md_docs_coordination_worklist_2026_07_
 <div class="contents">
 <div class="textblock"><p>Work items for beman.transpose arising from the coordinated-set review held in the tree_algorithms repo (see <code>tree_algorithms/docs/notes/extraction-plan.md</code>, §3 and §7a, and the <code>tree-proposals-coherence</code> skill there). Decisions ratified by Steve 2026-07-13: the fold family (<code>fold_map</code> + monoid as user-facing API) is proposed in Paper D, not here; Monad is deferred (not rejected) and acknowledged in-paper and out-of-band. This file schedules the local consequences.</p>
 <p><b>STATUS 2026-07-14: items 1, 2, 3, and 5 executed and merged to main (commit b21e8da, 54/54 tests). Item 4 (essay citation) remains blocked on the essay URL; item 6 is standing. Note: the "Why not Monad" section frames deferral, not rejection — see the refined framing in item 1 below and tree-coordination SYNC entry 4.</b></p>
-<h1><a class="anchor" id="autotoc_md15"></a>
+<h1><a class="anchor" id="autotoc_md22"></a>
 1. Add a "Why not Monad" section to D3200R0</h1>
 <p><code>papers/wg21/D3200R0.md</code> currently contains zero mentions of Monad while <code>include/beman/transpose/monad.hpp</code> ships bind/join/kleisli with an optional instance. Silence plus shipped code invites the obvious LEWG question unprepared. Add a short section framing Monad as <b>deferred, not rejected</b> (framing refined by Steve, 2026-07-14):</p>
 <ul>
@@ -106,7 +106,7 @@ $(document).ready(function(){initNavTree('md_docs_coordination_worklist_2026_07_
 </ul>
 <p>Cite the relationships essay (item 4) once it has a URL.</p>
 <p>Acceptance: the section exists; grep for 'monad' in D3200R0 is no longer empty; references section gains P0798/P2505 if not present.</p>
-<h1><a class="anchor" id="autotoc_md16"></a>
+<h1><a class="anchor" id="autotoc_md23"></a>
 2. Label unproposed repo surface as evidence</h1>
 <p><code>fold.hpp</code> (Foldable CRTP base, <code>fold_map</code>, ten derived ops) and <code>monad.hpp</code> are repo surface, not paper surface — D3200R0 proposes only Applicative and Traversable. Make the status explicit so reviewers reading the repo don't mistake shipped code for proposed wording:</p>
 <ul>
@@ -116,15 +116,15 @@ $(document).ready(function(){initNavTree('md_docs_coordination_worklist_2026_07_
 </ul>
 <p>Acceptance: both headers and <a class="el" href="provenance_8md.html">provenance.md</a> state the status; wording consistent with tree_algorithms extraction-plan §2 ("repo surface ≠
 paper surface").</p>
-<h1><a class="anchor" id="autotoc_md17"></a>
+<h1><a class="anchor" id="autotoc_md24"></a>
 3. Keep Traversable free of a Foldable superclass requirement</h1>
 <p>Paper D will propose Foldable/<code>fold_map</code>. If this repo's Traversable concept or CRTP base ever <em>requires</em> Foldable (Haskell-superclass style), D would be proposing a concept beneath an already-reviewed one — a dependency inversion. Verify <code>traverse.hpp</code> has no such requirement today (believed true: <code>traverse</code> needs only Applicative + the walk); add a comment at the Traversable base recording this as a deliberate constraint, and cite <code>foldMapDefault</code>-style derivation as compatibility evidence rather than a requirement.</p>
 <p>Acceptance: comment present; no concept/requires clause ties Traversable to Foldable; a law-test or static_assert demonstrating traverse-without- foldable-instance on some type would pin it (simd_lanes may already be this witness — check).</p>
-<h1><a class="anchor" id="autotoc_md18"></a>
+<h1><a class="anchor" id="autotoc_md25"></a>
 4. Relationships essay hook</h1>
 <p>When the out-of-band essay (the "missing Paper B" / how-the-set-fits piece; venue sdowney.org or a sixth entry in <code>papers/blog/</code>) is published, cite it from D3200R0's companion/roadmap text. If it becomes blog entry six, it follows the existing org→md export flow (<code>papers/blog/Makefile</code>, <code>blog-export.el</code>) and gets added to <code>index.org</code>.</p>
 <p>Blocked on: essay drafted (owned in tree_algorithms plan, item G).</p>
-<h1><a class="anchor" id="autotoc_md19"></a>
+<h1><a class="anchor" id="autotoc_md26"></a>
 5. Remove the pure/apply forms; &lt;tt&gt;invoke&lt;/tt&gt; is the applicative core</h1>
 <p>Ruling (Steve, 2026-07-13): the classic <code>apply</code> formulation — a callable held <em>inside</em> the context, applied to one argument-in-context at a time — is a Haskell currying artifact, rooted in a misunderstanding when transplanted to C++; it helps no one understand anything and all such forms are removed from the public surface. The set already contains the proof that it was never the primitive: <code>std::simd::vec</code> cannot even form <code>vec&lt;callable&gt;</code>, so <code>apply</code> is unspellable exactly where the proposal's motivation lives, while n-ary <code>invoke</code> works everywhere.</p>
 <p>Concretely:</p>
@@ -136,7 +136,7 @@ paper surface").</p>
 <li>Consider renaming <code>apply.hpp</code> (it holds the Applicative typeclass) to match; <code>invoke.hpp</code> or <code>applicative.hpp</code>.</li>
 </ul>
 <p>Ripples elsewhere (tracked in their own repos): fingertree <code>typeclass/applicative.hpp</code> mirrors pure/apply; trees/main pedagogy (org Part 6) teaches pure+apply as primitives and needs its framing updated on next talk revision; the fixpoint evidence repo may sweep opportunistically (non-gating). tree_algorithms is unaffected — it has no applicative surface.</p>
-<h1><a class="anchor" id="autotoc_md20"></a>
+<h1><a class="anchor" id="autotoc_md27"></a>
 6. BinaryTree example cross-check (standing item)</h1>
 <p><code>examples/binary_tree.hpp</code> here and <code>tree_algorithms/include/beman/tree_algorithms/binary_tree.hpp</code> are independent ports of the same origin tree. Traversal order is contractual (in-order). Any semantic change to either copy must be checked against the other. No action now; recorded so it survives context loss. </p>
 </div></div><!-- contents -->
