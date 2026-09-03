@@ -848,16 +848,16 @@ reach the paper?
 **Status:** DECIDED 2026-09-03
 **Decision:** The shipping headers are the wording source.
 `beman.specgen` reads each in-scope header on its own and renders mpark/wg21
-markdown fragments into `papers/wg21/wording/`; `D3200R0.md` splices them with
-a per-paper pandoc filter, `papers/wg21/filters/transclude.py`, selected by
-`papers/wg21/defaults.yaml`.
+markdown fragments into `papers/wording/`; `D3200R0.md` splices them with a
+per-paper pandoc filter, `papers/filters/transclude.py`, selected by
+`papers/defaults.yaml`.
 `make wording` regenerates, `make wording-check` is the drift gate, and the
 fragments are checked in so the paper builds without specgen installed.
 **Why:** Hand-written wording drifts from the reference implementation it
 claims to specify, and the drift is invisible until review. Generating it
 means the paper cannot describe an operation the code does not have.
-Splicing through a per-paper filter keeps the vendored MPark.WG21 `data/` tree
-unpatched, so re-vendoring it costs nothing.
+Splicing through a per-paper filter keeps the MPark.WG21 subtree unpatched, so
+`git subtree pull` costs nothing.
 **Consequences:** specgen reads only the main file's declaration/comment
 interleave, so each header contributes its own synopsis subclause rather than
 there being one `[transpose.syn]`. Marked-up headers must declare members

@@ -1,18 +1,21 @@
-# papers/wg21/defaults.yaml
+# papers/defaults.yaml
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
-# Per-paper pandoc defaults, layered after the vendored data/defaults.yaml by
-# the Makefile's `DEFAULTS` variable. It exists so the wording fragments that
-# `make wording` generates can be spliced into a paper without patching the
-# vendored MPark.WG21 data tree.
+# Per-paper pandoc defaults, layered after MPark.WG21's own `doc` and
+# `formatting` defaults by base.mk's `-d $(DEFAULTS)`. It exists so the wording
+# fragments that `make wording` generates can be spliced into a paper without
+# patching the vendored subtree under wg21/.
 #
 # A defaults file *replaces* a list-valued key rather than merging into it, so
-# the whole filter chain is restated here. Order matters: transclusion runs
-# first, so the `[x]{.pnum}` and `[stable.name]{- .sref}` spans inside a
-# spliced fragment reach wg21.py exactly as if they had been typed into the
-# paper.
+# the whole filter chain is restated here. Order matters twice over:
+# transclusion runs first, so the `[x]{.pnum}` and `[stable.name]{- .sref}`
+# spans inside a spliced fragment reach wg21.py exactly as if they had been
+# typed into the paper; and bibliography-header.py runs between citeproc and
+# wg21.py, which is the only place it can do its job.
 
 filters:
   - filters/transclude.py
+  - citetitle.py
   - citeproc
+  - filters/bibliography-header.py
   - wg21.py
