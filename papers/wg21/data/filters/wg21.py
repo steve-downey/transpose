@@ -239,7 +239,9 @@ def header(elem, doc):
     if not isinstance(elem, pf.Header):
         return None
 
-    if elem.identifier == 'bibliography':
+    if elem.identifier == 'bibliography' and 'unnumbered' in elem.classes:
+        # Newer citeproc no longer marks the generated references header
+        # `unnumbered`, so removing it unconditionally raises ValueError.
         elem.classes.remove('unnumbered')
 
     elem.content.append(
