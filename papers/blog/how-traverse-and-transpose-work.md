@@ -1,4 +1,4 @@
-<div class="abstract" id="org74712ca">
+<div class="abstract" id="org0af3a19">
 <p>
 Part one flipped <code>structure&lt;context&lt;T&gt;&gt;</code> into <code>context&lt;structure&lt;T&gt;&gt;</code> with one verb, <code>transpose</code>, across three contexts that share nothing &#x2014; and left the machinery unopened.
 This part opens it, and there is less inside than the names suggest.
@@ -64,7 +64,7 @@ You get a friendlier surface for free, because everything else falls out of `pur
 -   `zip_with(f, cx, cy)` is `invoke` with two.
 -   `apply(cf, cx)` &#x2014; the textbook primitive, a function *already inside the context* applied to an argument inside the context, `C<(T -> U)>, C<T> -> C<U>` &#x2014; is `invoke` of "evaluate": `invoke([](f, x){ return f(x); }, cf, cx)`.
 
-That last line deserves a pause, because the classic literature runs it the other way around &#x2014; `apply` as the primitive, everything derived from it. Both presentations are equivalent when the context can hold a function, and a type may supply whichever core is natural (part three shows the machinery). But `invoke` is the more *general* shape: it never needs a function to sit inside the context at all. Some contexts &#x2014; a hardware SIMD register is the concrete one &#x2014; can hold numbers but not callables, so `apply` for them cannot even be spelled, while `invoke` is perfectly well-defined. That is why `invoke` is the core here, and `apply` the derived convenience that exists where it can.
+That last line deserves a pause, because the classic literature runs it the other way around &#x2014; `apply` as the primitive, everything derived from it. Both presentations are equivalent when the context can hold a function, and a type may supply whichever core is natural (part three shows how). But `invoke` is the more *general* shape: it never needs a function to sit inside the context at all. Some contexts &#x2014; a hardware SIMD register is the concrete one &#x2014; can hold numbers but not callables, so `apply` for them cannot even be spelled, while `invoke` is perfectly well-defined. That is why `invoke` is the core here, and `apply` the derived convenience that exists where it can.
 
 
 # Independence is the whole point
@@ -126,13 +126,13 @@ This is the same situation as Functor and Foldable: every Foldable worth the nam
 # The whole map, in one place
 
 ```text
-structure< context<T> >   -- transpose -->   context< structure<T> >
+   structure< context<T> >   -- transpose -->   context< structure<T> >
 
-structure   = the OUTER type   = Traversable   ( traverse: walk + rebuild )
-context     = the INNER type   = Applicative   ( pure + invoke: combine, independently )
+   structure   = the OUTER type   = Traversable   ( traverse: walk + rebuild )
+   context     = the INNER type   = Applicative   ( pure + invoke: combine, independently )
 
-traverse   : (T -> C<U>), structure<T> -> C<structure<U>>   -- needs one of each
-transpose  : structure<C<T>> -> C<structure<T>>             -- = traverse identity
+   traverse   : (T -> C<U>), structure<T> -> C<structure<U>>   -- needs one of each
+   transpose  : structure<C<T>> -> C<structure<T>>             -- = traverse identity
 ```
 
 That is the entire theory the series needs. Two typeclasses &#x2014; one for the shape you walk, one for the effect you combine &#x2014; a single operation, `traverse`, built from the pair, and `transpose` as its identity case. In the code these are the objects `traversable_typeclass<Structure>` and `applicative_typeclass<Context>`; the next three parts are, in order, how a type *becomes* one of them, how you *write algorithms* against them, and who has built this before.

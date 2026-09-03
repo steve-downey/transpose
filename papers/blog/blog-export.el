@@ -17,6 +17,20 @@
 
 (require 'org)
 
+;; The "with running code" posts capture program output through sh src blocks
+;; (:results output :exports results) that run example binaries during export.
+;; The repo init.el loads ob-shell inside a use-package form gated on flycheck,
+;; which never triggers in batch, so load it here and let the blocks run
+;; unprompted.
+(require 'ob-shell)
+(setq org-confirm-babel-evaluate nil)
+
+;; Also normally set by the flycheck-gated use-package form: without it the
+;; exporter re-indents transcluded src blocks and mangles continuation lines.
+(setq org-src-preserve-indentation t)
+;; And keep that re-indentation from introducing tabs into all-space sources.
+(setq-default indent-tabs-mode nil)
+
 (setq org-export-global-macros
       (append '(("TEASER_END" . ""))
               (and (boundp 'org-export-global-macros) org-export-global-macros)))
@@ -27,24 +41,11 @@
 (with-eval-after-load 'oc
   (setq org-cite-export-processors '((t basic))))
 
-;; The posts reference source with `orgit-file:PATH' links (an Emacs/magit link
-;; type).  Without the orgit package those links are unresolvable, and since the
-;; posts set `#+OPTIONS: broken-links:nil' an unresolvable link aborts the whole
-;; export.  Register a lightweight export handler so the links resolve to a
-;; monospaced anchor at PATH.
-;;
-;; NOTE: these PATHs are still the trees-repo layout (src/smd/...); they need to
-;; be repointed at this repo's include/beman/transpose/... (or a GitHub URL)
-;; before publishing.  For now they render as visible references.
-(with-eval-after-load 'ox
-  (org-link-set-parameters
-   "orgit-file"
-   :export (lambda (path desc backend _info)
-             (let ((label (or desc path)))
-               (pcase backend
-                 ((or 'html 're-reveal)
-                  (format "<a href=\"%s\"><code>%s</code></a>" path label))
-                 (_ label))))))
+;; The `orgit-file:' links (both the `#+transclude:' ones and the inline source
+;; permalinks) are handled by `.emacs.d/lisp/orgit-file-transclusion.el', which
+;; the repo init.el requires.  It resolves REPO::REV::PATH::UUID against a
+;; pinned git revision and registers the export handler that turns an inline
+;; link into a forge permalink at that revision.  Nothing is needed here.
 
 (provide 'blog-export)
 ;;; blog-export.el ends here

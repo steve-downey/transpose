@@ -4,6 +4,7 @@
 #define BEMAN_TRANSPOSE_APPLY_HPP
 
 #include <beman/transpose/detail/typeclass_base.hpp>
+#include <beman/transpose/grade.hpp>
 
 #include <concepts>
 #include <functional>
@@ -306,6 +307,28 @@ struct Applicative : protected Impl {
             std::forward<SECOND_ARGUMENT>(second_argument));
     }
 
+    /** Uses a value at a wider grade, defaulted from the grade algebra.
+     *
+     * An instance that knows nothing about grades still gets this member, and
+     * for such an instance it is the identity: its carrier is ∅-graded, so
+     * the only licensed target is ∅ and re-indexing there changes nothing.
+     * That is the ergonomics invariant of
+     * docs/decisions.md#grade-machinery-home working as intended -- grade
+     * participation is never something an instance declares.
+     *
+     * Constrained rather than defined unconditionally, so it SFINAEs away
+     * silently for carriers that cannot express the widening instead of
+     * hard-erroring inside a body nobody asked to instantiate.
+     */
+    template <class TARGET_GRADE, class CARRIER>
+    constexpr auto subsume(this auto &&, CARRIER &&value)
+        requires requires {
+            grade_subsume<TARGET_GRADE>(std::forward<CARRIER>(value));
+        }
+    {
+        return grade_subsume<TARGET_GRADE>(std::forward<CARRIER>(value));
+    }
+
     /** Delegates invoke to a different applicative instance at runtime. */
     template <class APPLICATIVE_MAP, class FUNCTION, class FIRST_ARGUMENT,
               class... REST_ARGUMENTS>
@@ -334,6 +357,26 @@ struct Applicative : protected Impl {
 /** Typeclass lookup variable for Applicative; specialize for each type. */
 template <class T>
 inline constexpr auto applicative_typeclass = std::false_type{};
+
+/** Typeclass lookup variable for the ACCUMULATING Applicative object, a
+ * second NTTP-pinned object over the same carrier and grade algebra as
+ * `applicative_typeclass`, per docs/decisions.md#applicative-objects.
+ *
+ * Where the object at `applicative_typeclass` short-circuits (stops at the
+ * first failing operand, and therefore never needs more than one grade
+ * witness), this object combines every failing operand's evidence -- see
+ * docs/decisions.md#accumulation-evidence. There is deliberately no
+ * automatic selection between the two for a given carrier: nothing about
+ * CONTEXT alone says which composition discipline a caller wants, so this is
+ * a second explicitly-named lookup point rather than a mode flag on the
+ * first. Passed as the trailing policy argument to `traverse`
+ * (docs/decisions.md#traverse-policy-surface) or used directly like any
+ * other applicative object. It has no Monad instance: sequencing needs a
+ * value from the first computation, and accumulation is defined for the
+ * case where that computation may have failed.
+ */
+template <class T>
+inline constexpr auto accumulating_applicative_typeclass = std::false_type{};
 
 /** Applicative instance for std::optional: the flagship of the invoke core.
  * The trailing return type keeps invoke SFINAE-friendly so availability

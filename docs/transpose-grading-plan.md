@@ -90,6 +90,28 @@ client. The agent should know their one-line forms cold:
   recover-narrowed grades are annotated and checked, not inferred.
 - [grade-generality](decisions.md#grade-generality) — `error_set` is one model
   of a `grade_semilattice` concept; non-idempotent grades excluded.
+- [plain-error-grade-reading](decisions.md#plain-error-grade-reading) —
+  `grade_of<std::expected<T, E>>` reports the singleton model grade
+  `error_set<E>`; lazy join constrains deduced carrier spelling, not semantic
+  grade reading.
+- [grade-model-identity](decisions.md#grade-model-identity) — `grade_model<G>`
+  maps each model grade to a nominal model tag for same-model constraints.
+- [bottom-grade-identity](decisions.md#bottom-grade-identity) — framework ∅ is
+  a pure ungraded sentinel; bottoms and carrier machinery exist only per
+  model.
+- [mixing-point-vocabulary](decisions.md#mixing-point-vocabulary) — mixing
+  points dispatch through the operands' grade model via `grade_join`, not
+  error-set vocabulary.
+- [cross-model-mixing](decisions.md#cross-model-mixing) — graded operands at a
+  mixing point must belong to the same grade model; cross-model mixing is
+  ill-formed by constraint.
+- [expected-instance-introduction](decisions.md#expected-instance-introduction)
+  — `expected` is registered ungraded first, one pinned error type per
+  instance object, before any grade machinery reaches it.
+- [grade-operation-spelling](decisions.md#grade-operation-spelling) — the
+  grade algebra is spelled `grade_join` / `grade_bottom` /
+  `grade_subsumes`, with carrier coercion spelled `grade_subsume`;
+  unqualified `join` remains the monadic join.
 
 ## 3. Work plan — beman.transpose {#work-plan}
 
@@ -111,7 +133,30 @@ Tripwire: if current behavior already violates a standing decision (e.g.
 something already normalizes eagerly), STOP — the plan assumed a baseline
 that isn't there.
 
-### Stage 1 — [error-set-type](#error-set-type) {#error-set-type}
+### Stage 1 — [expected-instance](#expected-instance) {#expected-instance}
+Added 2026-08-28 by
+[expected-instance-introduction](decisions.md#expected-instance-introduction);
+stage numbers below shifted by one, slugs unchanged.
+Deliverables: `std::expected<T,E>` registered as an ordinary Applicative and
+Monad instance, ungraded, with ONE pinned error type per instance object —
+`invoke` accepts operands sharing that `E`, so mixing `E1` with `E2` stays
+ill-formed. Golden matrix extended with the resulting deductions, and with
+negative tests pinning the mixed case as still ill-formed.
+Why: this is the before-state the compatibility claim needs. Without it, the
+no-spontaneous-singletons corollary of
+[grading-footprint](decisions.md#grading-footprint) is an assertion about a
+type that never existed; with it, stage [graded-deduction](#graded-deduction)
+has something to preserve and the goldens can sense a regression. Holding
+mixed `E` ill-formed here is what keeps the previously-ill-formed territory
+closed until graded-deduction opens it on purpose.
+Acceptance: stage [baseline-capture](#baseline-capture) goldens still green;
+new goldens deduce `expected<T,E>` for unmixed pipelines with no `error_set`
+anywhere; mixed-`E` combinations fail to compile (negative tests).
+Tripwire: any deduced result mentioning `error_set` at this stage → STOP;
+nothing in this stage may reference the grade machinery, which does not exist
+yet.
+
+### Stage 2 — [error-set-type](#error-set-type) {#error-set-type}
 Deliverables: `error_set<Es...>` per
 [error-set-identity](decisions.md#error-set-identity): invariant-enforcing
 construction (sorted/deduped by type ordering); semilattice ops as native
@@ -126,7 +171,7 @@ Tripwires: normalization requiring type ordering on types outside the
 documented fallback restrictions → STOP (P2830 dependency risk). Any
 non-subset conversion compiling → STOP.
 
-### Stage 2 — [grade-concept](#grade-concept) {#grade-concept}
+### Stage 3 — [grade-concept](#grade-concept) {#grade-concept}
 Deliverables: `grade_semilattice` concept; `grade_of`, `rebind_grade`,
 `subsume` with structural defaults per
 [grade-machinery-home](decisions.md#grade-machinery-home); `error_set`
@@ -141,7 +186,7 @@ identity path → STOP. This is the datum-vs-grade hazard;
 it — if it didn't, the nominal fence has a hole. See also
 [datum-entry-point](decisions.md#datum-entry-point).
 
-### Stage 3 — [crtp-absorption](#crtp-absorption) {#crtp-absorption}
+### Stage 4 — [crtp-absorption](#crtp-absorption) {#crtp-absorption}
 Deliverables: promotion of bare values at ∅, ap-from-bind, defaulted subsume
 in the CRTP base; constrained to SFINAE away cleanly.
 Why: the ergonomics invariant of
@@ -152,7 +197,7 @@ minimal test instance (the "couple of functions" registration) works with
 zero grade awareness.
 Tripwire: any existing instance needs edits to compile → STOP.
 
-### Stage 4 — [graded-deduction](#graded-deduction) {#graded-deduction}
+### Stage 5 — [graded-deduction](#graded-deduction) {#graded-deduction}
 Deliverables: traverse/combinators deduce joined grades at genuine mixing
 points; lazy join per [grading-footprint](decisions.md#grading-footprint);
 graded/ungraded paths mutually exclusive by constraint.
@@ -163,29 +208,53 @@ Acceptance: [baseline-capture](#baseline-capture) goldens green; new tests:
 unmixed pipelines never produce `error_set`; bare/graded mixing promotes the
 bare side at ∅ inside the framework only.
 Tripwire: any golden test changes → STOP. Do not update a golden to make a
-stage pass; that inverts the sensor.
+stage pass; that inverts the sensor. The goldens are
+`baseline_deduction.test.cpp`, in full. `current_state.test.cpp` is NOT
+golden — it records what the library does at a point the plan intends to
+move, names this stage as the expiry, and is meant to be edited here; see
+[golden-vs-scheduled-assertions](decisions.md#golden-vs-scheduled-assertions).
+Its mixing-frontier block is already known to go red when flipped to the
+positive form, which is the failure this stage turns green.
 
-### Stage 5 — [accumulating-object](#accumulating-object) {#accumulating-object}
+### Stage 6 — [accumulating-object](#accumulating-object) {#accumulating-object}
 Deliverables: separate NTTP-pinned accumulating applicative object; traverse
 policy parameter defaulted to the monad-derived object
 (surface per [traverse-policy-surface](decisions.md#traverse-policy-surface));
 static rejection of bind on the accumulating object; normative left-to-right
 order documented and tested with order-observing probe effects.
 Why: [applicative-objects](decisions.md#applicative-objects).
+Read [accumulation-evidence](decisions.md#accumulation-evidence) BEFORE
+starting: it answers what carries multiple witnesses at the value level, which
+this stage's text originally left unspecified, and it amends
+[error-set-identity](decisions.md#error-set-identity) — the `error_set`
+shipped by [error-set-type](#error-set-type) holds one alternative and must be
+revised to the witnessed-subset form first.
 Acceptance: accumulating traverse collects all errors at the joined grade;
 attempting bind on it is a clear compile error whose message names the
 value-flow reason.
 
-### Stage 6 — [recover-narrowing](#recover-narrowing) {#recover-narrowing}
+### Stage 7 — [recover-narrowing](#recover-narrowing) {#recover-narrowing}
 Deliverables: `recover` with set-difference grade; annotated-and-checked
 grade at fold boundaries per
 [recover-grade-inference](decisions.md#recover-grade-inference).
+Read [multi-witness-elimination](decisions.md#multi-witness-elimination)
+BEFORE starting: it settles how a multi-witness value is eliminated, and the
+answer is that `recover` needs no new public verb. The handled set {H} is a
+compile-time type-set, so elimination is a static fold over the grade with
+runtime presence filtering — membership plus `witness<E>()`, both of which
+already exist. Do not add a public multi-witness eliminator; the absence is
+the fence line, not a gap.
 Acceptance: narrowing verified in deduced types; a recover-inside-fold test
-demonstrating the annotate-and-check path.
+demonstrating the annotate-and-check path. Also cover the CONSUMER story:
+accumulating traverse (stage [accumulating-object](#accumulating-object)) is
+where multi-witness values first reach user hands, so the tests should show
+what a caller actually does with an accumulated error — `witness_count()` and
+`witness<E>()` inspection, and `recover` — so the documented story exists
+before anyone asks for the verb this plan declined to ship.
 Tripwire: implementation pressure to infer via lattice fixpoint → STOP and
 discuss (compile-time cost vs spec complexity).
 
-### Stage 7 — [law-harness](#law-harness) {#law-harness}
+### Stage 8 — [law-harness](#law-harness) {#law-harness}
 Deliverables:
 - `laws.hpp` consumed only by test targets: `consteval bool
   check_graded_laws<Obj>()` usable as `static_assert(...)`.
@@ -211,7 +280,47 @@ don't patch around it.
 Acceptance: harness green on both models; harness written against the
 concept, instantiated with the models.
 
-### Stage 8 — [paper-revision](#paper-revision) {#paper-revision}
+### Stage 9 — [model-dispatched-mixing](#model-dispatched-mixing) {#model-dispatched-mixing}
+Deliverables:
+- Make framework ∅ a pure sentinel per
+  [bottom-grade-identity](decisions.md#bottom-grade-identity): `grade_of`
+  yields either ungraded or a model grade, and the sentinel has no lattice
+  membership or carrier machinery.
+- Change plain-error expected grade reading per
+  [plain-error-grade-reading](decisions.md#plain-error-grade-reading):
+  `grade_of<std::expected<T, E>>` is the singleton `error_set<E>` even though
+  unmixed deductions keep spelling the carrier as `std::expected<T, E>`.
+- Add public model identity per
+  [grade-model-identity](decisions.md#grade-model-identity): model grades
+  specialize `grade_model<G>`, and same-model constraints compare those tags.
+- Route every mixing-point deduction through the operands' grade model per
+  [mixing-point-vocabulary](decisions.md#mixing-point-vocabulary):
+  `rebind_grade<Carrier, grade_join<g1, g2>>`, with ungraded operands lifted
+  to that model's bottom at the mixing point.
+- Constrain graded mixing points to a single grade model per
+  [cross-model-mixing](decisions.md#cross-model-mixing); cross-model mixing is
+  ill-formed, and no product-of-models machinery is introduced.
+- Add a Boolean-model mixed deduction that actually drives the machinery:
+  `Fallible<T, may_fail>` combined with `Fallible<T, never_fails>` deduces the
+  joined Boolean grade.
+- Keep the existing goldens green; shipped deductions must still express
+  error-specific joining only inside the `error_set` model layer.
+Why: the Stage 8 law harness did its job by proving the second model can
+register and pass laws while still being unable to drive a real deduction.
+That is the abstraction-boundary leak [grade-generality](decisions.md#grade-generality)
+was designed to detect, and paper-revision must not start while the artifact
+only half demonstrates the claim.
+Acceptance: Boolean mixed deduction green; cross-model mixing rejected by
+constraint; baseline goldens unchanged; no parallel grade-reading trait
+exists; no shipped mixing-point deduction code mentions `error_set` outside
+the model layer; `make TOOLCHAIN=gcc-16 compile`,
+`make TOOLCHAIN=gcc-16 ctest`, and `make TOOLCHAIN=gcc-16 compile-headers`
+green.
+Tripwire: needing a product of grade models, changing the golden baseline, or
+weakening [grading-footprint](decisions.md#grading-footprint) to make
+singleton lifting easy → STOP and ask.
+
+### Stage 10 — [paper-revision](#paper-revision) {#paper-revision}
 Deliverables: P3200 rationale sections — coherence argument (nominal
 `error_set`, subset-only conversions, sorted normalization as
 names-not-positions); compatibility section (three sentences: pure paths
@@ -290,5 +399,4 @@ Tracked as OPEN entries in the decision log, same namespace as decisions
 (answering one graduates it in place; links never break):
 [uniform-form-surface](decisions.md#uniform-form-surface),
 [datum-entry-point](decisions.md#datum-entry-point),
-[traverse-policy-surface](decisions.md#traverse-policy-surface),
 [optional-grade-model](decisions.md#optional-grade-model).

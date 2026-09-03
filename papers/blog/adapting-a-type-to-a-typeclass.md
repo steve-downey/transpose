@@ -1,6 +1,6 @@
-<div class="abstract" id="org5beccbc">
+<div class="abstract" id="org0c713e1">
 <p>
-Part one ended on a puzzle: <code>optional</code>, a <code>std::execution</code> sender, and a lanewise SIMD value share no base class, no common header, no member named <code>transpose</code> &#x2014; yet each plugs into the same front door.
+Part one ended on a puzzle: <code>optional</code>, a <code>std::execution</code> sender, and a lanewise SIMD value share no base class, no common header, no member named <code>transpose</code> &#x2014; yet each answers to the same call.
 This is how, from the side that matters most to you if you own a type: what does it cost to make <i>your</i> type join in?
 The answer is about three lines, and you never reopen a class you don't own.
 </p>
@@ -25,7 +25,7 @@ The version this series is built on generalizes `numeric_limits` in three small 
 
 Here is that name for Foldable.
 
-From `include/beman/transpose/fold.hpp`:
+From [``include/beman/transpose/fold.hpp``](https://github.com/steve-downey/transpose/blob/blog/adapting-a-type-to-a-typeclass/include/beman/transpose/fold.hpp):
 
 ```cpp
 template <class T>
@@ -39,7 +39,7 @@ The default is `std::false_type`: no instance. A type is Foldable exactly when s
 
 Here is a type opting in.
 
-From `examples/binary_tree.hpp`:
+From [``examples/binary_tree.hpp``](https://github.com/steve-downey/transpose/blob/blog/adapting-a-type-to-a-typeclass/examples/binary_tree.hpp):
 
 ```cpp
 template <class T>
@@ -77,7 +77,7 @@ Take the smallest typeclass, Functor. Its primitive is `fmap`; its derived opera
 
 ****Layer 1 &#x2014; the primitive.**** You write `fmap` for your type. Here it is for `std::optional`:
 
-From `include/beman/transpose/functor.hpp`:
+From [``include/beman/transpose/functor.hpp``](https://github.com/steve-downey/transpose/blob/blog/adapting-a-type-to-a-typeclass/include/beman/transpose/functor.hpp):
 
 ```cpp
 template <class VALUE_TYPE>
@@ -135,7 +135,7 @@ Here is the whole implementer surface, across the four typeclasses this design u
 | Applicative | `pure` + (`invoke` or `apply`) | `invoke~/~apply` (whichever you did not supply), `map`, `lift`, `ap`, `zip_with`, `discard_first`, `discard_second` |
 | Traversable | `traverse`                     | `transpose`, `for_each`, `traverse_with`, `transpose_with`                                                          |
 
-Write one or two functions. Get a full API. That is the trade, and it is the whole reason adapting a type is cheap enough to actually do.
+Write one or two functions. Get a full API. That is the trade, and it is why adapting a type is cheap enough to actually do.
 
 
 # The technique is optional; the contract is not
@@ -183,7 +183,7 @@ That operation is `invoke`: a *plain* function applied to in-context arguments, 
 
 So the library builds on `invoke`. The Applicative core is `pure` + (`invoke` or `apply`) &#x2014; supply either, the base derives the other &#x2014; and `invoke` is the conceptual primary. This is not a novelty; it is the oldest result in the applicative literature wearing C++ clothes. McBride and Paterson proved that every applicative expression normalizes to a single pure function applied to the effectful arguments in order &#x2014; `pure f ⊛ u1 ⊛ … ⊛ un` &#x2014; and that canonical form *is* `invoke(f, u1, …, un)` (Conor McBride and Ross Paterson, 2008). Haskell's own base library reached the same conclusion: its minimal definition is `pure` plus *either* `<*>` or `liftA2` (binary `invoke`), with the default `(<*>) = liftA2 id` &#x2014; which is exactly how this library derives `apply` when you supply `invoke`: apply a two-argument "evaluate" function to the wrapped callable and the wrapped argument. Deriving in that direction is a one-liner. Deriving `invoke` from `apply` &#x2014; the compatibility path, still fully supported &#x2014; is the direction that needs curry machinery, because C++ functions take all their arguments at once.
 
-And so `std::simd::vec` is a *registered instance*. Its map supplies `pure` (broadcast to every lane) and `invoke` (the lane-wise generator), and nothing else; `apply` and `ap` simply do not exist for it &#x2014; not by fiat but by constraint, since the derivation needs a `vec<callable>` that cannot be formed. The trade is real but small: an invoke-only context gives up partial application &#x2014; there is no in-context function to feed arguments one at a time &#x2014; and partial application was never the C++ idiom anyway. `simd_lanes`, the array-of-lanes type, remains the lanewise context that goes through `transpose` (an array *can* hold a vector, or a callable &#x2014; it supplies both cores); `std::simd::vec` is the hardware that computes what those lanes hold, and now participates in `map` and `zip_with` through the same front door as everything else.
+And so `std::simd::vec` is a *registered instance*. Its map supplies `pure` (broadcast to every lane) and `invoke` (the lane-wise generator), and nothing else; `apply` and `ap` simply do not exist for it &#x2014; not by fiat but by constraint, since the derivation needs a `vec<callable>` that cannot be formed. The trade is real but small: an invoke-only context gives up partial application &#x2014; there is no in-context function to feed arguments one at a time &#x2014; and partial application was never the C++ idiom anyway. `simd_lanes`, the array-of-lanes type, remains the lanewise context that goes through `transpose` (an array *can* hold a vector, or a callable &#x2014; it supplies both cores); `std::simd::vec` is the hardware that computes what those lanes hold, and now participates in `map` and `zip_with` through the same mechanism as everything else.
 
 The adapter's takeaway is smaller and concrete. Because the operations are *bundled* and the base derives the many from the few, you write one or two primitives and inherit a full surface &#x2014; and, as Foldable shows, the bundle can even accept *either* of two cores and fill in the other. A pile of independent one-CPO-per-operation hooks cannot make that trade: each operation stands alone, with nowhere to say "derive this one from that one," or "either of these will do." That coherence &#x2014; primitive and derived kept together &#x2014; is what a standard vocabulary for this should provide, and it is the through-line of part four.
 

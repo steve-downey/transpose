@@ -10,6 +10,9 @@ set(ALL_EXAMPLES
     binary_tree_example
     algorithm_object_example
     lookup_modes_example
+    graded_gadgets_example
+    transpose_post_example
+    traverse_post_example
 )
 
 include(CheckIncludeFileCXX)

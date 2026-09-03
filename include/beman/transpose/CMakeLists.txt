@@ -10,8 +10,11 @@ target_sources(
                 apply.hpp
                 array.hpp
                 dual_monoid.hpp
+                error_set.hpp
+                expected.hpp
                 fold.hpp
                 functor.hpp
+                grade.hpp
                 monad.hpp
                 monoid.hpp
                 sender.hpp

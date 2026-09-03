@@ -57,7 +57,7 @@ You asked for the Functor instance of a specific type and got it.
 Pass a specific instance at the call site.
 Because the object is an ordinary value, you can substitute a different one --- local policy override, with no change to the type involved.
 
-From [[orgit-file:examples/lookup_modes_example.cpp][=examples/lookup_modes_example.cpp=]]:
+From [[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::examples/lookup_modes_example.cpp][=examples/lookup_modes_example.cpp=]]:
 
 #+begin_src cpp
 auto explicit_object_lookup_example() -> std::optional<int> {
@@ -75,7 +75,7 @@ This is the thing a trait or a CPO cannot hand you: the ability to swap the /imp
 Bind the looked-up object as a non-type template parameter with a default.
 Lookup happens once, at instantiation, and callers can override the default but do not have to.
 
-From [[orgit-file:tests/beman/transpose/fold.test.cpp][=tests/beman/transpose/fold.test.cpp=]]:
+From [[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::tests/beman/transpose/fold.test.cpp][=tests/beman/transpose/fold.test.cpp=]]:
 
 #+begin_src cpp
 template <class STRUCTURE,
@@ -99,7 +99,7 @@ You want the names in scope.
 So inherit from the instance.
 The typeclass objects are empty structs, so inheriting adds no data and slicing is a non-issue; the inheritance exists only to pull the operation names into the algorithm's own scope.
 
-From [[orgit-file:examples/algorithm_object_example.cpp][=examples/algorithm_object_example.cpp=]]:
+From [[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::examples/algorithm_object_example.cpp][=examples/algorithm_object_example.cpp=]]:
 
 #+begin_src cpp
 template <class T,
@@ -250,7 +250,7 @@ Slightly more syntax; in exchange, the call-site override from earlier, which a 
 * Where it matters, and why it belongs in the standard
 
 This is not a demonstration written once against one type.
-In this proposal's own repository the same fold and traversal algorithms run, unchanged, over a ~BinaryTree<T>~ ([[orgit-file:examples/binary_tree.hpp][=examples/binary_tree.hpp=]]) /and/ over the contextual types from part one --- ~optional~, ~std::execution~ senders, and lanewise ~zip_list~/SIMD --- which share nothing with a tree and nothing with each other, yet enter through the identical mechanism.
+In this proposal's own repository the same fold and traversal algorithms run, unchanged, over a ~BinaryTree<T>~ ([[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::examples/binary_tree.hpp][=examples/binary_tree.hpp=]]) /and/ over the contextual types from part one --- ~optional~, ~std::execution~ senders, and lanewise ~zip_list~/SIMD --- which share nothing with a tree and nothing with each other, yet enter through the identical mechanism.
 
 The same ~foldable_typeclass~ / ~traversable_typeclass~ machinery reaches further in the coordinated paper set, over structures this paper deliberately leaves to its companions:
 

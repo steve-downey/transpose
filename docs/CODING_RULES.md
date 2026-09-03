@@ -113,6 +113,7 @@ When older slideware guidance conflicts with these defaults, this file wins.
 ## Slide and Transclusion Rules
 
 - Code shown in slides should come from real source via UUID anchors.
+- Blog posts under `papers/blog/` transclude the same way; the `// <uuid>` ... `// <uuid> end` pairs in `examples/` are load-bearing anchors. Do not delete, rename, or nest them when editing example code.
 - Do not transclude include guards, duplicate includes, or physical boilerplate.
 - Prefer short executable examples for transclusion.
 - One UUID block should represent one slide concept.

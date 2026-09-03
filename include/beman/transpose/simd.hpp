@@ -16,7 +16,12 @@
 // two typeclasses are distinct. The traversal-capable lanewise context
 // remains simd_lanes<T, N>.
 
-#if __has_include(<simd>) && __cplusplus > 202302L
+#include <version>
+
+// __has_include(<simd>) alone is not enough: libstdc++ ships the <simd>
+// header unconditionally but leaves it empty unless the toolchain also
+// supports expansion statements (P1306), so check its readiness macro too.
+#if __has_include(<simd>) && __cplusplus > 202302L && defined(__glibcxx_simd)
 
 #include <beman/transpose/apply.hpp>
 
@@ -85,5 +90,6 @@ inline constexpr auto applicative_typeclass<std::simd::basic_vec<T, ABI>> =
 
 } // namespace beman::transpose
 
-#endif // __has_include(<simd>) && __cplusplus > 202302L
+#endif // __has_include(<simd>) && __cplusplus > 202302L &&
+       // defined(__glibcxx_simd)
 #endif // BEMAN_TRANSPOSE_SIMD_HPP

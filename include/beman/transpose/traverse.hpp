@@ -7,6 +7,7 @@
 #include <beman/transpose/detail/typeclass_base.hpp>
 #include <beman/transpose/functor.hpp>
 
+#include <concepts>
 #include <type_traits>
 #include <utility>
 
@@ -116,21 +117,60 @@ struct Traversable : protected Impl {
 template <class T>
 inline constexpr auto traversable_typeclass = std::false_type{};
 
+namespace detail {
+
+/** The applicative context `traverse(function, value)` would infer: the
+ * return type of `function` applied to one element of `value`'s traversable
+ * structure. Factored out so both the POLICY default and its constraint can
+ * name it without repeating the computation.
+ */
+template <class F, class T>
+using traverse_context_t = remove_cvref_t<std::invoke_result_t<
+    F,
+    const typename remove_cvref_t<
+        decltype(traversable_typeclass<remove_cvref_t<T>>)>::element_type &>>;
+
+} // namespace detail
+
+/** True when POLICY is usable as the trailing traverse policy for CONTEXT: it
+ * must provide `pure`, returning exactly CONTEXT, from CONTEXT's element
+ * type -- the minimal signature every registered applicative object has.
+ *
+ * This is the enforcement hook of docs/decisions.md#traverse-policy-surface:
+ * it is what makes a stray third argument (someone's extra container, say)
+ * fail loudly instead of being silently accepted as a policy, and it is
+ * where the framework would refuse an accumulating object's absent bind at
+ * the traverse boundary rather than deeper inside the call.
+ */
+template <class POLICY, class CONTEXT>
+concept applicative_object_for = requires(const POLICY &policy) {
+    {
+        policy.pure(std::declval<applicative_value_t<CONTEXT>>())
+    } -> std::same_as<CONTEXT>;
+};
+
 /** @brief Maps `function` over `value`, traverses effects left-to-right,
  *         and preserves container shape.
  *
  * @param function  A callable returning an applicative effect for each element.
  * @param value     The traversable container to process.
+ * @param policy    The applicative object selecting the composition
+ *                  discipline (docs/decisions.md#traverse-policy-surface).
+ *                  Defaults to the monad-derived (short-circuit) object
+ *                  looked up for the inferred context, which is exactly
+ *                  today's behavior; pass
+ *                  `accumulating_applicative_typeclass<Context>` explicitly
+ *                  to collect every raised error instead of the first.
  * @return          The container shape transposed into the applicative effect.
  */
-template <class F, class T>
-auto traverse(F &&function, T &&value) {
+template <
+    class F, class T,
+    class POLICY = remove_cvref_t<
+        decltype(applicative_typeclass<detail::traverse_context_t<F, T>>)>>
+    requires applicative_object_for<POLICY, detail::traverse_context_t<F, T>>
+auto traverse(F &&function, T &&value, POLICY policy = POLICY{}) {
     const auto &map = traversable_typeclass<remove_cvref_t<T>>;
-    using element_type = typename remove_cvref_t<decltype(map)>::element_type;
-    using Context =
-        remove_cvref_t<std::invoke_result_t<F, const element_type &>>;
-    const auto &applicative = applicative_typeclass<Context>;
-    return map.traverse(applicative, std::forward<F>(function),
+    return map.traverse(policy, std::forward<F>(function),
                         std::forward<T>(value));
 }
 
