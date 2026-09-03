@@ -281,12 +281,14 @@ clean-mrdocs: ## Delete generated MrDocs output
 
 clean: clean-mrdocs
 
-.PHONY: testinstall
+.PHONY: installtest testinstall
+installtest: testinstall
+
 testinstall: install
 testinstall: CONFIG=RelWithDebInfo
 testinstall: ## Test the installed package
 	-$(RM) -rf installtest/.build
-	$(CMAKE) -S installtest -B installtest/.build 	-G "Ninja Multi-Config"
+	$(CMAKE) -S installtest -B installtest/.build -G "Ninja Multi-Config" -DCMAKE_TOOLCHAIN_FILE=$(_toolchain)
 	$(CMAKE) --build  installtest/.build --target test --config="RelWithDebInfo"
 
 .PHONY: clean-testinstall

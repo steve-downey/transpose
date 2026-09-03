@@ -5,6 +5,7 @@
 
 #include <beman/transpose/apply.hpp>
 #include <beman/transpose/detail/typeclass_base.hpp>
+#include <beman/transpose/grade.hpp>
 
 #include <concepts>
 #include <functional>
@@ -93,6 +94,49 @@ struct Monad : protected Impl {
         return [&self, f = std::move(f), g = std::move(g)](auto &&a) {
             return self.bind(f(std::forward<decltype(a)>(a)), g);
         };
+    }
+
+    /** ap: one-step contextual application, derived from bind + pure.
+     *
+     *   ap(mf, ma) = mf >>= \f -> ma >>= \a -> pure(f a)
+     *
+     * The Applicative base derives ap from its n-ary invoke; a monad-derived
+     * instance has no invoke to derive from until one is synthesized, so it
+     * gets ap from the bind basis instead. Both derivations exist exactly
+     * when the context can hold a callable, and the constraint says so, so
+     * the member disappears for contexts that cannot (std::simd::vec) rather
+     * than failing inside the body.
+     */
+    template <class MF, class MA>
+    auto ap(this auto &&self, MF &&mf, MA &&ma)
+        requires requires {
+            typename applicative_value_t<MF>;
+            typename applicative_value_t<MA>;
+            requires std::invocable<const applicative_value_t<MF> &,
+                                    const applicative_value_t<MA> &>;
+        }
+    {
+        return self.bind(std::forward<MF>(mf), [&self, &ma](auto &&function) {
+            return self.bind(ma, [&self, &function](auto &&argument) {
+                return self.pure(std::invoke(
+                    function, std::forward<decltype(argument)>(argument)));
+            });
+        });
+    }
+
+    /** Uses a value at a wider grade, defaulted from the grade algebra.
+     *
+     * The same defaulted subsumption the Applicative base carries; see the
+     * note there. Bind is the operation that joins grades, so the monad is
+     * where widening is reached for most often.
+     */
+    template <class TARGET_GRADE, class CARRIER>
+    constexpr auto subsume(this auto &&, CARRIER &&value)
+        requires requires {
+            grade_subsume<TARGET_GRADE>(std::forward<CARRIER>(value));
+        }
+    {
+        return grade_subsume<TARGET_GRADE>(std::forward<CARRIER>(value));
     }
 
     // bind_with: explicit monad object override.

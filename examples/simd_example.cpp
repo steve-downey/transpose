@@ -9,7 +9,12 @@
 //   Each structure position holds an N-wide SIMD computation; transposition
 //   yields N complete structures, one per hardware lane.
 
-#if __has_include(<simd>) && __cplusplus > 202302L
+#include <version>
+
+// __has_include(<simd>) alone is not enough: libstdc++ ships the <simd>
+// header unconditionally but leaves it empty unless the toolchain also
+// supports expansion statements (P1306), so check its readiness macro too.
+#if __has_include(<simd>) && __cplusplus > 202302L && defined(__glibcxx_simd)
 
 #include <beman/transpose/transpose.hpp>
 
