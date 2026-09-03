@@ -1,0 +1,18 @@
+# papers/wg21/defaults.yaml
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Per-paper pandoc defaults, layered after the vendored data/defaults.yaml by
+# the Makefile's `DEFAULTS` variable. It exists so the wording fragments that
+# `make wording` generates can be spliced into a paper without patching the
+# vendored MPark.WG21 data tree.
+#
+# A defaults file *replaces* a list-valued key rather than merging into it, so
+# the whole filter chain is restated here. Order matters: transclusion runs
+# first, so the `[x]{.pnum}` and `[stable.name]{- .sref}` spans inside a
+# spliced fragment reach wg21.py exactly as if they had been typed into the
+# paper.
+
+filters:
+  - filters/transclude.py
+  - citeproc
+  - wg21.py

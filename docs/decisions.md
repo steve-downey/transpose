@@ -838,3 +838,87 @@ single framework question that matches the sentinel/model split decided by
   remains bare, `expected<T, E>` keeps the declared-error lazy spelling path,
   and `Fallible<T, may_fail>` is rejected at the expected cross-model
   boundary.
+
+---
+
+## wording-generation
+
+**Question:** Where does P3200's normative wording come from, and how does it
+reach the paper?
+**Status:** DECIDED 2026-09-03
+**Decision:** The shipping headers are the wording source.
+`beman.specgen` reads each in-scope header on its own and renders mpark/wg21
+markdown fragments into `papers/wg21/wording/`; `D3200R0.md` splices them with
+a per-paper pandoc filter, `papers/wg21/filters/transclude.py`, selected by
+`papers/wg21/defaults.yaml`.
+`make wording` regenerates, `make wording-check` is the drift gate, and the
+fragments are checked in so the paper builds without specgen installed.
+**Why:** Hand-written wording drifts from the reference implementation it
+claims to specify, and the drift is invisible until review. Generating it
+means the paper cannot describe an operation the code does not have.
+Splicing through a per-paper filter keeps the vendored MPark.WG21 `data/` tree
+unpatched, so re-vendoring it costs nothing.
+**Consequences:** specgen reads only the main file's declaration/comment
+interleave, so each header contributes its own synopsis subclause rather than
+there being one `[transpose.syn]`. Marked-up headers must declare members
+in-class and define them out of line: specgen retains an in-class body in the
+class synopsis when that body names an entity from another file, which every
+non-trivial body here does.
+**Log:**
+- 2026-09-03 — Decided, and the pipeline built for the eight in-scope headers.
+
+---
+
+## wording-visible-internals
+
+**Question:** specgen refuses to render a declaration that carries a
+`beman::transpose::detail` qualifier. What gives way -- the header layout, or
+the wording?
+**Status:** DECIDED 2026-09-03
+**Decision:** The header layout.
+A `detail` entity that appears in a *declaration* the specification shows --
+a constraint, a template-parameter default, or a trailing return type -- gets
+a namespace-scope spelling that forwards to it. Entities the wording should
+show are `\expos`; entities it should only name are `\omit`ted. Bodies keep
+their `detail` spellings, because a body specgen does not render cannot leak.
+**Why:** The alternative is `\verbatim-itemdecl`, which would make the
+declaration hand-authored -- and it is also broken upstream (see the log). A
+forwarding spelling changes no semantics and is exactly what an
+exposition-only name is for: the standard does not have a `detail` namespace,
+so a declaration that names one is not specification text.
+**Consequences:** the following are now namespace-scope. All forward to the
+`detail` definitions and add nothing:
+`traverse_context_t` (`\expos`); `is_expected_v` (`\expos`);
+`error_set_has_v` (`\expos`); `error_set_is_canonical_v`,
+`error_set_names_distinct_v`, `recover_return_t` (`\omit`);
+and in `expected.hpp`, `is_expected_with_error_v`, `carrier_value_t`,
+`bind_result_t`, `all_declare_v`, `all_declare_or_bare_v`,
+`mixes_with_model`, `mixed_result_t` (`\omit`).
+This is a real widening of the public namespace and should be revisited if
+specgen grows a way to mask a constraint in a synopsis.
+**Log:**
+- 2026-09-03 — Raised while marking up `traverse.hpp`. `\verbatim-itemdecl`
+  was tried first and emits *both* the authored declaration and the parsed
+  one, which is a specgen defect (reproducible in ~15 lines); reported
+  separately. `\expos` does not remove a `detail` qualifier, since the entity
+  is still in `detail`, so the entity itself has to move or be forwarded.
+
+---
+
+## wording-spec-names
+
+**Question:** Are the reference implementation's spellings the ones the
+wording should use?
+**Status:** OPEN
+**Decision:** Deferred for R0.
+`Applicative`, `Traversable`, `applicative_typeclass`,
+`OptionalApplicativeMap` and their siblings are implementation names; WG21
+wording is lowercase and would not name a CRTP base this way. The explicit
+object parameter (`this auto&& self`) likewise appears in every generated item
+declaration and would not appear in a specification.
+**Why:** The naming discussion is a paper-level argument, not a markup
+question, and settling it before the mechanism has been reviewed would spend
+the discussion twice. D3200R0 says so in the wording preamble rather than
+shipping the spellings as if they were settled.
+**Log:**
+- 2026-09-03 — Recorded when the wording pipeline landed.

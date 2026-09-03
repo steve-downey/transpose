@@ -42,6 +42,19 @@ $(CMD)
 endef
 
 override DEPS += $(addprefix $(DATADIR)/, defaults.yaml csl.json annex-f)
+
+# Local addition: the generated wording fragments are spliced in by
+# filters/transclude.py, so a paper must rebuild when they change. The
+# fragments themselves must NOT be listed here -- `$(filter %.md, $^)` above
+# would hand each one to pandoc as a further input file -- so the dependency
+# is on the stamp `make wording` writes beside them.
+override DEPS += $(wildcard $(SRCDIR)/wording/.stamp) \
+                 $(wildcard $(SRCDIR)/filters/transclude.py)
+
+# Local addition: the HTML-side templates, which upstream ships generated but
+# this vendored copy did not carry. wg21.py builds the highlighting CSS on
+# every run, for LaTeX output too, so both targets need them.
+override DEPS += $(addprefix $(DATADIR)/templates/, wg21.html highlighting.html)
 $(eval $(and $(DEFAULTS), override DEPS += $(DEFAULTS)))
 $(eval $(and $(METADATA), override DEPS += $(METADATA)))
 
@@ -60,7 +73,8 @@ pdf: $(PDF)
 ifneq ($(SRCDIR), $(OUTDIR))
 .PHONY: clean
 clean:
-	rm -rf $(OUTDIR) $(DATADIR)/defaults.yaml $(DATADIR)/csl.json $(DATADIR)/annex-f
+	rm -rf $(OUTDIR) $(DATADIR)/defaults.yaml $(DATADIR)/csl.json $(DATADIR)/annex-f \
+	       $(addprefix $(DATADIR)/templates/, default.html wg21.html highlighting.html)
 
 .PHONY: realclean
 realclean: clean
@@ -109,6 +123,16 @@ $(DATADIR)/csl.json: $(DATADIR)/refs.py $(PYTHON_DIR)
 
 $(DATADIR)/annex-f:
 	curl -sSL https://timsong-cpp.github.io/cppwp/annex-f -o $@
+
+$(DATADIR)/templates/default.html: | $(PANDOC_DIR)
+	pandoc --print-default-template=html > $@
+
+$(DATADIR)/templates/wg21.html: $(DATADIR)/templates/default.html \
+                                $(DATADIR)/templates/wg21.html.patch
+	patch -o $@ $< $(DATADIR)/templates/wg21.html.patch
+
+$(DATADIR)/templates/highlighting.html:
+	printf '$$highlighting-css$$\n' > $@
 
 $(OUTDIR)/%.html $(OUTDIR)/%.latex $(OUTDIR)/%.pdf: $(SRCDIR)/%.md $(DEPS) | $(OUTDIR)
 	$(PANDOC) --bibliography $(DATADIR)/csl.json

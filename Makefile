@@ -166,7 +166,26 @@ realclean: ## Delete the generated build infrastructure
 env:
 	$(foreach v, $(.VARIABLES), $(info $(v) = $($(v))))
 
+WORDING_DIR ?= papers/wg21/wording
+
+.PHONY: wording
+wording: ## Regenerate the P3200 wording fragments from the headers
+	scripts/gen-wording.sh $(CURDIR)/$(WORDING_DIR)
+
+.PHONY: wording-check
+wording-check: ## Check the checked-in wording matches what the headers generate
+	rm -rf $(BUILD_DIR)/wording-check
+	scripts/gen-wording.sh $(CURDIR)/$(BUILD_DIR)/wording-check
+	diff -r -x .stamp $(WORDING_DIR) $(BUILD_DIR)/wording-check
+
+.PHONY: clean-wording
+clean-wording: ## Delete the generated wording fragments
+	-rm -rf $(BUILD_DIR)/wording-check
+
+clean: clean-wording
+
 .PHONY: papers
+papers: wording
 papers:
 	$(MAKE) -C papers/wg21 pdf
 
