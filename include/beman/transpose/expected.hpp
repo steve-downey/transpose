@@ -127,20 +127,55 @@ constexpr auto operand_failed(const CARRIER &operand) -> bool {
 
 } // namespace detail
 
-/** Applicative instance for std::expected<VALUE_TYPE, ERROR_TYPE>.
- * The n-ary invoke core: if every operand holds a value, one call; otherwise
- * the leftmost error propagates. The trailing return type keeps invoke
- * SFINAE-friendly, so an operand carrying a different error type fails
- * deduction cleanly instead of hard-erroring.
- */
+// Namespace-scope spellings of the traits that appear in the declarations
+// below. They forward to the `detail` definitions and add nothing; they exist
+// so that a declaration the specification shows does not carry an
+// implementation namespace qualifier into the wording. Each is omitted from
+// the wording, which states the requirement it encodes in prose.
+
+//! \omit
+template <class EXPECTED, class ERROR_TYPE>
+inline constexpr bool is_expected_with_error_v =
+    detail::is_expected_with_error_v<EXPECTED, ERROR_TYPE>;
+
+//! \omit
+template <class CARRIER>
+using carrier_value_t = detail::carrier_value_t<CARRIER>;
+
+//! \omit
+template <class F, class A>
+using bind_result_t = detail::bind_result_t<F, A>;
+
+//! \omit
+template <class ERROR_TYPE, class... CARRIERS>
+inline constexpr bool all_declare_v =
+    detail::all_declare_v<ERROR_TYPE, CARRIERS...>;
+
+//! \omit
+template <class ERROR_TYPE, class... CARRIERS>
+inline constexpr bool all_declare_or_bare_v =
+    detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>;
+
+//! \omit
+template <class MODEL_GRADE, class OPERAND>
+concept mixes_with_model = detail::mixes_with_model<MODEL_GRADE, OPERAND>;
+
+//! \omit
+template <class MODEL_GRADE, class CARRIER, class... OPERANDS>
+using mixed_result_t =
+    detail::mixed_result_t<MODEL_GRADE, CARRIER, OPERANDS...>;
+
+/// Applicative instance for std::expected<VALUE_TYPE, ERROR_TYPE>.
+/// The n-ary invoke core: if every operand holds a value, one call; otherwise
+/// the leftmost error propagates. The trailing return type keeps invoke
+/// SFINAE-friendly, so an operand carrying a different error type fails
+/// deduction cleanly instead of hard-erroring.
 template <class VALUE_TYPE, class ERROR_TYPE>
 struct ExpectedApplicativeImpl {
+    // \ref{transpose.expected.applicative}, applicative instance for expected
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
-        -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE> {
-        return std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>{
-            std::forward<VALUE>(value)};
-    }
+        -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>;
 
     /** N-ary core: all operands share ERROR_TYPE; leftmost error wins. */
     template <class FUNCTION, class FIRST, class... REST>
@@ -149,25 +184,7 @@ struct ExpectedApplicativeImpl {
                 const std::expected<REST, ERROR_TYPE> &...rest)
         -> std::expected<remove_cvref_t<std::invoke_result_t<
                              FUNCTION &, const FIRST &, const REST &...>>,
-                         ERROR_TYPE> {
-        using Result = remove_cvref_t<
-            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
-        using Returned = std::expected<Result, ERROR_TYPE>;
-
-        std::optional<ERROR_TYPE> failure;
-        auto record_first_failure = [&failure](const auto &operand) {
-            if (!failure.has_value() && !operand.has_value()) {
-                failure = operand.error();
-            }
-        };
-        record_first_failure(first);
-        (record_first_failure(rest), ...);
-
-        if (failure.has_value()) {
-            return Returned{std::unexpect, std::move(*failure)};
-        }
-        return Returned{std::invoke(function, *first, *rest...)};
-    }
+                         ERROR_TYPE>;
 
     /** N-ary core: expected operands share ERROR_TYPE, with any number of
      * bare operands. This is not a mixing point: the bare operands lift to
@@ -175,35 +192,13 @@ struct ExpectedApplicativeImpl {
      */
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
-                (detail::is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-                (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>) &&
-                detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
+                (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+                (!all_declare_v<ERROR_TYPE, CARRIERS...>) &&
+                all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
     auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
-        -> std::expected<
-            remove_cvref_t<std::invoke_result_t<
-                FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
-            ERROR_TYPE> {
-        using Result = remove_cvref_t<std::invoke_result_t<
-            FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
-        using Returned = std::expected<Result, ERROR_TYPE>;
-
-        std::optional<ERROR_TYPE> failure;
-        auto record_first_failure = [&failure](const auto &operand) {
-            if constexpr (detail::is_expected_v<
-                              remove_cvref_t<decltype(operand)>>) {
-                if (!failure.has_value() && !operand.has_value()) {
-                    failure = operand.error();
-                }
-            }
-        };
-        (record_first_failure(operands), ...);
-
-        if (failure.has_value()) {
-            return Returned{std::unexpect, std::move(*failure)};
-        }
-        return Returned{
-            std::invoke(function, detail::operand_value(operands)...)};
-    }
+        -> std::expected<remove_cvref_t<std::invoke_result_t<
+                             FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
+                         ERROR_TYPE>;
 
     /** Graded n-ary core: the mixing point.
      *
@@ -223,44 +218,20 @@ struct ExpectedApplicativeImpl {
      */
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
-                (detail::is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-                (!detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
-                (detail::mixes_with_model<
+                (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+                (!all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
+                (mixes_with_model<
                      grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
                      CARRIERS> &&
                  ...)
     auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
-        -> detail::mixed_result_t<
+        -> mixed_result_t<
             grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
             std::expected<
                 remove_cvref_t<std::invoke_result_t<
-                    FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
+                    FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
                 ERROR_TYPE>,
-            CARRIERS...> {
-        using Result = remove_cvref_t<std::invoke_result_t<
-            FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
-        using Returned = detail::mixed_result_t<
-            grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-            std::expected<Result, ERROR_TYPE>, CARRIERS...>;
-        using Joined = typename Returned::error_type;
-
-        std::optional<Joined> failure;
-        auto record_first_failure = [&failure](const auto &operand) {
-            if (!failure.has_value() && detail::operand_failed(operand)) {
-                if constexpr (detail::is_expected_v<
-                                  remove_cvref_t<decltype(operand)>>) {
-                    failure.emplace(Joined(operand.error()));
-                }
-            }
-        };
-        (record_first_failure(operands), ...);
-
-        if (failure.has_value()) {
-            return Returned{std::unexpect, std::move(*failure)};
-        }
-        return Returned{
-            std::invoke(function, detail::operand_value(operands)...)};
-    }
+            CARRIERS...>;
 };
 
 template <class VALUE_TYPE, class ERROR_TYPE>
@@ -328,12 +299,10 @@ constexpr auto accumulate_failures(EXTRACT &&extract,
  */
 template <class VALUE_TYPE, class ERROR_TYPE>
 struct AccumulatingExpectedApplicativeImpl {
+    // \ref{transpose.expected.accumulating}, accumulating instance
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
-        -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE> {
-        return std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>{
-            std::forward<VALUE>(value)};
-    }
+        -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>;
 
     /** N-ary core: all operands share ERROR_TYPE. When ERROR_TYPE is itself
      * a witnessed subset (the traverse case: one function, one declared
@@ -347,26 +316,7 @@ struct AccumulatingExpectedApplicativeImpl {
                 const std::expected<REST, ERROR_TYPE> &...rest)
         -> std::expected<remove_cvref_t<std::invoke_result_t<
                              FUNCTION &, const FIRST &, const REST &...>>,
-                         ERROR_TYPE> {
-        using Result = remove_cvref_t<
-            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
-        using Returned = std::expected<Result, ERROR_TYPE>;
-
-        auto extract_failure =
-            [](const auto &operand) -> std::optional<ERROR_TYPE> {
-            if (operand.has_value()) {
-                return std::nullopt;
-            }
-            return operand.error();
-        };
-        auto accumulated = detail::accumulate_failures<ERROR_TYPE>(
-            extract_failure, first, rest...);
-
-        if (accumulated.has_value()) {
-            return Returned{std::unexpect, std::move(*accumulated)};
-        }
-        return Returned{std::invoke(function, *first, *rest...)};
-    }
+                         ERROR_TYPE>;
 
     /** N-ary core: expected operands share ERROR_TYPE, with any number of
      * bare operands. This is not a mixing point, so the result carries the
@@ -374,37 +324,13 @@ struct AccumulatingExpectedApplicativeImpl {
      */
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
-                (detail::is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-                (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>) &&
-                detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
+                (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+                (!all_declare_v<ERROR_TYPE, CARRIERS...>) &&
+                all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
     auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
-        -> std::expected<
-            remove_cvref_t<std::invoke_result_t<
-                FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
-            ERROR_TYPE> {
-        using Result = remove_cvref_t<std::invoke_result_t<
-            FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
-        using Returned = std::expected<Result, ERROR_TYPE>;
-
-        auto extract_failure =
-            [](const auto &operand) -> std::optional<ERROR_TYPE> {
-            if constexpr (detail::is_expected_v<
-                              remove_cvref_t<decltype(operand)>>) {
-                if (!operand.has_value()) {
-                    return operand.error();
-                }
-            }
-            return std::nullopt;
-        };
-        auto accumulated = detail::accumulate_failures<ERROR_TYPE>(
-            extract_failure, operands...);
-
-        if (accumulated.has_value()) {
-            return Returned{std::unexpect, std::move(*accumulated)};
-        }
-        return Returned{
-            std::invoke(function, detail::operand_value(operands)...)};
-    }
+        -> std::expected<remove_cvref_t<std::invoke_result_t<
+                             FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
+                         ERROR_TYPE>;
 
     /** Graded n-ary core: the mixing point, mirroring
      * ExpectedApplicativeImpl's, but accumulating every failing operand's
@@ -412,46 +338,20 @@ struct AccumulatingExpectedApplicativeImpl {
      */
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
-                (detail::is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-                (!detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
-                (detail::mixes_with_model<
+                (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+                (!all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
+                (mixes_with_model<
                      grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
                      CARRIERS> &&
                  ...)
     auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
-        -> detail::mixed_result_t<
+        -> mixed_result_t<
             grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
             std::expected<
                 remove_cvref_t<std::invoke_result_t<
-                    FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
+                    FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
                 ERROR_TYPE>,
-            CARRIERS...> {
-        using Result = remove_cvref_t<std::invoke_result_t<
-            FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
-        using Returned = detail::mixed_result_t<
-            grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-            std::expected<Result, ERROR_TYPE>, CARRIERS...>;
-        using Joined = typename Returned::error_type;
-
-        auto extract_failure =
-            [](const auto &operand) -> std::optional<Joined> {
-            if constexpr (detail::is_expected_v<
-                              remove_cvref_t<decltype(operand)>>) {
-                if (detail::operand_failed(operand)) {
-                    return Joined(operand.error());
-                }
-            }
-            return std::nullopt;
-        };
-        auto accumulated =
-            detail::accumulate_failures<Joined>(extract_failure, operands...);
-
-        if (accumulated.has_value()) {
-            return Returned{std::unexpect, std::move(*accumulated)};
-        }
-        return Returned{
-            std::invoke(function, detail::operand_value(operands)...)};
-    }
+            CARRIERS...>;
 };
 
 template <class VALUE_TYPE, class ERROR_TYPE>
@@ -460,16 +360,15 @@ struct AccumulatingExpectedApplicativeMap
     using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke;
     using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure;
 
-    /** Bind is refused, not merely absent, per
-     * docs/decisions.md#applicative-objects: sequencing needs a value from
-     * the first computation to feed the continuation, and when that
-     * computation failed there is none -- a value-flow obstruction, not
-     * something grade bookkeeping can fix. The framework never derives bind
-     * for this object. `always_false_v` defers the static_assert to the
-     * point of an actual call, so merely naming this type (as
-     * `accumulating_applicative_typeclass<T>` does) stays well-formed; only
-     * calling `.bind(...)` on it fails, with this message.
-     */
+    /// Bind is refused, not merely absent: sequencing needs a value from
+    /// the first computation to feed the continuation, and when that
+    /// computation failed there is none -- a value-flow obstruction, not
+    /// something grade bookkeeping can fix. The framework never derives bind
+    /// for this object. `always_false_v` defers the static_assert to the
+    /// point of an actual call, so merely naming this type (as
+    /// `accumulating_applicative_typeclass<T>` does) stays well-formed; only
+    /// calling `.bind(...)` on it fails, with this message.
+    //! \omit
     template <class... ARGS>
     constexpr auto bind(ARGS &&...) const {
         static_assert(
@@ -501,25 +400,17 @@ template <class VALUE_TYPE, class ERROR_TYPE>
 struct ExpectedMonadImpl {
     using element_type = VALUE_TYPE;
 
+    //! \omit
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
-        -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE> {
-        return applicative_typeclass<std::expected<VALUE_TYPE, ERROR_TYPE>>.pure(
-            std::forward<VALUE>(value));
-    }
+        -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>;
 
+    //! \omit
     template <class A, class F>
     auto bind(this auto &&, const std::expected<A, ERROR_TYPE> &ma, F &&f)
         -> remove_cvref_t<std::invoke_result_t<F, const A &>>
-        requires detail::is_expected_with_error_v<
-            remove_cvref_t<std::invoke_result_t<F, const A &>>, ERROR_TYPE>
-    {
-        using Result = remove_cvref_t<std::invoke_result_t<F, const A &>>;
-        if (!ma.has_value()) {
-            return Result{std::unexpect, ma.error()};
-        }
-        return Result{std::invoke(std::forward<F>(f), *ma)};
-    }
+        requires is_expected_with_error_v<
+            remove_cvref_t<std::invoke_result_t<F, const A &>>, ERROR_TYPE>;
 
     /** Graded bind: sequencing joins grades.
      *
@@ -529,38 +420,21 @@ struct ExpectedMonadImpl {
      * join, and each side's error is widened into it by the alternative's own
      * conversion.
      */
+    //! \omit
     template <class A, class F>
-        requires detail::is_expected_v<detail::bind_result_t<F, A>> &&
-                 (!detail::is_expected_with_error_v<detail::bind_result_t<F, A>,
-                                                    ERROR_TYPE>) &&
-                 detail::mixes_with_model<
+        requires is_expected_v<bind_result_t<F, A>> &&
+                 (!is_expected_with_error_v<bind_result_t<F, A>, ERROR_TYPE>) &&
+                 mixes_with_model<
                      grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
                      std::expected<A, ERROR_TYPE>> &&
-                 detail::mixes_with_model<
+                 mixes_with_model<
                      grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-                     detail::bind_result_t<F, A>>
+                     bind_result_t<F, A>>
     auto bind(this auto &&, const std::expected<A, ERROR_TYPE> &ma, F &&f)
-        -> detail::mixed_result_t<
+        -> mixed_result_t<
             grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-            std::expected<typename detail::bind_result_t<F, A>::value_type,
-                          ERROR_TYPE>,
-            std::expected<A, ERROR_TYPE>, detail::bind_result_t<F, A>> {
-        using Continuation = detail::bind_result_t<F, A>;
-        using Returned = detail::mixed_result_t<
-            grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-            std::expected<typename Continuation::value_type, ERROR_TYPE>,
-            std::expected<A, ERROR_TYPE>, Continuation>;
-        using Joined = typename Returned::error_type;
-
-        if (!ma.has_value()) {
-            return Returned{std::unexpect, Joined(ma.error())};
-        }
-        auto produced = std::invoke(std::forward<F>(f), *ma);
-        if (!produced.has_value()) {
-            return Returned{std::unexpect, Joined(produced.error())};
-        }
-        return Returned{std::move(*produced)};
-    }
+            std::expected<typename bind_result_t<F, A>::value_type, ERROR_TYPE>,
+            std::expected<A, ERROR_TYPE>, bind_result_t<F, A>>;
 };
 
 template <class VALUE_TYPE, class ERROR_TYPE>
@@ -573,6 +447,332 @@ struct ExpectedMonadMap : Monad<ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>> {
 template <class VALUE_TYPE, class ERROR_TYPE>
 inline constexpr auto monad_typeclass<std::expected<VALUE_TYPE, ERROR_TYPE>> =
     ExpectedMonadMap<VALUE_TYPE, ERROR_TYPE>{};
+
+// \rSec3[transpose.expected.applicative]{Applicative instance for expected}
+
+//! \returns An `expected` holding `value`.
+template <class VALUE_TYPE, class ERROR_TYPE>
+template <class VALUE>
+auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure(this auto &&,
+                                                           VALUE &&value)
+    -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE> {
+    return std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>{
+        std::forward<VALUE>(value)};
+}
+
+//! \returns If every operand holds a value, an `expected` holding the result
+//! of invoking `function` with those values, in the order written; otherwise
+//! an `expected` holding the error of the first operand, in that same order,
+//! that does not hold a value.
+//! \remarks `function` is invoked at most once. Composition short-circuits:
+//! only the first error is observed.
+template <class VALUE_TYPE, class ERROR_TYPE>
+template <class FUNCTION, class FIRST, class... REST>
+auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
+    this auto &&, FUNCTION &&function,
+    const std::expected<FIRST, ERROR_TYPE> &first,
+    const std::expected<REST, ERROR_TYPE> &...rest)
+    -> std::expected<remove_cvref_t<std::invoke_result_t<
+                         FUNCTION &, const FIRST &, const REST &...>>,
+                     ERROR_TYPE> {
+    using Result = remove_cvref_t<
+        std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
+    using Returned = std::expected<Result, ERROR_TYPE>;
+
+    std::optional<ERROR_TYPE> failure;
+    auto record_first_failure = [&failure](const auto &operand) {
+        if (!failure.has_value() && !operand.has_value()) {
+            failure = operand.error();
+        }
+    };
+    record_first_failure(first);
+    (record_first_failure(rest), ...);
+
+    if (failure.has_value()) {
+        return Returned{std::unexpect, std::move(*failure)};
+    }
+    return Returned{std::invoke(function, *first, *rest...)};
+}
+
+//! \constraints At least one operand is an `expected`; the operands do not
+//! all declare `ERROR_TYPE`; and every operand either declares `ERROR_TYPE`
+//! or is a bare value.
+//! \returns As for the preceding overload, treating a bare operand as
+//! holding itself.
+//! \remarks This is not a mixing point. A bare operand is ungraded, lifts to
+//! the model bottom, and leaves no trace in the deduced type.
+template <class VALUE_TYPE, class ERROR_TYPE>
+template <class FUNCTION, class... CARRIERS>
+    requires(sizeof...(CARRIERS) > 0) &&
+            (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+            (!all_declare_v<ERROR_TYPE, CARRIERS...>) &&
+            all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
+auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
+    this auto &&, FUNCTION &&function, const CARRIERS &...operands)
+    -> std::expected<remove_cvref_t<std::invoke_result_t<
+                         FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
+                     ERROR_TYPE> {
+    using Result = remove_cvref_t<
+        std::invoke_result_t<FUNCTION &, const carrier_value_t<CARRIERS> &...>>;
+    using Returned = std::expected<Result, ERROR_TYPE>;
+
+    std::optional<ERROR_TYPE> failure;
+    auto record_first_failure = [&failure](const auto &operand) {
+        if constexpr (is_expected_v<remove_cvref_t<decltype(operand)>>) {
+            if (!failure.has_value() && !operand.has_value()) {
+                failure = operand.error();
+            }
+        }
+    };
+    (record_first_failure(operands), ...);
+
+    if (failure.has_value()) {
+        return Returned{std::unexpect, std::move(*failure)};
+    }
+    return Returned{std::invoke(function, detail::operand_value(operands)...)};
+}
+
+//! \constraints At least one operand is an `expected`; the operands do not
+//! all declare `ERROR_TYPE` or a bare value; and every operand's grade
+//! belongs to this instance's grade model.
+//! \returns As for the preceding overloads, at the grade that is the join of
+//! the operands' grades.
+//! \remarks This is the mixing point, reached exactly when the preceding
+//! overload's constraint does not hold; the two are complementary, so the
+//! choice is never a matter of overload ranking. Carrier spelling stays
+//! lazy: operands that declare the same error alternative keep that
+//! spelling, only genuinely different ones join into an error set, and a
+//! bare operand lifts to the model bottom without trace. Combinations that
+//! were previously ill-formed become well-formed; nothing that deduced a
+//! type before deduces a different one now.
+template <class VALUE_TYPE, class ERROR_TYPE>
+template <class FUNCTION, class... CARRIERS>
+    requires(sizeof...(CARRIERS) > 0) &&
+            (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+            (!all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
+            (mixes_with_model<grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+                              CARRIERS> &&
+             ...)
+auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
+    this auto &&, FUNCTION &&function, const CARRIERS &...operands)
+    -> mixed_result_t<
+        grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+        std::expected<remove_cvref_t<std::invoke_result_t<
+                          FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
+                      ERROR_TYPE>,
+        CARRIERS...> {
+    using Result = remove_cvref_t<
+        std::invoke_result_t<FUNCTION &, const carrier_value_t<CARRIERS> &...>>;
+    using Returned =
+        mixed_result_t<grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+                       std::expected<Result, ERROR_TYPE>, CARRIERS...>;
+    using Joined = typename Returned::error_type;
+
+    std::optional<Joined> failure;
+    auto record_first_failure = [&failure](const auto &operand) {
+        if (!failure.has_value() && detail::operand_failed(operand)) {
+            if constexpr (is_expected_v<remove_cvref_t<decltype(operand)>>) {
+                failure.emplace(Joined(operand.error()));
+            }
+        }
+    };
+    (record_first_failure(operands), ...);
+
+    if (failure.has_value()) {
+        return Returned{std::unexpect, std::move(*failure)};
+    }
+    return Returned{std::invoke(function, detail::operand_value(operands)...)};
+}
+
+// \rSec3[transpose.expected.accumulating]{Accumulating instance}
+
+//! \returns An `expected` holding `value`.
+template <class VALUE_TYPE, class ERROR_TYPE>
+template <class VALUE>
+auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure(
+    this auto &&, VALUE &&value)
+    -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE> {
+    return std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>{
+        std::forward<VALUE>(value)};
+}
+
+//! \returns If every operand holds a value, an `expected` holding the result
+//! of invoking `function` with those values, in the order written; otherwise
+//! an `expected` holding the combination of every operand's error, combined
+//! in that same order.
+//! \remarks `function` is invoked at most once. Composition accumulates:
+//! every error is observed, not only the first.
+template <class VALUE_TYPE, class ERROR_TYPE>
+template <class FUNCTION, class FIRST, class... REST>
+auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
+    this auto &&, FUNCTION &&function,
+    const std::expected<FIRST, ERROR_TYPE> &first,
+    const std::expected<REST, ERROR_TYPE> &...rest)
+    -> std::expected<remove_cvref_t<std::invoke_result_t<
+                         FUNCTION &, const FIRST &, const REST &...>>,
+                     ERROR_TYPE> {
+    using Result = remove_cvref_t<
+        std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
+    using Returned = std::expected<Result, ERROR_TYPE>;
+
+    auto extract_failure =
+        [](const auto &operand) -> std::optional<ERROR_TYPE> {
+        if (operand.has_value()) {
+            return std::nullopt;
+        }
+        return operand.error();
+    };
+    auto accumulated = detail::accumulate_failures<ERROR_TYPE>(extract_failure,
+                                                               first, rest...);
+
+    if (accumulated.has_value()) {
+        return Returned{std::unexpect, std::move(*accumulated)};
+    }
+    return Returned{std::invoke(function, *first, *rest...)};
+}
+
+//! \constraints At least one operand is an `expected`; the operands do not
+//! all declare `ERROR_TYPE`; and every operand either declares `ERROR_TYPE`
+//! or is a bare value.
+//! \returns As for the preceding overload, treating a bare operand as
+//! holding itself.
+template <class VALUE_TYPE, class ERROR_TYPE>
+template <class FUNCTION, class... CARRIERS>
+    requires(sizeof...(CARRIERS) > 0) &&
+            (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+            (!all_declare_v<ERROR_TYPE, CARRIERS...>) &&
+            all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
+auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
+    this auto &&, FUNCTION &&function, const CARRIERS &...operands)
+    -> std::expected<remove_cvref_t<std::invoke_result_t<
+                         FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
+                     ERROR_TYPE> {
+    using Result = remove_cvref_t<
+        std::invoke_result_t<FUNCTION &, const carrier_value_t<CARRIERS> &...>>;
+    using Returned = std::expected<Result, ERROR_TYPE>;
+
+    auto extract_failure =
+        [](const auto &operand) -> std::optional<ERROR_TYPE> {
+        if constexpr (is_expected_v<remove_cvref_t<decltype(operand)>>) {
+            if (!operand.has_value()) {
+                return operand.error();
+            }
+        }
+        return std::nullopt;
+    };
+    auto accumulated =
+        detail::accumulate_failures<ERROR_TYPE>(extract_failure, operands...);
+
+    if (accumulated.has_value()) {
+        return Returned{std::unexpect, std::move(*accumulated)};
+    }
+    return Returned{std::invoke(function, detail::operand_value(operands)...)};
+}
+
+//! \constraints At least one operand is an `expected`; the operands do not
+//! all declare `ERROR_TYPE` or a bare value; and every operand's grade
+//! belongs to this instance's grade model.
+//! \returns As for the preceding overloads, at the grade that is the join of
+//! the operands' grades, holding the combination of every failing operand's
+//! evidence.
+//! \remarks Errors are combined in the order the operands are written.
+template <class VALUE_TYPE, class ERROR_TYPE>
+template <class FUNCTION, class... CARRIERS>
+    requires(sizeof...(CARRIERS) > 0) &&
+            (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+            (!all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
+            (mixes_with_model<grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+                              CARRIERS> &&
+             ...)
+auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
+    this auto &&, FUNCTION &&function, const CARRIERS &...operands)
+    -> mixed_result_t<
+        grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+        std::expected<remove_cvref_t<std::invoke_result_t<
+                          FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
+                      ERROR_TYPE>,
+        CARRIERS...> {
+    using Result = remove_cvref_t<
+        std::invoke_result_t<FUNCTION &, const carrier_value_t<CARRIERS> &...>>;
+    using Returned =
+        mixed_result_t<grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+                       std::expected<Result, ERROR_TYPE>, CARRIERS...>;
+    using Joined = typename Returned::error_type;
+
+    auto extract_failure = [](const auto &operand) -> std::optional<Joined> {
+        if constexpr (is_expected_v<remove_cvref_t<decltype(operand)>>) {
+            if (detail::operand_failed(operand)) {
+                return Joined(operand.error());
+            }
+        }
+        return std::nullopt;
+    };
+    auto accumulated =
+        detail::accumulate_failures<Joined>(extract_failure, operands...);
+
+    if (accumulated.has_value()) {
+        return Returned{std::unexpect, std::move(*accumulated)};
+    }
+    return Returned{std::invoke(function, detail::operand_value(operands)...)};
+}
+
+//! \omit
+template <class VALUE_TYPE, class ERROR_TYPE>
+template <class VALUE>
+auto ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::pure(this auto &&,
+                                                     VALUE &&value)
+    -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE> {
+    return applicative_typeclass<std::expected<VALUE_TYPE, ERROR_TYPE>>.pure(
+        std::forward<VALUE>(value));
+}
+
+//! \omit
+template <class VALUE_TYPE, class ERROR_TYPE>
+template <class A, class F>
+auto ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::bind(
+    this auto &&, const std::expected<A, ERROR_TYPE> &ma, F &&f)
+    -> remove_cvref_t<std::invoke_result_t<F, const A &>>
+    requires is_expected_with_error_v<
+        remove_cvref_t<std::invoke_result_t<F, const A &>>, ERROR_TYPE>
+{
+    using Result = remove_cvref_t<std::invoke_result_t<F, const A &>>;
+    if (!ma.has_value()) {
+        return Result{std::unexpect, ma.error()};
+    }
+    return Result{std::invoke(std::forward<F>(f), *ma)};
+}
+
+//! \omit
+template <class VALUE_TYPE, class ERROR_TYPE>
+template <class A, class F>
+    requires is_expected_v<bind_result_t<F, A>> &&
+             (!is_expected_with_error_v<bind_result_t<F, A>, ERROR_TYPE>) &&
+             mixes_with_model<grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+                              std::expected<A, ERROR_TYPE>> &&
+             mixes_with_model<grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+                              bind_result_t<F, A>>
+auto ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::bind(
+    this auto &&, const std::expected<A, ERROR_TYPE> &ma, F &&f)
+    -> mixed_result_t<
+        grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+        std::expected<typename bind_result_t<F, A>::value_type, ERROR_TYPE>,
+        std::expected<A, ERROR_TYPE>, bind_result_t<F, A>> {
+    using Continuation = bind_result_t<F, A>;
+    using Returned = mixed_result_t<
+        grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+        std::expected<typename Continuation::value_type, ERROR_TYPE>,
+        std::expected<A, ERROR_TYPE>, Continuation>;
+    using Joined = typename Returned::error_type;
+
+    if (!ma.has_value()) {
+        return Returned{std::unexpect, Joined(ma.error())};
+    }
+    auto produced = std::invoke(std::forward<F>(f), *ma);
+    if (!produced.has_value()) {
+        return Returned{std::unexpect, Joined(produced.error())};
+    }
+    return Returned{std::move(*produced)};
+}
 
 } // namespace beman::transpose
 

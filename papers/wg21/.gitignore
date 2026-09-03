@@ -3,3 +3,5 @@ data/csl.json
 data/annex-f
 deps/pandoc
 deps/python
+generated/
+wording/.stamp
