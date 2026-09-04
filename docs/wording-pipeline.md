@@ -80,8 +80,11 @@ wrap a long one and specgen then reports a malformed marker.
 [`decisions.md#wording-visible-internals`](decisions.md) for the rule and the
 list of names it moved. Bodies may name `detail` freely.
 
-**Do not reach for `\verbatim-itemdecl`.** It currently emits both the authored
-declaration and the parsed one, so the item appears twice.
+**Neither verbatim marker works.** `\verbatim-itemdecl` and
+`\verbatim-synopsis` both emit the authored text *and* the parsed declaration,
+so the item or the class synopsis appears twice and whatever was being masked
+survives in the second copy (steve-downey/specgen#4). Until that is fixed there
+is no way to keep a name out of a rendered synopsis except to move the entity.
 
 ## Transclusion
 

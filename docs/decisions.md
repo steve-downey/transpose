@@ -881,8 +881,8 @@ a constraint, a template-parameter default, or a trailing return type -- gets
 a namespace-scope spelling that forwards to it. Entities the wording should
 show are `\expos`; entities it should only name are `\omit`ted. Bodies keep
 their `detail` spellings, because a body specgen does not render cannot leak.
-**Why:** The alternative is `\verbatim-itemdecl`, which would make the
-declaration hand-authored -- and it is also broken upstream (see the log). A
+**Why:** The alternatives would be the verbatim markers, which make the
+declaration hand-authored -- and both are broken upstream (see the log). A
 forwarding spelling changes no semantics and is exactly what an
 exposition-only name is for: the standard does not have a `detail` namespace,
 so a declaration that names one is not specification text.
@@ -899,9 +899,14 @@ specgen grows a way to mask a constraint in a synopsis.
 **Log:**
 - 2026-09-03 — Raised while marking up `traverse.hpp`. `\verbatim-itemdecl`
   was tried first and emits *both* the authored declaration and the parsed
-  one, which is a specgen defect (reproducible in ~15 lines); reported
-  separately. `\expos` does not remove a `detail` qualifier, since the entity
-  is still in `detail`, so the entity itself has to move or be forwarded.
+  one, which is a specgen defect (steve-downey/specgen#4, reproducible in ~15
+  lines). `\verbatim-synopsis` has the same defect, and that is the one that
+  would have mattered: most of the leakage errors here were on the class
+  synopsis, which `\verbatim-itemdecl` does not reach. `\expos` does not
+  remove a `detail` qualifier, since the entity is still in `detail`, and
+  `\seebelow` masks a return type rather than a constraint, so the entity
+  itself has to move or be forwarded. A working `\verbatim-synopsis` plus an
+  authored `\constraints` would have avoided every promotion listed above.
 
 ---
 
