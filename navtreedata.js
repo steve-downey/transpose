@@ -81,23 +81,25 @@ var NAVTREE =
       [ "mixing-point-vocabulary", "md_docs_decisions.html#autotoc_md68", null ],
       [ "cross-model-mixing", "md_docs_decisions.html#autotoc_md70", null ],
       [ "evidence-combine-surface", "md_docs_decisions.html#autotoc_md72", null ],
-      [ "graded-context-role", "md_docs_decisions.html#autotoc_md74", null ]
+      [ "graded-context-role", "md_docs_decisions.html#autotoc_md74", null ],
+      [ "wording-generation", "md_docs_decisions.html#autotoc_md76", null ],
+      [ "wording-visible-internals", "md_docs_decisions.html#autotoc_md78", null ]
     ] ],
     [ "Provenance: extraction of Paper A into beman.transpose", "md_docs_provenance.html", [
-      [ "Source", "md_docs_provenance.html#autotoc_md76", null ],
-      [ "What was copied and renamed", "md_docs_provenance.html#autotoc_md77", null ],
-      [ "Intentional deviations", "md_docs_provenance.html#autotoc_md78", null ],
-      [ "Synchronization policy", "md_docs_provenance.html#autotoc_md79", null ],
-      [ "2026-07-14: the pure/apply forms removed; evidence labels added", "md_docs_provenance.html#autotoc_md80", null ]
+      [ "Source", "md_docs_provenance.html#autotoc_md80", null ],
+      [ "What was copied and renamed", "md_docs_provenance.html#autotoc_md81", null ],
+      [ "Intentional deviations", "md_docs_provenance.html#autotoc_md82", null ],
+      [ "Synchronization policy", "md_docs_provenance.html#autotoc_md83", null ],
+      [ "2026-07-14: the pure/apply forms removed; evidence labels added", "md_docs_provenance.html#autotoc_md84", null ]
     ] ],
     [ "Design-Fidelity Review — Grading Branch (interim, pre-delivery)", "md_docs_review_grading_fidelity_review.html", [
-      [ "Boot check", "md_docs_review_grading_fidelity_review.html#autotoc_md82", null ],
-      [ "Direction 1 — decision → embodiment → sensor", "md_docs_review_grading_fidelity_review.html#autotoc_md83", null ],
-      [ "Class A — violations", "md_docs_review_grading_fidelity_review.html#autotoc_md84", null ],
-      [ "Class B — undocumented decisions", "md_docs_review_grading_fidelity_review.html#autotoc_md85", null ],
-      [ "Class C — sensor gaps", "md_docs_review_grading_fidelity_review.html#autotoc_md86", null ],
-      [ "Class D — log drift", "md_docs_review_grading_fidelity_review.html#autotoc_md87", null ],
-      [ "Verdict on the documents", "md_docs_review_grading_fidelity_review.html#autotoc_md88", null ]
+      [ "Boot check", "md_docs_review_grading_fidelity_review.html#autotoc_md86", null ],
+      [ "Direction 1 — decision → embodiment → sensor", "md_docs_review_grading_fidelity_review.html#autotoc_md87", null ],
+      [ "Class A — violations", "md_docs_review_grading_fidelity_review.html#autotoc_md88", null ],
+      [ "Class B — undocumented decisions", "md_docs_review_grading_fidelity_review.html#autotoc_md89", null ],
+      [ "Class C — sensor gaps", "md_docs_review_grading_fidelity_review.html#autotoc_md90", null ],
+      [ "Class D — log drift", "md_docs_review_grading_fidelity_review.html#autotoc_md91", null ],
+      [ "Verdict on the documents", "md_docs_review_grading_fidelity_review.html#autotoc_md92", null ]
     ] ],
     [ "Grading in beman.transpose — Contextful Evolution Plan", "md_docs_transpose_grading_plan.html", [
       [ "0. How to use this document (divergence protocol)", "md_docs_transpose_grading_plan.html#divergence-protocol", null ],
@@ -121,27 +123,32 @@ var NAVTREE =
       [ "6. Open questions", "md_docs_transpose_grading_plan.html#open-questions", null ]
     ] ],
     [ "typeclass-object-pattern", "md_docs_typeclass_object_pattern.html", [
-      [ "Typeclass Object Pattern in This Repository", "md_docs_typeclass_object_pattern.html#autotoc_md90", [
-        [ "Why this exists", "md_docs_typeclass_object_pattern.html#autotoc_md91", null ],
-        [ "The surface in this repo", "md_docs_typeclass_object_pattern.html#autotoc_md92", null ],
-        [ "Lookup modes (important)", "md_docs_typeclass_object_pattern.html#autotoc_md93", null ],
-        [ "Core mechanics", "md_docs_typeclass_object_pattern.html#autotoc_md94", [
-          [ "Concept side", "md_docs_typeclass_object_pattern.html#autotoc_md95", null ],
-          [ "Type side", "md_docs_typeclass_object_pattern.html#autotoc_md96", null ],
-          [ "Call side", "md_docs_typeclass_object_pattern.html#autotoc_md97", null ]
+      [ "Typeclass Object Pattern in This Repository", "md_docs_typeclass_object_pattern.html#autotoc_md94", [
+        [ "Why this exists", "md_docs_typeclass_object_pattern.html#autotoc_md95", null ],
+        [ "The surface in this repo", "md_docs_typeclass_object_pattern.html#autotoc_md96", null ],
+        [ "Lookup modes (important)", "md_docs_typeclass_object_pattern.html#autotoc_md97", null ],
+        [ "Core mechanics", "md_docs_typeclass_object_pattern.html#autotoc_md98", [
+          [ "Concept side", "md_docs_typeclass_object_pattern.html#autotoc_md99", null ],
+          [ "Type side", "md_docs_typeclass_object_pattern.html#autotoc_md100", null ],
+          [ "Call side", "md_docs_typeclass_object_pattern.html#autotoc_md101", null ]
         ] ],
-        [ "How to add a new instance", "md_docs_typeclass_object_pattern.html#autotoc_md98", null ],
-        [ "How to add a new concept", "md_docs_typeclass_object_pattern.html#autotoc_md99", null ],
-        [ "Testing and build wiring expectations", "md_docs_typeclass_object_pattern.html#autotoc_md100", null ],
-        [ "Algorithm objects: Inheriting from typeclass instances", "md_docs_typeclass_object_pattern.html#autotoc_md101", [
-          [ "Pattern", "md_docs_typeclass_object_pattern.html#autotoc_md102", null ],
-          [ "Multi-typeclass composition", "md_docs_typeclass_object_pattern.html#autotoc_md103", null ],
-          [ "Key points", "md_docs_typeclass_object_pattern.html#autotoc_md104", null ]
+        [ "How to add a new instance", "md_docs_typeclass_object_pattern.html#autotoc_md102", null ],
+        [ "How to add a new concept", "md_docs_typeclass_object_pattern.html#autotoc_md103", null ],
+        [ "Testing and build wiring expectations", "md_docs_typeclass_object_pattern.html#autotoc_md104", null ],
+        [ "Algorithm objects: Inheriting from typeclass instances", "md_docs_typeclass_object_pattern.html#autotoc_md105", [
+          [ "Pattern", "md_docs_typeclass_object_pattern.html#autotoc_md106", null ],
+          [ "Multi-typeclass composition", "md_docs_typeclass_object_pattern.html#autotoc_md107", null ],
+          [ "Key points", "md_docs_typeclass_object_pattern.html#autotoc_md108", null ]
         ] ],
-        [ "Applicative: Derived invoke via terminating partial application", "md_docs_typeclass_object_pattern.html#autotoc_md105", null ],
-        [ "Traps and corrections from tree-instance implementation", "md_docs_typeclass_object_pattern.html#autotoc_md106", null ],
-        [ "Notes for future cleanup", "md_docs_typeclass_object_pattern.html#autotoc_md107", null ]
+        [ "Applicative: Derived invoke via terminating partial application", "md_docs_typeclass_object_pattern.html#autotoc_md109", null ],
+        [ "Traps and corrections from tree-instance implementation", "md_docs_typeclass_object_pattern.html#autotoc_md110", null ],
+        [ "Notes for future cleanup", "md_docs_typeclass_object_pattern.html#autotoc_md111", null ]
       ] ]
+    ] ],
+    [ "The wording pipeline", "md_docs_wording_pipeline.html", [
+      [ "The loop", "md_docs_wording_pipeline.html#autotoc_md113", null ],
+      [ "What generates what", "md_docs_wording_pipeline.html#autotoc_md114", null ],
+      [ "Rules for marking up a header", "md_docs_wording_pipeline.html#autotoc_md115", null ]
     ] ]
   ] ]
 ];
