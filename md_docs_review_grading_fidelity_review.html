@@ -96,10 +96,10 @@ $(document).ready(function(){initNavTree('md_docs_review_grading_fidelity_review
 <div class="contents">
 <div class="textblock"><p>Reviewed at commit <code>e955c62</code> ("Stage model-dispatched-mixing repair") by a fresh agent working only from <code><a class="el" href="transpose-grading-plan_8md.html">docs/transpose-grading-plan.md</a></code>, <code><a class="el" href="decisions_8md.html">docs/decisions.md</a></code>, the branch history, and the review brief. Read-only: no code, no <code><a class="el" href="decisions_8md.html">decisions.md</a></code> edits; proposed log entries are drafts for Steve to integrate.</p>
 <p>Method note: the review environment has no gcc-16, so the branch build was not re-run. All findings come from reading the code and history, plus one targeted compile probe (finding A-1) built with clang-18 against the shipped headers; the probe's source is reproduced in that finding.</p>
-<h1><a class="anchor" id="autotoc_md86"></a>
+<h1><a class="anchor" id="autotoc_md91"></a>
 Boot check</h1>
 <p>All 18 DECIDED and 3 OPEN slugs were enumerated before code was read; no two decisions conflict as written. The two near-conflicts — <code>plain-error-grade-reading</code> vs. <code>grading-footprint</code>'s lazy join, and <code>bottom-grade-identity</code> vs. <code>empty-grade-spelling</code> — are each reconciled inside the entries themselves. Inter-document drift found before touching code is filed under class D.</p>
-<h1><a class="anchor" id="autotoc_md87"></a>
+<h1><a class="anchor" id="autotoc_md92"></a>
 Direction 1 — decision → embodiment → sensor</h1>
 <table class="markdownTable">
 <tr class="markdownTableHead">
@@ -142,7 +142,7 @@ Direction 1 — decision → embodiment → sensor</h1>
 <td class="markdownTableBodyNone">cross-model-mixing   </td><td class="markdownTableBodyNone"><code>grade.hpp:175-192</code> (<code>mixes_with_model</code> on the graded cores)   </td><td class="markdownTableBodyNone"><code>laws.test.cpp:383-390</code> — but only through the test-only Boolean instance. <b>Violated on the bare path: see A-1</b>, sensor gap C-1   </td></tr>
 </table>
 <p>Audit points 1, 2, 5 (minimal instance), 8, and 9 of the brief were checked explicitly and are clean except where a finding below says otherwise: no duplicate bottom machinery and no materialized framework bottom exists; exactly one grade-reading trait exists; the minimal registration (<code>crtp_absorption.test.cpp:66-92</code>) is two functions with zero grade awareness and flows through <code>traverse</code>; the harness probes are as specified (three std error enums; <code>int</code>/<code>optional</code>/<code>unique_ptr</code>, consteval-clean) and the Boolean model both passes the full battery and drives a mixed deduction; <code>laws.hpp</code> is reachable from the <code>laws</code> test target only and no concept or requires-clause anywhere invokes <code>check_graded_laws</code>.</p>
-<h1><a class="anchor" id="autotoc_md88"></a>
+<h1><a class="anchor" id="autotoc_md93"></a>
 Class A — violations</h1>
 <p><b>A-1. The same-error-plus-bare cores accept a graded carrier from a foreign model as a "bare" operand, making cross-model mixing well-formed.</b> Slug: <a href="../decisions.md#cross-model-mixing">cross-model-mixing</a>, with <a href="../decisions.md#bottom-grade-identity">bottom-grade-identity</a> implicated (only <em>ungraded</em> operands may lift to the model bottom; an operand with a model grade is not ungraded).</p>
 <p>Evidence: <code>detail::declares_or_bare_v</code> (<code>expected.hpp:97-104</code>) classifies an operand as "bare" by <code>!is_expected_v</code> — structurally — without consulting <code>grade_of</code>. The graded cores' <code>mixes_with_model</code> constraint is therefore never reached for such an operand. Verified by compile probe (clang-18, shipped headers only): register a minimal second model with carrier <code>Fallible&lt;int, may_fail&gt;</code> (as <code>laws.test.cpp</code> does), then</p>
@@ -163,7 +163,7 @@ Class A — violations</h1>
 <p>&zwj;- 2026-08-30 — DIVERGENCE, found by the design-fidelity review. Stage graded-deduction (<code>8cfc2d3</code>) edited <code>baseline_deduction.test.cpp</code> in the stage commit: comment header rewritten, retired scheduled block promoted into the file as new golden section 9. No existing assertion changed, so the sensor was not inverted; but the tripwire's letter fired with no logged stop. <em>Needs a ruling:</em> either license this shape retroactively — "a stage may append its scheduled block's positive form to the golden
   file at expiry, never touching existing assertions" — or require promoted assertions to land in a separate commit (or file) so the golden file's history stays edit-free at stage commits. </p>
 </blockquote>
-<h1><a class="anchor" id="autotoc_md89"></a>
+<h1><a class="anchor" id="autotoc_md94"></a>
 Class B — undocumented decisions</h1>
 <p><b>B-1. <code>combine_errors</code> and <code>is_error_set_of_v</code>: public vocabulary with no slug and, since Stage 9, no callers.</b> <code>error_set.hpp:454-458, 532-553</code>. Stage accumulating-object (<code>8d4b66f</code>) introduced public <code>combine_errors</code> as the accumulating object's fold step; stage model-dispatched-mixing (<code>e955c62</code>) rewired that fold through <code>detail::combine_grade_evidence</code>, leaving both public names orphaned — <code>combine_errors</code>'s doc comment still claims "this is the uniform step the accumulating applicative object folds
 with", which is no longer true. The logged precedent is that public vocabulary is "a decision with a slug"; these have neither slug nor caller. Draft entry:</p>
@@ -183,13 +183,13 @@ CONSTRAINT, per grading-footprint" — but no shipped header uses it; the exclus
 <li>2026-08-30 — Raised by the design-fidelity review. The concept is public in <code>grade.hpp</code> and its comment claims the framework uses it for mutual exclusivity; no shipped code does — the implemented exclusivity is per-instance structural matching of declared error types. Note the two also disagree at the margin: <code>graded_context&lt;expected&lt;T,E&gt;&gt;</code> is true (semantic, post-plain-error-grade-reading) while the unmixed-<code>E</code> case runs the "ungraded" core (spelling), so which one "the" constraint is has real content. </li>
 </ul>
 </blockquote>
-<h1><a class="anchor" id="autotoc_md90"></a>
+<h1><a class="anchor" id="autotoc_md95"></a>
 Class C — sensor gaps</h1>
 <p><b>C-1.</b> Cross-model rejection has no sensor through the shipped <code>expected</code> instance. The only negative (<code>laws.test.cpp:390</code>) goes through the test-only Boolean instance's own constraint — which is exactly why A-1 is invisible to the suite. A <code>!requires</code> probe of <code>applicative_typeclass&lt;expected&lt;int,errc&gt;&gt;.invoke</code> with a <code>Fallible</code> operand (using a function that would accept it) would have caught A-1 and pins the fix. Slug: <code>cross-model-mixing</code>.</p>
 <p><b>C-2.</b> Two decided compile-error behaviors are hand-verified and documented rather than encoded: the accumulating object's refused bind with its value-flow diagnostic (<code>accumulating_object.test.cpp:242-261</code>) and <code>recover</code>'s two CHECKED negatives (<code>error_set.test.cpp:515-531</code>). The documentation is honest and the repo has no negative-compile harness, so this is the established pattern, not an oversight — but these sensors decay silently if the diagnostics regress. Low severity; a build-system expected-failure target would pin them. Slugs: <code>applicative-objects</code>, <code>recover-grade-inference</code>.</p>
 <p><b>C-3.</b> Two Stage-9 acceptance properties are grep-shaped and inherently unpinned: "no parallel grade-reading trait exists" and "join-fold/lift
 helpers stay in `detail`". Nothing can assert an absence; noted for completeness only, one line each in the next review.</p>
-<h1><a class="anchor" id="autotoc_md91"></a>
+<h1><a class="anchor" id="autotoc_md96"></a>
 Class D — log drift</h1>
 <p><b>D-1.</b> Plan §6 still lists <code>traverse-policy-surface</code> among the open questions; it was DECIDED 2026-08-29. <code><a class="el" href="transpose-grading-plan_8md.html">transpose-grading-plan.md</a>:399-402</code>.</p>
 <p><b>D-2.</b> <code>grading-footprint</code>'s 2026-08-28 DIVERGENCE entry still reads "awaiting resolution"; its proposed resolution was executed and the closure was logged only under <code>expected-instance-introduction</code> ("Divergence closed;
@@ -200,7 +200,7 @@ absorbs promotion of bare values at model bottoms … as constrained
 members". After the Stage-9 sentinel ruling, what the CRTP base carries is <code>subsume</code> (promotion-as-subsumption, per crtp-absorption's logged-in-commit insight); mixing-point promotion of bare <em>operands</em> lives in the model instances' bare cores plus <code>detail::grade_lifted_into_model</code>, per <code>bottom-grade-identity</code>'s "implementation helpers lift the sentinel …
 inside model-dispatched joins". The 2026-08-30 amendment updated the trait story but left this sentence unqualified. The code follows the later ruling; the earlier sentence is what drifted.</p>
 <p><b>D-5.</b> Convention says amended DECIDED entries carry <code>Decided by:</code>; <code>error-set-identity</code> (amended twice 2026-08-29) and <code>expected-instance-introduction</code> (amended 2026-08-30) have none. Also the <code>grade_subsume</code> → <code>grade_subsumes</code> predicate/coercion split is recorded only in commit <code>bcd60f3</code>'s message; <code>grade-operation-spelling</code> still names only <code>grade_subsume</code> while <code>grade-model-identity</code>'s text says <code>grade_subsumes</code> — both names exist in code with distinct meanings, and no entry says so.</p>
-<h1><a class="anchor" id="autotoc_md92"></a>
+<h1><a class="anchor" id="autotoc_md97"></a>
 Verdict on the documents</h1>
 <p>The documents were sufficient to conduct this review, and notably so: every embodiment in the table was findable from a slug's own text, the staged history in the log matched the commit history, and the two systemic findings (A-1, B-1/B-2) were findable <em>because</em> the log states its invariants sharply enough to check code against — the Stage-8 entries' "grade_join_t has no callers" pattern is what made the caller-less-public- vocabulary and constraint-never-consulted checks obvious moves. What the next executing agent needs added: (1) a ruling on A-2's shape, since the next stage that retires scheduled assertions will face the same question; (2) the D-3/D-4 sentence-level amendments, because both stale sentences describe superseded mechanisms in one-way-door entries and a fresh agent taking them literally would re-implement the wrong thing; (3) a statement of where bare-operand handling belongs (instance cores vs. CRTP base), which is currently inferable only from three entries read together. Nothing about the review required information outside the two documents plus the repo. </p>
 </div></div><!-- contents -->
