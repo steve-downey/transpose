@@ -23,6 +23,7 @@ IFS=$'\n\t'
 readonly REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 SPECGEN="${SPECGEN:-specgen}"
+GCC_TOOLCHAIN="${GCC_TOOLCHAIN:-}"
 OUT_DIR="${1:-$REPO_ROOT/papers/wording}"
 
 # Headers to generate wording from, paired with the stable-name stem their
@@ -42,10 +43,14 @@ readonly HEADERS=(
 # The specgen-supported front end is Clang 22 against a C++26 standard
 # library. Flags are passed explicitly rather than through a compilation
 # database, because headers are not translation units in one.
-readonly CLANG_ARGS=(
+CLANG_ARGS=(
     -std=c++2c
     "-I$REPO_ROOT/include"
 )
+if [[ -n "$GCC_TOOLCHAIN" ]]; then
+    CLANG_ARGS+=("--gcc-toolchain=$GCC_TOOLCHAIN")
+fi
+readonly -a CLANG_ARGS
 
 if ! command -v "$SPECGEN" > /dev/null 2>&1; then
     echo "gen-wording: error: '$SPECGEN' not found; set SPECGEN to its path" >&2

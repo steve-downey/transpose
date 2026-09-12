@@ -87,6 +87,7 @@ struct is_optional : std::false_type {};
 template <class U>
 struct is_optional<std::optional<U>> : std::true_type {};
 
+//! \expos
 template <class T>
 inline constexpr bool is_optional_v = is_optional<remove_cvref_t<T>>::value;
 
@@ -107,6 +108,7 @@ constexpr auto forward_contained(OPERAND &&operand) -> decltype(auto) {
 
 /** The type `forward_contained` yields for an operand of type `OPERAND`,
  * for naming in a trailing return type. */
+//! \expos
 template <class OPERAND>
 using contained_ref_t = decltype(forward_contained(std::declval<OPERAND>()));
 
@@ -129,6 +131,7 @@ constexpr auto forward_at(CONTAINER &&container, std::size_t index)
 }
 
 /** The type `forward_at` yields for a container of type `CONTAINER`. */
+//! \expos
 template <class CONTAINER>
 using element_ref_t =
     decltype(forward_at(std::declval<CONTAINER>(), std::size_t{}));

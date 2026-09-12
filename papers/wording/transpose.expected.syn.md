@@ -7,8 +7,9 @@ inline constexpr bool $is-expected-with-error-v$ = false; // exposition only
 
 ```cpp
 template<class VALUE_TYPE, class ERROR_TYPE>
-inline constexpr bool $is-expected-with-error-v$<expected<VALUE_TYPE, ERROR_TYPE>, ERROR_TYPE> =
-    true; // exposition only
+inline constexpr bool
+    $is-expected-with-error-v$<expected<VALUE_TYPE, ERROR_TYPE>, ERROR_TYPE> =
+        true; // exposition only
 ```
 
 ```cpp
@@ -39,7 +40,8 @@ using $bind-result-t$ = remove_cvref_t<invoke_result_t<F, const A&>>; // exposit
 ```cpp
 template<class ERROR_TYPE, class... CARRIERS>
 inline constexpr bool $all-declare-v$ =
-    ($is-expected-with-error-v$<remove_cvref_t<CARRIERS>, ERROR_TYPE> && ...); // exposition only
+    ($is-expected-with-error-v$<remove_cvref_t<CARRIERS>, ERROR_TYPE> &&
+     ...); // exposition only
 ```
 
 ```cpp
@@ -62,13 +64,11 @@ struct ExpectedApplicativeImpl {
   template<class VALUE>
   auto pure(this auto&&, VALUE&& value) -> expected<remove_cvref_t<VALUE>, ERROR_TYPE>;
 
-  template<class FUNCTION, class FIRST, class... REST>
-  auto invoke(this auto&&, FUNCTION&& function,
-              const expected<FIRST, ERROR_TYPE>& first,
-              const expected<REST, ERROR_TYPE>&... rest)
-      -> expected<
-          remove_cvref_t<invoke_result_t<FUNCTION&, const FIRST&, const REST&...>>,
-          ERROR_TYPE>;
+  template<class FUNCTION, class... CARRIERS>
+    requires(sizeof...(CARRIERS) > 0) && $all-declare-v$<ERROR_TYPE, CARRIERS...>
+  auto invoke(this auto&&, FUNCTION&& function, CARRIERS&&... operands) -> expected<
+      remove_cvref_t<invoke_result_t<FUNCTION&, $contained-ref-t$<CARRIERS>...>>,
+      ERROR_TYPE>;
 
   template<class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
@@ -97,7 +97,8 @@ struct ExpectedApplicativeImpl {
 
 ```cpp
 template<class VALUE_TYPE, class ERROR_TYPE>
-struct ExpectedApplicativeMap : Applicative<ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
+struct ExpectedApplicativeMap
+    : Applicative<ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
   using ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke;
   using ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure;
 };
@@ -110,13 +111,11 @@ struct AccumulatingExpectedApplicativeImpl {
   template<class VALUE>
   auto pure(this auto&&, VALUE&& value) -> expected<remove_cvref_t<VALUE>, ERROR_TYPE>;
 
-  template<class FUNCTION, class FIRST, class... REST>
-  auto invoke(this auto&&, FUNCTION&& function,
-              const expected<FIRST, ERROR_TYPE>& first,
-              const expected<REST, ERROR_TYPE>&... rest)
-      -> expected<
-          remove_cvref_t<invoke_result_t<FUNCTION&, const FIRST&, const REST&...>>,
-          ERROR_TYPE>;
+  template<class FUNCTION, class... CARRIERS>
+    requires(sizeof...(CARRIERS) > 0) && $all-declare-v$<ERROR_TYPE, CARRIERS...>
+  auto invoke(this auto&&, FUNCTION&& function, CARRIERS&&... operands) -> expected<
+      remove_cvref_t<invoke_result_t<FUNCTION&, $contained-ref-t$<CARRIERS>...>>,
+      ERROR_TYPE>;
 
   template<class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&

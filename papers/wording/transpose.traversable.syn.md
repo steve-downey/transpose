@@ -1,6 +1,13 @@
 ::: add
 
 ```cpp
+template<class CONTEXT>
+concept $applicative-context$ =
+    applicative_object<remove_cvref_t<decltype(applicative_typeclass<CONTEXT>)>,
+                       CONTEXT>; // exposition only
+```
+
+```cpp
 template<class Impl>
 struct Traversable : protected Impl {
   // Alternate-core: Impl::traverse is the primitive; transpose is derived
@@ -11,7 +18,9 @@ struct Traversable : protected Impl {
   // @[transpose.traversable.ops]{- .sref}@, traversal operations
   template<class T, class F> auto for_each(this auto&& self, T&& value, F&& function);
 
-  template<class T> auto transpose(this auto&& self, T&& value);
+  template<class T>
+    requires $applicative-context$<typename Impl::element_type>
+  auto transpose(this auto&& self, T&& value);
 
   // @[transpose.traversable.delegate]{- .sref}@, delegated traversal
   template<class TRAVERSABLE_MAP, class T, class F>
@@ -23,6 +32,7 @@ struct Traversable : protected Impl {
                      const APPLICATIVE_MAP& applicative_map, F&& function, T&& value);
 
   template<class TRAVERSABLE_MAP, class T>
+    requires $applicative-context$<typename remove_cvref_t<TRAVERSABLE_MAP>::element_type>
   auto transpose_with(this auto&& self, const TRAVERSABLE_MAP& traversable_map,
                       T&& value);
 };
@@ -45,11 +55,36 @@ template<class T> inline constexpr auto traversable_typeclass = false_type{};
 :::
 
 ```cpp
+template<class T>
+using $traversable-object-t$ =
+    remove_cvref_t<decltype(traversable_typeclass<remove_cvref_t<T>>)>; // exposition
+                                                                        // only
+```
+
+```cpp
+template<class T>
+using $structure-element-t$ =
+    typename $traversable-object-t$<T>::element_type; // exposition only
+```
+
+```cpp
+template<class T>
+using $traverse-element-t$ =
+    conditional_t<is_lvalue_reference_v<T>, const $structure-element-t$<T>&,
+                  $structure-element-t$<T>&&>; // exposition only
+```
+
+```cpp
 template<class F, class T>
-using $traverse-context-t$ = remove_cvref_t<invoke_result_t<
-    F,
-    const typename remove_cvref_t<decltype(traversable_typeclass<remove_cvref_t<T>>)>::
-        element_type&>>; // exposition only
+using $traverse-context-t$ =
+    remove_cvref_t<invoke_result_t<F&, $traverse-element-t$<T>>>; // exposition only
+```
+
+```cpp
+template<class T>
+concept $transposable-structure$ = requires {
+  typename $structure-element-t$<T>;
+} && $applicative-context$<$structure-element-t$<T>>; // exposition only
 ```
 
 ::: wording
