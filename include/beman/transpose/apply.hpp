@@ -113,11 +113,12 @@ inline constexpr detail::discard_second_eval_t discard_second_eval{};
 //! bargain the CRTP base exists to keep. `map`, `lift`, `zip_with`,
 //! `discard_first`, `discard_second`, `invoke_with` and `subsume` are all
 //! derived and belong to `applicative_object` alone. `pure` is checked for
-//! existence only, matching `applicative_object`'s own treatment.
+//! existence only, matching `applicative_object`'s own treatment, and is
+//! probed with an rvalue element for the reason `applicative_object` records.
 template <class IMPL, class CONTEXT>
 concept applicative_impl =
-    requires(const IMPL &impl, const applicative_value_t<CONTEXT> &element) {
-        impl.pure(element);
+    requires(const IMPL &impl) {
+        impl.pure(std::declval<applicative_value_t<CONTEXT>>());
     } &&
     (requires(const IMPL &impl, const CONTEXT &context) {
         impl.invoke(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
@@ -296,18 +297,29 @@ inline constexpr auto accumulating_applicative_typeclass = std::false_type{};
 //! operation exists, not that it holds for every callable. Conformance here
 //! is structural, so a hand-implemented object that never derives from
 //! `Applicative<Impl>` can satisfy this concept.
+//!
+//! Every probe is written in the value category the operation is used in.
+//! `pure` and `lift` take a value *into* the context and are probed with an
+//! rvalue element; `discard_first` and `discard_second` return a value *out*
+//! of one of their operands and are probed with rvalue operands. Probing
+//! either with a `const` lvalue asks the context to copy, which no
+//! operation's specification requires, and which for an element type that
+//! can be moved but not copied is not merely a stricter test but an
+//! ill-formed one: these operations have deduced return types, so a probe
+//! instantiates the body, and a body that cannot copy is a diagnostic rather
+//! than an unsatisfied constraint. A concept that diagnoses cannot be used
+//! to detect anything.
 template <class OBJ, class CONTEXT>
 concept applicative_object =
-    requires(const OBJ &obj, const CONTEXT &context,
-             const applicative_value_t<CONTEXT> &element) {
-        obj.pure(element);
+    requires(const OBJ &obj, const CONTEXT &context) {
+        obj.pure(std::declval<applicative_value_t<CONTEXT>>());
         obj.invoke(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
         obj.map(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
-        obj.lift(element);
+        obj.lift(std::declval<applicative_value_t<CONTEXT>>());
         obj.zip_with(detail::probe_witness2<applicative_value_t<CONTEXT>>{}, context,
                      context);
-        obj.discard_first(context, context);
-        obj.discard_second(context, context);
+        obj.discard_first(std::declval<CONTEXT>(), std::declval<CONTEXT>());
+        obj.discard_second(std::declval<CONTEXT>(), std::declval<CONTEXT>());
         obj.invoke_with(obj, detail::probe_witness<applicative_value_t<CONTEXT>>{},
                         context);
     } &&

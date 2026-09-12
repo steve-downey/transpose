@@ -14,32 +14,20 @@
 
 namespace beman::transpose {
 
-//! \remarks This concept is satisfied when `applicative_typeclass` names an
-//! applicative object for `CONTEXT`. It is the requirement `transpose` and
-//! `transpose_with` state, spelled so that it can be an associated
-//! constraint: both operations look their applicative object up rather than
-//! taking it, so there is no parameter whose type could carry the
+//! \remarks This concept is satisfied when `applicative_typeclass` names a
+//! conforming applicative object for `CONTEXT`. It is the requirement
+//! `transpose` and `transpose_with` state, spelled so that it can be an
+//! associated constraint: both operations look their applicative object up
+//! rather than taking it, so there is no parameter whose type could carry the
 //! requirement, and without it the only way to discover that a type has no
 //! applicative object is to instantiate the operation's body -- which, for a
 //! deduced return type, means a diagnostic rather than a constraint that
 //! simply does not match.
-//!
-//! What it asks for is that the lookup names an object providing the
-//! applicative basis over `CONTEXT`, not that the object satisfies
-//! `applicative_object`. The latter would be a stronger requirement than
-//! `transpose` states, and stronger in a way that bites: it probes `pure`
-//! with a `const` lvalue element, so a context over a move-only element type
-//! would fail a constraint on an operation that composes such elements
-//! perfectly well. `pure` is probed here with an rvalue for the same reason.
 //! \expos
 template <class CONTEXT>
-concept applicative_context = requires(
-    const remove_cvref_t<decltype(applicative_typeclass<CONTEXT>)> &object,
-    const CONTEXT &context) {
-    object.pure(std::declval<applicative_value_t<CONTEXT>>());
-    object.invoke(detail::probe_witness<applicative_value_t<CONTEXT>>{},
-                  context);
-};
+concept applicative_context =
+    applicative_object<remove_cvref_t<decltype(applicative_typeclass<CONTEXT>)>,
+                       CONTEXT>;
 
 /// Traversable pattern invariants:
 /// - Instances are single lookup objects that provide traverse(F, T).
@@ -118,6 +106,39 @@ struct Traversable : protected Impl {
 template <class T>
 inline constexpr auto traversable_typeclass = std::false_type{};
 
+/// The Traversable object `traversable_typeclass` names for a structure
+/// type, and that object's element type. Exposition-only spellings, so that
+/// `transpose`'s constraint and `traverse`'s inferred context can be written
+/// once rather than nested three deep. `structure_element_t` is ill-formed
+/// for a type naming no traversable object, which is what makes the
+/// constraints below evaluate false for such a type instead of diagnosing.
+//! \expos
+template <class T>
+using traversable_object_t =
+    remove_cvref_t<decltype(traversable_typeclass<remove_cvref_t<T>>)>;
+
+//! \expos
+template <class T>
+using structure_element_t = typename traversable_object_t<T>::element_type;
+
+/// The category in which a traversal of a structure of type `T` presents an
+/// element to `function`: as an rvalue when `T` is itself an rvalue, and as a
+/// `const` lvalue otherwise.
+///
+/// A traversable object is required to pass elements on in the category it
+/// received the structure in. That requirement is what lets the context be
+/// inferred here, before any traversable object has been selected, and it is
+/// what the two `vector` overloads keep. Without it a consuming traversal of
+/// a structure whose elements can be moved but not copied could not be
+/// spelled: the inferred context would be the one for a `const` lvalue
+/// element, and computing it would require the copy the traversal exists to
+/// avoid.
+//! \expos
+template <class T>
+using traverse_element_t = std::conditional_t<std::is_lvalue_reference_v<T>,
+                                              const structure_element_t<T> &,
+                                              structure_element_t<T> &&>;
+
 /// The applicative context `traverse(function, value)` would infer: the
 /// return type of `function` applied to one element of `value`'s traversable
 /// structure. Factored out so both the POLICY default and its constraint can
@@ -133,25 +154,8 @@ inline constexpr auto traversable_typeclass = std::false_type{};
 /// callable that then fails inside the loop.
 //! \expos
 template <class F, class T>
-using traverse_context_t = remove_cvref_t<std::invoke_result_t<
-    F &,
-    const typename remove_cvref_t<
-        decltype(traversable_typeclass<remove_cvref_t<T>>)>::element_type &>>;
-
-/// The Traversable object `traversable_typeclass` names for a structure
-/// type, and that object's element type. Exposition-only spellings, so that
-/// `transpose`'s constraint can be written once rather than three times
-/// nested. `structure_element_t` is ill-formed for a type naming no
-/// traversable object, which is what makes the constraint below evaluate
-/// false for such a type instead of diagnosing.
-//! \expos
-template <class T>
-using traversable_object_t =
-    remove_cvref_t<decltype(traversable_typeclass<remove_cvref_t<T>>)>;
-
-//! \expos
-template <class T>
-using structure_element_t = typename traversable_object_t<T>::element_type;
+using traverse_context_t =
+    remove_cvref_t<std::invoke_result_t<F &, traverse_element_t<T>>>;
 
 //! \remarks This concept is satisfied when `traversable_typeclass` names a
 //! traversable object for `T` and `applicative_typeclass` names an

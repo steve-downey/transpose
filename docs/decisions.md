@@ -1817,6 +1817,39 @@ This is not a corner: the seed of any traversal into that context is
   for `expected`; the two-size ratio is what the regression test reads, since
   an absolute bound alone cannot separate a linear implementation with a
   large constant from a quadratic one.
+- 2026-09-11 — Extended to the conformance concepts, which had the same
+  defect one level up and hid it behind a diagnostic. `applicative_impl` and
+  `applicative_object` probed `pure` and `lift` with a `const` lvalue
+  element, and `applicative_object` probed `discard_first` and
+  `discard_second` with `const` lvalue operands. Those are the two directions
+  a value crosses the context boundary -- in through `pure`/`lift`, out
+  through the `discard_*` pair -- and neither operation's specification asks
+  for a copy. For an element type that can be moved but not copied the probes
+  were not merely stricter, they were ill-formed: the derived operations have
+  deduced return types, so probing instantiates the body, and a body that
+  cannot copy is a hard error rather than an unsatisfied constraint. A
+  concept that diagnoses cannot detect. Every probe now reads in the category
+  the operation is used in. `applicative_object_for` already probed `pure`
+  with an rvalue for its exact-return refinement, so the concept file was
+  already inconsistent with itself.
+
+  Two consequences. `applicative_context` had been introduced the same day as
+  a narrower stand-in, because `applicative_object` would have rejected the
+  consuming traversal added in this same entry; with the probes corrected it
+  is exactly `applicative_object` over the looked-up object again, and the
+  stand-in is gone. And `traverse_context_t` inferred the context from a
+  `const` lvalue element whatever the category of the structure, so the free
+  `traverse` could not reach the consuming path that `transpose` could:
+  `traverse(identity, std::move(v))` over a move-only element type did not
+  compile. It now names `traverse_element_t`, which is the element category
+  matching the structure's own. That makes explicit a requirement the vector
+  instance already kept and the wording did not state: a traversable object
+  passes elements on in the category it received the structure in. Without
+  it the context cannot be inferred before a traversable object is selected.
+
+  Verified on GCC 16 and Clang 23: 241 and 239 tests, the conformance
+  concepts satisfied over `optional<unique_ptr<int>>`, and the negative
+  detection cases still evaluating false rather than diagnosing.
 
 ---
 
