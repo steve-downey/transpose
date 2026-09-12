@@ -10,6 +10,23 @@
 // structure of senders transposes into a single sender of the structure, e.g.
 // vector<sender<T>> becomes sender<vector<T>>, with no work performed until the
 // resulting sender is run. It is illustrative, not a proposed standard type.
+//
+// WHAT IT SHOWS, PRECISELY. That the front door preserves laziness for a
+// copyable, single-value deferred computation, and that it does so through
+// the same traverse and transpose a caller uses for optional. That is the
+// whole of it. This type has no completion signatures, no error or stopped
+// channel, no environment or scheduler, no one-shot operation state -- none
+// of what makes a P2300 sender a sender. The Applicative surface is checked
+// against genuine senders separately, at examples/p2300_adapter.hpp.
+//
+// AND WHAT IT HIDES. Being a std::function<T()> wrapper makes this type
+// invariant under composition: sender<vector<T>> composed with sender<T> is
+// again sender<vector<T>>, so the vector traversal's accumulator loop
+// type-checks. A real sender is not invariant -- every combinator names a new
+// type -- so transposing a runtime-sized structure of real senders is not
+// merely slower here, it cannot be written as a loop at all. The convenience
+// that makes this a good demonstration is the same property that conceals
+// that limit. See docs/decisions.md#p2300-front-door-shape.
 
 #include <beman/transpose/apply.hpp>
 
