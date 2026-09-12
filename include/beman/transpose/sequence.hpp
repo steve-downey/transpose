@@ -111,6 +111,7 @@ namespace detail {
 /// object's rvalue composition into a move: the accumulated vector is
 /// move-constructed into `collected` instead of copied, so appending one
 /// element costs one element, not one whole prefix.
+//! \omit
 template <class ELEMENT>
 struct vector_append_t {
     auto operator()(std::vector<ELEMENT> collected, ELEMENT element) const
@@ -120,6 +121,7 @@ struct vector_append_t {
     }
 };
 
+//! \omit
 template <class ELEMENT>
 inline constexpr vector_append_t<ELEMENT> vector_append{};
 

@@ -17,7 +17,9 @@ template<class T, class F> auto for_each(this auto&& self, T&& value, F&& functi
 [x+3]{.pnum} *Remarks*: Elements are visited in the structure's iteration order.
 
 ```cpp
-template<class T> auto transpose(this auto&& self, T&& value);
+template<class T>
+  requires $applicative-context$<typename Impl::element_type>
+auto transpose(this auto&& self, T&& value);
 ```
 
 [x+4]{.pnum} *Constraints*: `element_type` is a context for which `applicative_typeclass` names an applicative object.
@@ -26,7 +28,7 @@ template<class T> auto transpose(this auto&& self, T&& value);
 
 [x+6]{.pnum} *Returns*: That single contextual value.
 
-[x+7]{.pnum} *Remarks*: Elements are visited in the structure's iteration order.
+[x+7]{.pnum} *Remarks*: Elements are visited in the structure's iteration order. The constraint is what lets a caller ask whether this operation is available for a structure whose elements are not a context: the return type is deduced, so without it the only answer available is a diagnostic from inside the body.
 
 :::
 
