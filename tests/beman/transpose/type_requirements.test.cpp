@@ -235,3 +235,44 @@ TEST_CASE("type requirements: a const-only applicative still traverses") {
     REQUIRE(result ==
             beman::transpose::test::Identity<std::vector<int>>{{2, 3, 4}});
 }
+
+// --- The conformance concepts over a move-only element ---------------------
+//
+// These probe operations in the value category the operations are actually
+// used in. Probing `pure` and `lift` with a `const` lvalue element, and
+// `discard_first`/`discard_second` with `const` lvalue operands, asks a
+// context to copy a value out of something it was handed by reference --
+// a requirement no operation states, and one that made these concepts
+// hard-error rather than answer for a move-only element type.
+
+namespace {
+using move_only_context = std::optional<std::unique_ptr<int>>;
+} // namespace
+
+static_assert(
+    bt::applicative_impl<object_for<move_only_context>, move_only_context>);
+static_assert(
+    bt::applicative_object<object_for<move_only_context>, move_only_context>);
+static_assert(bt::applicative_object_for<object_for<move_only_context>,
+                                         move_only_context>);
+static_assert(bt::applicative_context<move_only_context>);
+
+TEST_CASE("type requirements: traverse consumes a move-only structure") {
+    // The sibling of the transpose case above. transpose reaches the
+    // consuming overload through its own constraint; traverse reaches it
+    // through traverse_context_t, which has to infer the context from the
+    // element category the traversal will use rather than always from a
+    // `const` lvalue.
+    std::vector<std::optional<std::unique_ptr<int>>> values;
+    values.push_back(std::make_unique<int>(4));
+    values.push_back(std::make_unique<int>(5));
+
+    auto traversed = bt::traverse(
+        [](auto &&element) { return std::forward<decltype(element)>(element); },
+        std::move(values));
+
+    REQUIRE(traversed.has_value());
+    REQUIRE(traversed->size() == 2);
+    REQUIRE(*(*traversed)[0] == 4);
+    REQUIRE(*(*traversed)[1] == 5);
+}
