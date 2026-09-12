@@ -22,12 +22,6 @@ C++ has many vocabulary types and computational contexts that are individually
 well understood, but no uniform way to traverse a structure while producing
 contextual results and then *transpose* the result into a single outer context:
 
-### Build
-
-You can build transpose using a CMake workflow preset:
-
-```bash
-cmake --workflow --preset gcc-release
 ```
 structure<context<T>>  ->  context<structure<T>>
 ```
@@ -52,9 +46,13 @@ bt::transpose(std::vector<bt::sender<int>>{...});    // -> sender<vector<int>>
 bt::transpose(std::vector<bt::zip_list<int>>{...});  // -> zip_list<vector<int>>
 ```
 
-`std::optional` is the only standard context that ships with a registered
-instance; `sender` and `zip_list` are deliberately minimal, non-normative
-demonstration types proving the front door is context-agnostic.
+`std::optional`, `std::expected` (with both a short-circuiting and an
+accumulating object) and `std::array` ship with registered instances.
+`sender`, `zip_list` and `simd_lanes` are deliberately minimal, non-normative
+demonstration types proving the front door is context-agnostic. The `sender`
+here is a `std::function<T()>` wrapper, not a P2300 sender; the applicative
+surface is checked against genuine `std::execution` senders separately, in
+[`examples/p2300_adapter.hpp`](examples/p2300_adapter.hpp).
 
 ## Public surface
 
@@ -66,7 +64,10 @@ Headers live under `include/beman/transpose/`:
   `monad.hpp` — the bundled customization core (applicative / functor /
   foldable / monoid / monad typeclass objects)
 - `sequence.hpp` — `Foldable`/`Traversable` instances for `std::vector`
-- `zip_list.hpp`, `sender.hpp` — non-normative demonstration contexts
+- `expected.hpp`, `array.hpp` — instances for `std::expected` and `std::array`
+- `grade.hpp`, `error_set.hpp` — the grade algebra `expected`'s instances use
+- `zip_list.hpp`, `sender.hpp`, `simd_lanes.hpp` — non-normative demonstration
+  contexts
 - `detail/typeclass_base.hpp` — shared support
 
 The customization mechanism supports three lookup modes: implicit
@@ -88,9 +89,20 @@ make ctest      # run tests on the current build
 ```
 
 Tooling (CMake, Catch2, etc.) is provisioned via `uv` into a local `.venv`.
-`make TOOLCHAIN=gcc-15` selects `etc/gcc-15-toolchain.cmake`; `CONFIG=RelWithDebInfo`
+`make TOOLCHAIN=gcc-16` selects `etc/gcc-16-toolchain.cmake`; `CONFIG=RelWithDebInfo`
 selects a non-sanitized configuration. CMake presets (`gcc-debug`, `llvm-debug`,
-...) are also provided for Beman tooling.
+...) are also provided for Beman tooling:
+
+```sh
+cmake --workflow --preset gcc-release
+```
+
+The P2300 evidence is the one part with an external dependency
+(`bemanproject/execution`), so it is off by default:
+
+```sh
+cmake -S . -B build -DBEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE=ON
+```
 
 The library is header-only (`beman::transpose` is an `INTERFACE` target requiring
 C++23) and consumable via `find_package`/`add_subdirectory`.
