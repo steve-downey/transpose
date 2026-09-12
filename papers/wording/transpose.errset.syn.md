@@ -14,7 +14,8 @@ inline constexpr bool $error-set-names-distinct-v$ =
 
 ```cpp
 template<class T, class... ERRORS>
-inline constexpr bool $error-set-has-v$ = (is_same_v<T, ERRORS> || ...); // exposition only
+inline constexpr bool $error-set-has-v$ =
+    (is_same_v<T, ERRORS> || ...); // exposition only
 ```
 
 ```cpp

@@ -43,7 +43,7 @@ constexpr auto witness_count() const noexcept -> size_t;
 [x+8]{.pnum} *Remarks*: Always at least one, by the class invariant. Short-circuiting composition produces exactly one; accumulating composition may produce more. It is an observer rather than an implementation detail so that a caller can check `visit`'s precondition instead of tripping it.
 
 ```cpp
-template<class HANDLER> constexpr auto visit;
+template<class HANDLER> constexpr auto visit(HANDLER&& handler) const -> decltype(auto);
 ```
 
 [x+9]{.pnum} *Preconditions*: `witness_count()` is 1.

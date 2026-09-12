@@ -34,12 +34,14 @@ namespace detail {
  * `invoke` deduce its operands through forwarding references, which is what
  * carries the caller's value category into the operation, without accepting
  * operands of some other shape. */
+//! \expos
 template <class T>
 struct is_std_array : std::false_type {};
 
 template <class U, std::size_t M>
 struct is_std_array<std::array<U, M>> : std::true_type {};
 
+//! \expos
 template <class T>
 inline constexpr bool is_std_array_v = is_std_array<remove_cvref_t<T>>::value;
 

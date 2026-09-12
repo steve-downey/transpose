@@ -43,8 +43,7 @@ struct grade_model<error_set_of<ERRORS...>> {
 ```cpp
 template<class... LEFT, class... RIGHT>
 struct grade_join<error_set_of<LEFT...>, error_set_of<RIGHT...>> {
-  using type =
-      error_set_join_t<error_set_of<LEFT...>, error_set_of<RIGHT...>>;
+  using type = error_set_join_t<error_set_of<LEFT...>, error_set_of<RIGHT...>>;
 };
 ```
 
