@@ -468,8 +468,8 @@ auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     -> std::expected<remove_cvref_t<std::invoke_result_t<
                          FUNCTION &, detail::contained_ref_t<CARRIERS>...>>,
                      ERROR_TYPE> {
-    using Result = remove_cvref_t<std::invoke_result_t<
-        FUNCTION &, detail::contained_ref_t<CARRIERS>...>>;
+    using Result = remove_cvref_t<
+        std::invoke_result_t<FUNCTION &, detail::contained_ref_t<CARRIERS>...>>;
     using Returned = std::expected<Result, ERROR_TYPE>;
 
     std::optional<ERROR_TYPE> failure;
@@ -609,8 +609,8 @@ auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     -> std::expected<remove_cvref_t<std::invoke_result_t<
                          FUNCTION &, detail::contained_ref_t<CARRIERS>...>>,
                      ERROR_TYPE> {
-    using Result = remove_cvref_t<std::invoke_result_t<
-        FUNCTION &, detail::contained_ref_t<CARRIERS>...>>;
+    using Result = remove_cvref_t<
+        std::invoke_result_t<FUNCTION &, detail::contained_ref_t<CARRIERS>...>>;
     using Returned = std::expected<Result, ERROR_TYPE>;
 
     auto extract_failure =
