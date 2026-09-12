@@ -14,6 +14,7 @@
 #include <beman/transpose/apply.hpp>
 
 #include <functional>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -73,7 +74,21 @@ struct SenderApplicativeImpl {
         return sender<U>{[function = remove_cvref_t<FUNCTION>(
                               std::forward<FUNCTION>(function)),
                           first, rest...]() -> U {
-            return std::invoke(function, first.get(), rest.get()...);
+            // Running the operands as arguments to std::invoke would leave
+            // their relative order unspecified -- the calls are
+            // indeterminately sequenced, and GCC 16 runs them in reverse.
+            // That cannot implement the composition order the traversal
+            // promises. The initializer-clauses of a braced-init-list are
+            // sequenced left to right ([dcl.init.list]/4), so running the
+            // operands into a tuple first pins the order, and std::apply
+            // then applies the plain function to the results.
+            std::tuple<FIRST, REST...> values{first.get(), rest.get()...};
+            return std::apply(
+                [&function](auto &&...value) -> U {
+                    return std::invoke(
+                        function, std::forward<decltype(value)>(value)...);
+                },
+                std::move(values));
         }};
     }
 };
