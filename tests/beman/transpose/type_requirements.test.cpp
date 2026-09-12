@@ -39,7 +39,8 @@ using beman::transpose::test::rvalue_only_callable;
 namespace {
 
 template <class CONTEXT>
-using object_for = bt::remove_cvref_t<decltype(bt::applicative_typeclass<CONTEXT>)>;
+using object_for =
+    bt::remove_cvref_t<decltype(bt::applicative_typeclass<CONTEXT>)>;
 
 template <class STRUCTURE>
 using traversable_for =
@@ -111,7 +112,8 @@ TEST_CASE("type requirements: array invoke builds lanes without assigning") {
 }
 
 TEST_CASE("type requirements: simd_lanes builds lanes without assigning") {
-    const auto &app = bt::applicative_typeclass<bt::simd_lanes<copyable_only, 3>>;
+    const auto &app =
+        bt::applicative_typeclass<bt::simd_lanes<copyable_only, 3>>;
 
     auto repeated = bt::simd_lanes<copyable_only, 3>::repeat(copyable_only{5});
     REQUIRE(repeated.data[0] == copyable_only{5});
@@ -230,6 +232,6 @@ TEST_CASE("type requirements: a const-only applicative still traverses") {
         },
         std::vector<int>{1, 2, 3});
 
-    REQUIRE(result == beman::transpose::test::Identity<std::vector<int>>{
-                          {2, 3, 4}});
+    REQUIRE(result ==
+            beman::transpose::test::Identity<std::vector<int>>{{2, 3, 4}});
 }

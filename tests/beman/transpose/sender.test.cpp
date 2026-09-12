@@ -95,10 +95,10 @@ TEST_CASE("sender: invoke runs its operands in the order written") {
     auto log = std::make_shared<effect_log>();
     const auto &app = bt::applicative_typeclass<bt::sender<int>>;
 
-    auto combined = app.invoke(
-        [](int a, int b, int c, int d) { return a + b + c + d; },
-        tagged_sender(log, 1), tagged_sender(log, 2), tagged_sender(log, 3),
-        tagged_sender(log, 4));
+    auto combined =
+        app.invoke([](int a, int b, int c, int d) { return a + b + c + d; },
+                   tagged_sender(log, 1), tagged_sender(log, 2),
+                   tagged_sender(log, 3), tagged_sender(log, 4));
 
     REQUIRE(log->order.empty());
     REQUIRE(combined.get() == 10);
