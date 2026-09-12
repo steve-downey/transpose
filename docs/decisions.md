@@ -1760,3 +1760,60 @@ pinned as negatives instead):
   carry no C++ equation. Assertions unchanged; the left-bias clause (the
   witness kept for a kind is the leftmost) is still checked here and is
   not yet stated there, pending payload-bearing accumulation.
+
+---
+
+## operand-value-category
+
+**Question:** In what value category does an Applicative object's `invoke`
+take its operands, and what may a traversal therefore promise about
+complexity and about move-only values?
+**Status:** DECIDED 2026-09-11
+**Decided by:** Steve, answering the P3200 reference-implementation review.
+**Decision:** Every Applicative object this library registers deduces its
+operands through forwarding references and passes each held value on with
+that operand's own value category. `detail::forward_contained` and
+`detail::forward_at` are the two spellings of that. The vector Traversable
+hands its accumulated result to each composition as an rvalue, and carries a
+second, consuming `traverse` overload so that `transpose(std::move(v))`
+expresses that intent through to `function`.
+
+`transpose`'s Complexity clause is stated in *composition operations* per
+element, not in element operations. The element bound is added as a Remark,
+conditioned on the applicative object composing an rvalue operand without
+duplicating what it holds.
+**Why:** With `const&` operands the only thing an accumulation can do is copy
+the whole prefix built so far, once per element, so a successful
+`transpose(vector<optional<T>>)` over 100 elements performed 5,150 element
+copies while the wording promised linear. The same `const&` path made
+`transpose(std::move(v))` a copy, so a move-only element type was rejected by
+a call that looked like it consumed its argument.
+
+The Complexity clause is split the way it is because the unconditional
+element bound is not the algorithm's to promise. A user-supplied applicative
+object that composes only `const` lvalues is still a perfectly good one, and
+against it the traversal is quadratic in element operations however the
+traversal is written. Promising linear regardless would be a guarantee the
+generic front door cannot keep; promising nothing would understate what the
+registered objects do.
+**Consequences:** An applicative object registered by a program need not opt
+in -- the test suite's `Identity` instance is deliberately left composing
+`const&` operands so that this stays covered -- but only an object that does
+opt in gets the linear element bound.
+
+`zip_list` is the one registered object that cannot simply move: a repeating
+list's single stored value logically occupies every position, so it is read
+once per lane and `forward_zip_list_value_at` copies for exactly that case.
+This is not a corner: the seed of any traversal into that context is
+`pure(...)`, which *is* a repeating list.
+**Log:**
+- 2026-09-11 — Decided. Converted `optional`, `expected` (both the
+  short-circuiting and the accumulating object), `array`, `simd_lanes`,
+  `zip_list` and the demonstration `sender`. The two `expected` homogeneous
+  cores moved from matching `const expected<T, ERROR_TYPE>&` by pattern to
+  constraining on `all_declare_v`, which keeps them exactly complementary to
+  the ungraded-mixed and graded-mixed cores they sit beside. Measured: 5,150
+  element copies to 100 for a 100-element `optional` traversal, and the same
+  for `expected`; the two-size ratio is what the regression test reads, since
+  an absolute bound alone cannot separate a linear implementation with a
+  large constant from a quadratic one.
