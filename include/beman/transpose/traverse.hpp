@@ -14,6 +14,33 @@
 
 namespace beman::transpose {
 
+//! \remarks This concept is satisfied when `applicative_typeclass` names an
+//! applicative object for `CONTEXT`. It is the requirement `transpose` and
+//! `transpose_with` state, spelled so that it can be an associated
+//! constraint: both operations look their applicative object up rather than
+//! taking it, so there is no parameter whose type could carry the
+//! requirement, and without it the only way to discover that a type has no
+//! applicative object is to instantiate the operation's body -- which, for a
+//! deduced return type, means a diagnostic rather than a constraint that
+//! simply does not match.
+//!
+//! What it asks for is that the lookup names an object providing the
+//! applicative basis over `CONTEXT`, not that the object satisfies
+//! `applicative_object`. The latter would be a stronger requirement than
+//! `transpose` states, and stronger in a way that bites: it probes `pure`
+//! with a `const` lvalue element, so a context over a move-only element type
+//! would fail a constraint on an operation that composes such elements
+//! perfectly well. `pure` is probed here with an rvalue for the same reason.
+//! \expos
+template <class CONTEXT>
+concept applicative_context = requires(
+    const remove_cvref_t<decltype(applicative_typeclass<CONTEXT>)> &object,
+    const CONTEXT &context) {
+    object.pure(std::declval<applicative_value_t<CONTEXT>>());
+    object.invoke(detail::probe_witness<applicative_value_t<CONTEXT>>{},
+                  context);
+};
+
 /// Traversable pattern invariants:
 /// - Instances are single lookup objects that provide traverse(F, T).
 /// - transpose is a derived object operation implemented from
@@ -57,6 +84,7 @@ struct Traversable : protected Impl {
     auto for_each(this auto &&self, T &&value, F &&function);
 
     template <class T>
+        requires applicative_context<typename Impl::element_type>
     auto transpose(this auto &&self, T &&value);
 
     // \ref{transpose.traversable.delegate}, delegated traversal
@@ -70,6 +98,8 @@ struct Traversable : protected Impl {
                        T &&value);
 
     template <class TRAVERSABLE_MAP, class T>
+        requires applicative_context<
+            typename remove_cvref_t<TRAVERSABLE_MAP>::element_type>
     auto transpose_with(this auto &&self,
                         const TRAVERSABLE_MAP &traversable_map, T &&value);
 
@@ -107,6 +137,36 @@ using traverse_context_t = remove_cvref_t<std::invoke_result_t<
     F &,
     const typename remove_cvref_t<
         decltype(traversable_typeclass<remove_cvref_t<T>>)>::element_type &>>;
+
+/// The Traversable object `traversable_typeclass` names for a structure
+/// type, and that object's element type. Exposition-only spellings, so that
+/// `transpose`'s constraint can be written once rather than three times
+/// nested. `structure_element_t` is ill-formed for a type naming no
+/// traversable object, which is what makes the constraint below evaluate
+/// false for such a type instead of diagnosing.
+//! \expos
+template <class T>
+using traversable_object_t =
+    remove_cvref_t<decltype(traversable_typeclass<remove_cvref_t<T>>)>;
+
+//! \expos
+template <class T>
+using structure_element_t = typename traversable_object_t<T>::element_type;
+
+//! \remarks This concept is satisfied when `traversable_typeclass` names a
+//! traversable object for `T` and `applicative_typeclass` names an
+//! applicative object for that object's element type -- the requirement
+//! `transpose`'s Constraints states.
+//!
+//! It is deliberately not written in terms of `traversable_object`. That
+//! concept requires `transpose` where the element type is itself a context,
+//! and `transpose` is constrained on this one; naming it here would make the
+//! two concepts mutually recursive.
+//! \expos
+template <class T>
+concept transposable_structure = requires {
+    typename structure_element_t<T>;
+} && applicative_context<structure_element_t<T>>;
 
 //! \remarks This concept is satisfied when `POLICY` is an `applicative_object`
 //! over `CONTEXT` whose `pure` returns exactly `CONTEXT` from `CONTEXT`'s
@@ -208,9 +268,14 @@ auto Traversable<Impl>::for_each(this auto &&self, T &&value, F &&function) {
 //! structure of contextual values becomes a single contextual value of the
 //! structure, preserving shape.
 //! \returns That single contextual value.
-//! \remarks Elements are visited in the structure's iteration order.
+//! \remarks Elements are visited in the structure's iteration order. The
+//! constraint is what lets a caller ask whether this operation is available
+//! for a structure whose elements are not a context: the return type is
+//! deduced, so without it the only answer available is a diagnostic from
+//! inside the body.
 template <class Impl>
 template <class T>
+    requires applicative_context<typename Impl::element_type>
 auto Traversable<Impl>::transpose(this auto &&self, T &&value) {
     using Context = element_type;
     const auto &applicative = applicative_typeclass<Context>;
@@ -251,6 +316,8 @@ auto Traversable<Impl>::traverse_with(this auto &&,
 //! \effects-equiv
 template <class Impl>
 template <class TRAVERSABLE_MAP, class T>
+    requires applicative_context<
+        typename remove_cvref_t<TRAVERSABLE_MAP>::element_type>
 auto Traversable<Impl>::transpose_with(this auto &&self,
                                        const TRAVERSABLE_MAP &traversable_map,
                                        T &&value) {

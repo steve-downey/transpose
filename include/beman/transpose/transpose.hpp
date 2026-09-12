@@ -63,6 +63,7 @@ namespace beman::transpose {
 //! holds, so for those the total number of element operations is linear in
 //! the number of elements.
 template <class T>
+    requires transposable_structure<T>
 auto transpose(T &&value) {
     const auto &map = traversable_typeclass<remove_cvref_t<T>>;
     return map.transpose(std::forward<T>(value));
