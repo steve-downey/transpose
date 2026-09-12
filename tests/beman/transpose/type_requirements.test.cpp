@@ -25,7 +25,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
+#include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace bt = beman::transpose;
@@ -178,4 +180,56 @@ TEST_CASE("type requirements: transpose over a copy-only element type") {
         std::optional<copyable_only>{copyable_only{3}}};
 
     REQUIRE_FALSE(bt::transpose(with_a_gap).has_value());
+}
+
+// --- A consuming traversal over a move-only element type -------------------
+//
+// transpose(std::move(v)) looks like it consumes v, and until the traversal
+// grew a consuming overload it did not: the vector Traversable primitive
+// accepted only `const vector&`, so the front door's forwarding reference
+// forwarded an rvalue into a parameter that could only copy from it. A
+// move-only element type makes the difference impossible to overlook -- it
+// is the case that does not merely cost more, it does not compile at all.
+
+TEST_CASE("type requirements: transpose consumes a move-only structure") {
+    std::vector<std::optional<std::unique_ptr<int>>> values;
+    values.push_back(std::make_unique<int>(1));
+    values.push_back(std::make_unique<int>(2));
+    values.push_back(std::make_unique<int>(3));
+
+    auto transposed = bt::transpose(std::move(values));
+
+    REQUIRE(transposed.has_value());
+    REQUIRE(transposed->size() == 3);
+    REQUIRE(*(*transposed)[0] == 1);
+    REQUIRE(*(*transposed)[2] == 3);
+}
+
+TEST_CASE("type requirements: a disengaged move-only element propagates") {
+    std::vector<std::optional<std::unique_ptr<int>>> values;
+    values.push_back(std::make_unique<int>(1));
+    values.emplace_back();
+    values.push_back(std::make_unique<int>(3));
+
+    REQUIRE_FALSE(bt::transpose(std::move(values)).has_value());
+}
+
+// --- A const-only applicative object still composes ------------------------
+//
+// Handing the accumulated result to each composition as an rvalue is what
+// makes the traversal linear, but it must not become a requirement: an
+// applicative object that takes its operands by `const&` is still a
+// perfectly good one, and the test suite's Identity instance is deliberately
+// left that way so that this stays covered. Such an object copies the prefix
+// and so is not linear -- it is still correct, which is what this pins.
+
+TEST_CASE("type requirements: a const-only applicative still traverses") {
+    auto result = bt::traverse(
+        [](int element) {
+            return beman::transpose::test::Identity<int>{element + 1};
+        },
+        std::vector<int>{1, 2, 3});
+
+    REQUIRE(result == beman::transpose::test::Identity<std::vector<int>>{
+                          {2, 3, 4}});
 }

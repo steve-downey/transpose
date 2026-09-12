@@ -76,6 +76,63 @@ using applicative_value_t = typename applicative_value<remove_cvref_t<T>>::type;
 
 namespace detail {
 
+/** Whether `T`, ignoring cv-qualification and reference, is a
+ * `std::optional` specialization. Lets an `invoke` deduce its operands
+ * through forwarding references -- which is what carries the caller's value
+ * category into the operation -- while still declining operands that are not
+ * of the context it composes. */
+template <class T>
+struct is_optional : std::false_type {};
+
+template <class U>
+struct is_optional<std::optional<U>> : std::true_type {};
+
+template <class T>
+inline constexpr bool is_optional_v = is_optional<remove_cvref_t<T>>::value;
+
+/** The value an applicative operand holds, with the operand's own value
+ * category.
+ *
+ * An operation that takes its operands by `const&` can only ever copy the
+ * values out of them, and a traversal that accumulates through such an
+ * operation copies its whole accumulated prefix at every step. Deducing the
+ * operand and forwarding through this is what lets a caller who has an
+ * rvalue -- the traversal loop, moving its accumulator forward -- hand the
+ * held value over instead of duplicating it.
+ */
+template <class OPERAND>
+constexpr auto forward_contained(OPERAND &&operand) -> decltype(auto) {
+    return *std::forward<OPERAND>(operand);
+}
+
+/** The type `forward_contained` yields for an operand of type `OPERAND`,
+ * for naming in a trailing return type. */
+template <class OPERAND>
+using contained_ref_t = decltype(forward_contained(std::declval<OPERAND>()));
+
+/** `container[index]`, with `container`'s own value category.
+ *
+ * The lanewise applicative objects read each position of each operand
+ * exactly once, so an rvalue operand's element may be handed over rather
+ * than copied. As with `forward_contained`, this is what keeps a traversal
+ * that accumulates through such an object from duplicating its whole
+ * accumulated result at every lane of every step.
+ */
+template <class CONTAINER>
+constexpr auto forward_at(CONTAINER &&container, std::size_t index)
+    -> decltype(auto) {
+    if constexpr (std::is_lvalue_reference_v<CONTAINER>) {
+        return container[index];
+    } else {
+        return std::move(container[index]);
+    }
+}
+
+/** The type `forward_at` yields for a container of type `CONTAINER`. */
+template <class CONTAINER>
+using element_ref_t =
+    decltype(forward_at(std::declval<CONTAINER>(), std::size_t{}));
+
 /** Builds a `std::array<U, N>` by calling `generator` with each index in turn.
  *
  * Default-constructing the array and then assigning its elements is the

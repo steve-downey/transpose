@@ -118,6 +118,47 @@ static_assert(!std::is_default_constructible_v<copyable_only>);
 static_assert(!std::is_copy_assignable_v<copyable_only>);
 static_assert(!std::is_move_assignable_v<copyable_only>);
 
+/** Counts its own copies and moves, so a test can tell linear construction
+ * from quadratic.
+ *
+ * Comparing values proves a traversal computes the right answer and says
+ * nothing about what it cost to get there. A traversal that rebuilds its
+ * whole accumulated prefix at every step returns exactly the same vector as
+ * one that appends to it. The only way to pin the difference is to count,
+ * and the only way to read a count is against a second, larger input: an
+ * absolute bound alone cannot distinguish a linear implementation with a
+ * large constant from a quadratic one.
+ */
+struct counted {
+    static inline long copies = 0;
+    static inline long moves = 0;
+
+    int value;
+
+    explicit counted(int initial) : value(initial) {}
+    counted(const counted &other) : value(other.value) { ++copies; }
+    counted(counted &&other) noexcept : value(other.value) { ++moves; }
+
+    auto operator=(const counted &other) -> counted & {
+        value = other.value;
+        ++copies;
+        return *this;
+    }
+    auto operator=(counted &&other) noexcept -> counted & {
+        value = other.value;
+        ++moves;
+        return *this;
+    }
+    ~counted() = default;
+
+    static void reset() {
+        copies = 0;
+        moves = 0;
+    }
+
+    friend auto operator==(const counted &, const counted &) -> bool = default;
+};
+
 /** Invocable only through an lvalue.
  *
  * A traversal invokes a named `function` variable once per element, and a

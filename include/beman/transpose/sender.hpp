@@ -63,17 +63,25 @@ struct SenderApplicativeImpl {
         return sender<U>::ready(U(std::forward<VALUE>(value)));
     }
 
-    /** N-ary deferred core; SFINAE-friendly via the trailing return type. */
+    /** N-ary deferred core; SFINAE-friendly via the trailing return type.
+     *
+     * The operands must be captured, since the point is to defer running
+     * them, but a caller who is finished with an operand can hand it over:
+     * they are deduced through forwarding references and moved into the
+     * capture. A traversal's accumulator is an rvalue at every step, so this
+     * is one copy per element saved rather than a micro-optimization.
+     */
     template <class FUNCTION, class FIRST, class... REST>
-    auto invoke(this auto &&, FUNCTION &&function, const sender<FIRST> &first,
-                const sender<REST> &...rest)
+    auto invoke(this auto &&, FUNCTION &&function, sender<FIRST> first,
+                sender<REST>... rest)
         -> sender<remove_cvref_t<std::invoke_result_t<
             const remove_cvref_t<FUNCTION> &, FIRST, REST...>>> {
         using U = remove_cvref_t<std::invoke_result_t<
             const remove_cvref_t<FUNCTION> &, FIRST, REST...>>;
         return sender<U>{[function = remove_cvref_t<FUNCTION>(
                               std::forward<FUNCTION>(function)),
-                          first, rest...]() -> U {
+                          first = std::move(first),
+                          ... rest = std::move(rest)]() -> U {
             // Running the operands as arguments to std::invoke would leave
             // their relative order unspecified -- the calls are
             // indeterminately sequenced, and GCC 16 runs them in reverse.
