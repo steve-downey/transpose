@@ -56,7 +56,7 @@ struct SimdLanesApplicativeImpl {
     auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
                 const REST &...rest) {
         using Result =
-            std::invoke_result_t<FUNCTION, const typename FIRST::value_type &,
+            std::invoke_result_t<FUNCTION &, const typename FIRST::value_type &,
                                  const typename REST::value_type &...>;
         using U = remove_cvref_t<Result>;
 

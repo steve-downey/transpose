@@ -93,10 +93,18 @@ inline constexpr auto traversable_typeclass = std::false_type{};
 /// structure. Factored out so both the POLICY default and its constraint can
 /// name it without repeating the computation. Exposition-only: it is named by
 /// `traverse`'s declaration and by nothing else.
+///
+/// The callable is spelled `F &`, not `F`. A traversal invokes a named
+/// `function` variable once per element, which is an lvalue every time; for a
+/// callable passed as a temporary, `F` deduces to a non-reference type and
+/// `invoke_result_t<F, ...>` would test rvalue invocation that never happens.
+/// Detecting in a category the implementation does not use rejects an
+/// `&`-qualified callable that would have worked, and admits an `&&`-only
+/// callable that then fails inside the loop.
 //! \expos
 template <class F, class T>
 using traverse_context_t = remove_cvref_t<std::invoke_result_t<
-    F,
+    F &,
     const typename remove_cvref_t<
         decltype(traversable_typeclass<remove_cvref_t<T>>)>::element_type &>>;
 
@@ -188,7 +196,7 @@ template <class Impl>
 template <class T, class F>
 auto Traversable<Impl>::for_each(this auto &&self, T &&value, F &&function) {
     using Context =
-        remove_cvref_t<std::invoke_result_t<F, const element_type &>>;
+        remove_cvref_t<std::invoke_result_t<F &, const element_type &>>;
     const auto &applicative = applicative_typeclass<Context>;
     return self.traverse(applicative, std::forward<F>(function),
                          std::forward<T>(value));
@@ -223,7 +231,7 @@ auto Traversable<Impl>::traverse_with(this auto &&,
                                       const TRAVERSABLE_MAP &traversable_map,
                                       F &&function, T &&value) {
     using Context = remove_cvref_t<std::invoke_result_t<
-        F, const typename remove_cvref_t<TRAVERSABLE_MAP>::element_type &>>;
+        F &, const typename remove_cvref_t<TRAVERSABLE_MAP>::element_type &>>;
     const auto &applicative = applicative_typeclass<Context>;
     return traversable_map.traverse(applicative, std::forward<F>(function),
                                     std::forward<T>(value));
