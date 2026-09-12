@@ -45,8 +45,8 @@ TEST_CASE("p2300: the derived operations work over a context they were not "
     // The adapter supplies only pure and invoke. map and zip_with are the
     // library's own derivations on the CRTP base, so this is the base being
     // exercised over a real sender rather than over optional.
-    auto mapped =
-        p2300_applicative.map([](int value) { return value * 2; }, ex::just(21));
+    auto mapped = p2300_applicative.map([](int value) { return value * 2; },
+                                        ex::just(21));
     REQUIRE(std::get<0>(*ex::sync_wait(std::move(mapped))) == 42);
 
     auto zipped = p2300_applicative.zip_with(

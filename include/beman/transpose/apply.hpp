@@ -337,9 +337,9 @@ struct OptionalApplicativeImpl {
                  (detail::is_optional_v<REST> && ...)
     auto invoke(this auto &&, FUNCTION &&function, FIRST &&first,
                 REST &&...rest)
-        -> std::optional<remove_cvref_t<std::invoke_result_t<
-            FUNCTION &, detail::contained_ref_t<FIRST>,
-            detail::contained_ref_t<REST>...>>>;
+        -> std::optional<remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, detail::contained_ref_t<FIRST>,
+                                 detail::contained_ref_t<REST>...>>>;
 };
 
 template <class VALUE_TYPE>
@@ -686,16 +686,17 @@ auto OptionalApplicativeImpl<VALUE_TYPE>::pure(this auto &&, VALUE &&value)
 //! duplicating it at every step.
 template <class VALUE_TYPE>
 template <class FUNCTION, class FIRST, class... REST>
-    requires detail::is_optional_v<FIRST> && (detail::is_optional_v<REST> && ...)
+    requires detail::is_optional_v<FIRST> &&
+             (detail::is_optional_v<REST> && ...)
 auto OptionalApplicativeImpl<VALUE_TYPE>::invoke(this auto &&,
                                                  FUNCTION &&function,
                                                  FIRST &&first, REST &&...rest)
-    -> std::optional<remove_cvref_t<std::invoke_result_t<
-        FUNCTION &, detail::contained_ref_t<FIRST>,
-        detail::contained_ref_t<REST>...>>> {
-    using Result = remove_cvref_t<std::invoke_result_t<
-        FUNCTION &, detail::contained_ref_t<FIRST>,
-        detail::contained_ref_t<REST>...>>;
+    -> std::optional<remove_cvref_t<
+        std::invoke_result_t<FUNCTION &, detail::contained_ref_t<FIRST>,
+                             detail::contained_ref_t<REST>...>>> {
+    using Result = remove_cvref_t<
+        std::invoke_result_t<FUNCTION &, detail::contained_ref_t<FIRST>,
+                             detail::contained_ref_t<REST>...>>;
     if (first.has_value() && (... && rest.has_value())) {
         return std::optional<Result>{std::invoke(
             function, detail::forward_contained(std::forward<FIRST>(first)),

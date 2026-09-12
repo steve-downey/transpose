@@ -117,8 +117,8 @@ constexpr auto forward_zip_list_value_at(LIST &&list, std::size_t index)
 /** The type `forward_zip_list_value_at` yields for an operand of type
  * `LIST`. */
 template <class LIST>
-using zip_list_value_ref_t = decltype(forward_zip_list_value_at(
-    std::declval<LIST>(), std::size_t{}));
+using zip_list_value_ref_t =
+    decltype(forward_zip_list_value_at(std::declval<LIST>(), std::size_t{}));
 
 /** Whether `T`, ignoring cv-qualification and reference, is a `zip_list`
  * specialization. */

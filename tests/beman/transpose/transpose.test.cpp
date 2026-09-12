@@ -82,9 +82,8 @@ TEST_CASE(
 namespace {
 
 template <class T>
-concept transposable = requires(T &&value) {
-    bt::transpose(std::forward<T>(value));
-};
+concept transposable =
+    requires(T &&value) { bt::transpose(std::forward<T>(value)); };
 
 struct not_a_structure {};
 

@@ -59,7 +59,8 @@ TEST_CASE("traverse: the default policy retains the first failure and still "
     int applications = 0;
     auto fails_on_two = [&applications](int element) {
         ++applications;
-        return element == 2 ? std::optional<int>{} : std::optional<int>{element};
+        return element == 2 ? std::optional<int>{}
+                            : std::optional<int>{element};
     };
 
     auto result = bt::traverse(fails_on_two, std::vector<int>{1, 2, 3, 4});
