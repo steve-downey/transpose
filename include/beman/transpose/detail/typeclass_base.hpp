@@ -3,8 +3,11 @@
 #ifndef BEMAN_TRANSPOSE_DETAIL_TYPECLASS_BASE_HPP
 #define BEMAN_TRANSPOSE_DETAIL_TYPECLASS_BASE_HPP
 
+#include <array>
+#include <cstddef>
 #include <optional>
 #include <type_traits>
+#include <utility>
 
 namespace beman::transpose {
 
@@ -73,6 +76,24 @@ using applicative_value_t = typename applicative_value<remove_cvref_t<T>>::type;
 
 namespace detail {
 
+/** Builds a `std::array<U, N>` by calling `generator` with each index in turn.
+ *
+ * Default-constructing the array and then assigning its elements is the
+ * obvious way to fill a fixed-extent result, and it silently requires the
+ * element type to be default-constructible AND assignable -- neither of which
+ * the operations that build such results actually need. Constructing the
+ * array directly from the generated elements requires only what the operation
+ * documents: that each element is constructible from its own result.
+ *
+ * The initializer-clauses of a braced-init-list are sequenced left to right
+ * ([dcl.init.list]/4), so lane 0's element is produced before lane 1's.
+ */
+template <class U, std::size_t N, class GENERATOR, std::size_t... INDICES>
+constexpr auto make_array(GENERATOR &&generator,
+                          std::index_sequence<INDICES...>) -> std::array<U, N> {
+    return std::array<U, N>{generator(INDICES)...};
+}
+
 /** Representative witness callable for probing a one-argument derived
  * operation that is templated over an arbitrary callable -- `fmap`, `map`,
  * `fold_map`, `traverse`, and similar. A concept can check membership for
@@ -80,13 +101,22 @@ namespace detail {
  * is that one instantiation, parameterized by what the probed operation
  * needs the callable to produce. Its presence in a concept is a witness
  * that the operation exists, not a proof that it exists for every callable.
+ *
+ * The body establishes the result TYPE and nothing else. Returning `RESULT{}`
+ * would be simpler, and would impose a default-construction requirement that
+ * no operation's specification asks for: a probe appears inside a
+ * requires-expression, but probing a derived operation with a deduced return
+ * type instantiates enough of that operation's body to instantiate this call,
+ * so `RESULT{}` reaches the compiler and rejects contexts over
+ * non-default-constructible elements. The body is never executed -- a concept
+ * is checked, not evaluated -- so `std::unreachable` is the honest spelling.
  */
 //! \expos
 template <class RESULT>
 struct probe_witness {
     template <class ARGUMENT>
     constexpr auto operator()(const ARGUMENT &) const -> RESULT {
-        return RESULT{};
+        std::unreachable();
     }
 };
 
@@ -98,13 +128,16 @@ struct probe_witness {
  * with either one argument or two would be accepted after the first and
  * never reach the second, silently truncating the arity the probe means to
  * exercise.
+ *
+ * Its body establishes only the result type, for the reason `probe_witness`
+ * records.
  */
 //! \expos
 template <class RESULT>
 struct probe_witness2 {
     template <class FIRST, class SECOND>
     constexpr auto operator()(const FIRST &, const SECOND &) const -> RESULT {
-        return RESULT{};
+        std::unreachable();
     }
 };
 
