@@ -31,6 +31,8 @@
 namespace bt = beman::transpose;
 
 using beman::transpose::test::copyable_only;
+using beman::transpose::test::lvalue_only_callable;
+using beman::transpose::test::rvalue_only_callable;
 
 namespace {
 
@@ -40,6 +42,14 @@ using object_for = bt::remove_cvref_t<decltype(bt::applicative_typeclass<CONTEXT
 template <class STRUCTURE>
 using traversable_for =
     bt::remove_cvref_t<decltype(bt::traversable_typeclass<STRUCTURE>)>;
+
+// A named concept, not a bare requires-expression at block scope: the latter
+// hard-errors on an invalid expression instead of yielding false
+// ([expr.prim.req]). See the note at the top of test_support.hpp.
+template <class F, class T>
+concept traversable_with = requires(F &&function, T &&value) {
+    bt::traverse(std::forward<F>(function), std::forward<T>(value));
+};
 
 } // namespace
 
@@ -111,6 +121,37 @@ TEST_CASE("type requirements: simd_lanes builds lanes without assigning") {
 
     REQUIRE(doubled.data[0] == copyable_only{10});
     REQUIRE(doubled.data[2] == copyable_only{10});
+}
+
+// --- Callables are detected in the category they are invoked in ------------
+//
+// A traversal invokes a named `function` variable once per element, always as
+// an lvalue. Type computation that spells `invoke_result_t<F, ...>` for a
+// deduced `F&&` tests the wrong category for a caller who passes a temporary:
+// it rejects an `&`-qualified callable that would have worked, and accepts an
+// `&&`-only callable that then fails inside the loop.
+
+static_assert(traversable_with<lvalue_only_callable, std::vector<int>>,
+              "an &-qualified callable is invocable in the category a "
+              "traversal actually uses");
+
+static_assert(traversable_with<lvalue_only_callable &, std::vector<int>>);
+
+static_assert(!traversable_with<rvalue_only_callable, std::vector<int>>,
+              "an &&-only callable is never invocable by a traversal, and "
+              "must fail to match rather than fail mid-instantiation");
+
+TEST_CASE("type requirements: traverse accepts an lvalue-only callable") {
+    std::vector<int> values{1, 2, 3};
+
+    auto from_temporary = bt::traverse(lvalue_only_callable{10}, values);
+    REQUIRE(from_temporary.has_value());
+    REQUIRE(*from_temporary == std::vector<int>{11, 12, 13});
+
+    lvalue_only_callable named{100};
+    auto from_lvalue = bt::traverse(named, values);
+    REQUIRE(from_lvalue.has_value());
+    REQUIRE(*from_lvalue == std::vector<int>{101, 102, 103});
 }
 
 // --- The front door over a non-default-constructible element ---------------

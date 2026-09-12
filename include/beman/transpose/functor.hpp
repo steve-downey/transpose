@@ -134,7 +134,10 @@ struct VectorFunctorImpl {
     template <class F>
     auto fmap(this auto &&, F &&function,
               const std::vector<VALUE_TYPE> &values) {
-        using Result = std::invoke_result_t<F, const VALUE_TYPE &>;
+        // `F &`, unlike the optional instance above: that one forwards the
+        // callable into a single std::invoke, this one invokes a captured
+        // lvalue once per element.
+        using Result = std::invoke_result_t<F &, const VALUE_TYPE &>;
         std::vector<remove_cvref_t<Result>> output;
         output.reserve(values.size());
 

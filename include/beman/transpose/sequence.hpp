@@ -42,7 +42,7 @@ struct VectorFoldableImpl {
     auto fold_map(this auto &&, FUNCTION &&function,
                   const std::vector<VALUE_TYPE> &values) {
         using Result =
-            remove_cvref_t<std::invoke_result_t<FUNCTION, const VALUE_TYPE &>>;
+            remove_cvref_t<std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
         auto accumulated = monoid_identity<Result>();
         for (const auto &value : values) {
             accumulated = monoid_combine(std::move(accumulated),
@@ -112,7 +112,7 @@ auto VectorTraversableImpl<VALUE_TYPE>::traverse(
     this auto &&, const APPLICATIVE &applicative, FUNCTION &&function,
     const std::vector<VALUE_TYPE> &values) {
     using Effect =
-        remove_cvref_t<std::invoke_result_t<FUNCTION, const VALUE_TYPE &>>;
+        remove_cvref_t<std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
     using Element = applicative_value_t<Effect>;
 
     auto accumulated = applicative.pure(std::vector<Element>{});

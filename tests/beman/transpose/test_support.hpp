@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <optional>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -116,6 +117,38 @@ static_assert(std::is_copy_constructible_v<copyable_only>);
 static_assert(!std::is_default_constructible_v<copyable_only>);
 static_assert(!std::is_copy_assignable_v<copyable_only>);
 static_assert(!std::is_move_assignable_v<copyable_only>);
+
+/** Invocable only through an lvalue.
+ *
+ * A traversal invokes a named `function` variable once per element, and a
+ * named variable is an lvalue whether the caller passed a temporary or not.
+ * This callable is therefore usable everywhere the library invokes one --
+ * but a type computation that spells `invoke_result_t<F, ...>` for a deduced
+ * `F&&` tests rvalue invocation instead, and rejects it.
+ */
+struct lvalue_only_callable {
+    int bias;
+
+    auto operator()(int element) & -> std::optional<int> {
+        return std::optional<int>{element + bias};
+    }
+};
+
+/** Invocable only through an rvalue: the mirror-image witness.
+ *
+ * Nothing in the library ever invokes a callable in this category, so this
+ * one must be rejected. Detecting with `invoke_result_t<F, ...>` accepts it
+ * for a caller who passes a temporary, and then fails inside the loop --
+ * a diagnostic from the middle of an instantiation rather than a constraint
+ * that simply does not match.
+ */
+struct rvalue_only_callable {
+    int bias;
+
+    auto operator()(int element) && -> std::optional<int> {
+        return std::optional<int>{element + bias};
+    }
+};
 
 /** Minimal single-element applicative context used in law tests. */
 template <class VALUE_TYPE>

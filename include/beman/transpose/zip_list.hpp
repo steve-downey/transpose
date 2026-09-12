@@ -130,9 +130,12 @@ struct ZipListApplicativeImpl {
     template <class FUNCTION, class FIRST, class... REST>
     auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
                 const REST &...rest) {
-        using Result =
-            std::invoke_result_t<FUNCTION, const typename FIRST::value_type &,
-                                 const typename REST::value_type &...>;
+        // The callable is moved into a local `callable` and then invoked as
+        // an lvalue once per lane, so that -- not `FUNCTION` -- is the
+        // category to detect in.
+        using Result = std::invoke_result_t<
+            remove_cvref_t<FUNCTION> &, const typename FIRST::value_type &,
+            const typename REST::value_type &...>;
 
         using U = remove_cvref_t<Result>;
         auto callable = std::forward<FUNCTION>(function);
