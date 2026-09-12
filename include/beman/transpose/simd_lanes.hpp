@@ -33,9 +33,11 @@ struct simd_lanes {
     std::array<T, N> data;
 
     static auto repeat(T value) -> simd_lanes {
-        simd_lanes result;
-        result.data.fill(value);
-        return result;
+        // Built element by element rather than default-constructed and
+        // filled, so T need only be copy-constructible.
+        return simd_lanes{detail::make_array<T, static_cast<std::size_t>(N)>(
+            [&value](std::size_t) -> T { return T(value); },
+            std::make_index_sequence<static_cast<std::size_t>(N)>{})};
     }
 
     friend auto operator==(const simd_lanes &, const simd_lanes &)
@@ -58,12 +60,15 @@ struct SimdLanesApplicativeImpl {
                                  const typename REST::value_type &...>;
         using U = remove_cvref_t<Result>;
 
-        simd_lanes<U, N> result;
-        for (int i = 0; i < N; ++i) {
-            result.data[i] =
-                std::invoke(function, first.data[i], rest.data[i]...);
-        }
-        return result;
+        // Lanes are constructed, not default-constructed and assigned, so U
+        // need not be default-constructible or assignable.
+        return simd_lanes<U, N>{
+            detail::make_array<U, static_cast<std::size_t>(N)>(
+                [&](std::size_t index) -> U {
+                    return std::invoke(function, first.data[index],
+                                       rest.data[index]...);
+                },
+                std::make_index_sequence<static_cast<std::size_t>(N)>{})};
     }
 };
 
