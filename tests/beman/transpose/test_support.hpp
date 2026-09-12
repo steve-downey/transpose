@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -83,6 +84,38 @@ auto check_functor_composition_law(const F &outer, const G &inner,
     auto right = applicative.map(outer, applicative.map(inner, value));
     return left == right;
 }
+
+/** Copy-constructible, and deliberately nothing more.
+ *
+ * The operations that build results -- `pure`, `invoke`, the array and lane
+ * constructions -- document only that each result element is constructible
+ * from its own result. A scalar fixture satisfies far more than that, so a
+ * suite built from scalars cannot tell a documented requirement from one an
+ * implementation reached for by accident. This type has no default
+ * constructor and no assignment operator, so any operation that needs either
+ * fails to compile against it, and the requirement cannot creep back in
+ * unnoticed.
+ */
+struct copyable_only {
+    int value;
+
+    explicit constexpr copyable_only(int initial) : value(initial) {}
+    constexpr copyable_only(const copyable_only &) = default;
+    constexpr copyable_only(copyable_only &&) = default;
+    auto operator=(const copyable_only &) -> copyable_only & = delete;
+    auto operator=(copyable_only &&) -> copyable_only & = delete;
+    ~copyable_only() = default;
+
+    friend constexpr auto operator==(const copyable_only &left,
+                                     const copyable_only &right) -> bool {
+        return left.value == right.value;
+    }
+};
+
+static_assert(std::is_copy_constructible_v<copyable_only>);
+static_assert(!std::is_default_constructible_v<copyable_only>);
+static_assert(!std::is_copy_assignable_v<copyable_only>);
+static_assert(!std::is_move_assignable_v<copyable_only>);
 
 /** Minimal single-element applicative context used in law tests. */
 template <class VALUE_TYPE>

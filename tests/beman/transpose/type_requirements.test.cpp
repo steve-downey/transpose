@@ -1,0 +1,140 @@
+// tests/beman/transpose/type_requirements.test.cpp                    -*-C++-*-
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+// The type requirements the operations actually impose, pinned against the
+// ones they document.
+//
+// The rest of the suite exercises the operations with scalars, and a scalar
+// satisfies every requirement anyone could accidentally reach for: it is
+// default-constructible, assignable, copyable, and invocable-with in any
+// value category. That makes a passing scalar suite silent about the
+// difference between a requirement the wording states and one an
+// implementation acquired by accident -- which is precisely the class of
+// defect the P3200 reference-implementation review found. The fixtures here
+// satisfy exactly what is documented and nothing beyond it, so an
+// undocumented requirement is a compile error rather than a footnote.
+
+#include <beman/transpose/apply.hpp>
+#include <beman/transpose/array.hpp>
+#include <beman/transpose/simd_lanes.hpp>
+#include <beman/transpose/transpose.hpp>
+#include <beman/transpose/traverse.hpp>
+
+#include "test_support.hpp"
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <array>
+#include <optional>
+#include <vector>
+
+namespace bt = beman::transpose;
+
+using beman::transpose::test::copyable_only;
+
+namespace {
+
+template <class CONTEXT>
+using object_for = bt::remove_cvref_t<decltype(bt::applicative_typeclass<CONTEXT>)>;
+
+template <class STRUCTURE>
+using traversable_for =
+    bt::remove_cvref_t<decltype(bt::traversable_typeclass<STRUCTURE>)>;
+
+} // namespace
+
+// --- Concept probes must not require a default-constructible element -------
+//
+// The concepts probe operations templated over an arbitrary callable with a
+// representative witness. Probing a derived operation with a deduced return
+// type instantiates enough of that operation's body to instantiate the
+// witness call, so a witness that returns `RESULT{}` puts a
+// default-construction requirement into every such concept -- one no
+// operation's specification states.
+
+static_assert(bt::applicative_object<object_for<std::optional<copyable_only>>,
+                                     std::optional<copyable_only>>);
+
+static_assert(
+    bt::applicative_object_for<object_for<std::optional<copyable_only>>,
+                               std::optional<copyable_only>>);
+
+static_assert(
+    bt::traversable_object<traversable_for<std::vector<copyable_only>>,
+                           std::vector<copyable_only>>);
+
+static_assert(bt::applicative_object<object_for<std::array<copyable_only, 3>>,
+                                     std::array<copyable_only, 3>>);
+
+// --- Array and lane results are constructed, not assigned into -------------
+
+TEST_CASE("type requirements: array pure broadcasts without assigning") {
+    const auto &app = bt::applicative_typeclass<std::array<copyable_only, 3>>;
+
+    auto broadcast = app.pure(copyable_only{7});
+
+    REQUIRE(broadcast.size() == 3);
+    REQUIRE(broadcast[0] == copyable_only{7});
+    REQUIRE(broadcast[1] == copyable_only{7});
+    REQUIRE(broadcast[2] == copyable_only{7});
+}
+
+TEST_CASE("type requirements: array invoke builds lanes without assigning") {
+    const auto &app = bt::applicative_typeclass<std::array<copyable_only, 3>>;
+
+    std::array<copyable_only, 3> left{copyable_only{1}, copyable_only{2},
+                                      copyable_only{3}};
+    std::array<copyable_only, 3> right{copyable_only{10}, copyable_only{20},
+                                       copyable_only{30}};
+
+    auto combined = app.invoke(
+        [](const copyable_only &a, const copyable_only &b) {
+            return copyable_only{a.value + b.value};
+        },
+        left, right);
+
+    REQUIRE(combined[0] == copyable_only{11});
+    REQUIRE(combined[1] == copyable_only{22});
+    REQUIRE(combined[2] == copyable_only{33});
+}
+
+TEST_CASE("type requirements: simd_lanes builds lanes without assigning") {
+    const auto &app = bt::applicative_typeclass<bt::simd_lanes<copyable_only, 3>>;
+
+    auto repeated = bt::simd_lanes<copyable_only, 3>::repeat(copyable_only{5});
+    REQUIRE(repeated.data[0] == copyable_only{5});
+    REQUIRE(repeated.data[2] == copyable_only{5});
+
+    auto doubled = app.invoke(
+        [](const copyable_only &a) { return copyable_only{a.value * 2}; },
+        repeated);
+
+    REQUIRE(doubled.data[0] == copyable_only{10});
+    REQUIRE(doubled.data[2] == copyable_only{10});
+}
+
+// --- The front door over a non-default-constructible element ---------------
+
+TEST_CASE("type requirements: transpose over a copy-only element type") {
+    std::vector<std::optional<copyable_only>> values{
+        std::optional<copyable_only>{copyable_only{1}},
+        std::optional<copyable_only>{copyable_only{2}},
+        std::optional<copyable_only>{copyable_only{3}}};
+
+    auto transposed = bt::transpose(values);
+
+    REQUIRE(transposed.has_value());
+    REQUIRE(transposed->size() == 3);
+    REQUIRE((*transposed)[0] == copyable_only{1});
+    REQUIRE((*transposed)[2] == copyable_only{3});
+
+    // Built rather than assigned into: optional's assignment operator is
+    // deleted for an element type that is not itself assignable, which is
+    // exactly the point of this fixture.
+    std::vector<std::optional<copyable_only>> with_a_gap{
+        std::optional<copyable_only>{copyable_only{1}},
+        std::optional<copyable_only>{},
+        std::optional<copyable_only>{copyable_only{3}}};
+
+    REQUIRE_FALSE(bt::transpose(with_a_gap).has_value());
+}

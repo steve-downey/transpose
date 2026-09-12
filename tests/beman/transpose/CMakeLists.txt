@@ -19,6 +19,7 @@ set(transpose_tests
     objects
     traverse
     transpose
+    type_requirements
     sequence
     sender
     simd_lanes
