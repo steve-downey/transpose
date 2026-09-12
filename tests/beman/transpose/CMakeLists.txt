@@ -49,6 +49,23 @@ foreach(test ${transpose_tests})
     catch_discover_tests(beman.transpose.tests.${test})
 endforeach()
 
+# The P2300 evidence is opt-in: it is the only test here with an external
+# dependency. Its adapter lives under examples/ rather than include/, so that
+# nothing an installation of this library pulls in depends on beman.execution.
+if(BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE)
+    add_executable(beman.transpose.tests.p2300)
+    target_sources(beman.transpose.tests.p2300 PRIVATE p2300.test.cpp)
+    target_include_directories(
+        beman.transpose.tests.p2300
+        PRIVATE ${PROJECT_SOURCE_DIR}/examples
+    )
+    target_link_libraries(
+        beman.transpose.tests.p2300
+        PRIVATE beman::transpose beman::execution Catch2::Catch2WithMain
+    )
+    catch_discover_tests(beman.transpose.tests.p2300)
+endif()
+
 # The probe harness carries a second translation unit: whether two TUs that
 # spell an error_set's pack differently agree on the type is a link-time
 # fact, and this is the only test that needs one.
