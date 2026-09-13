@@ -1,5 +1,35 @@
 # Decision Log addendum — transpose over real senders
 
+> **SUPERSEDED 2026-09-13. This is a historical draft. Do not read decisions
+> out of it, and do not edit it.**
+>
+> These entries were merged into [decisions.md](decisions.md) at Stage 0
+> [execution-baseline](transpose-execution-plan.md#execution-baseline) —
+> **reconciled, not verbatim.** The log is the source; where it and this file
+> differ, the log is right and the difference is deliberate.
+>
+> What changed in the merge, so nobody has to diff it:
+> - `execution-dependency-shape` — **WITHDRAWN**, superseded by
+>   [p2300-front-door-shape](decisions.md#p2300-front-door-shape). The option
+>   is `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`, OFF by default, pinned
+>   `d24898d`, and **nothing execution-dependent enters `include/`**.
+> - `demo-sender-fate` — **WITHDRAWN**, already ruled under the same entry.
+> - `sender-value-type-reading` — kept **PROPOSED**, not graduated; its
+>   `empty_env` is spelled `env<>` at the pinned commit.
+> - `runtime-arity-composition`, `erasure-boundary`,
+>   `all-of-failure-semantics` — kept. `all_of` lands as
+>   `examples/all_of.hpp`, not under `include/`.
+> - This file's "PROPOSED entries default to as drafted at Stage 0" rule was
+>   **not** applied wholesale; Steve ruled on 2026-09-13 instead.
+>
+> The reason this file is kept rather than deleted: the execution plan was
+> drafted from it without
+> [p2300-front-door-shape](decisions.md#p2300-front-door-shape) in view, and
+> that is the mistake the reconciliation exists to correct. Keeping the draft
+> keeps the correction legible.
+
+Original header follows.
+
 To be merged into `decisions.md` at Stage 0 of
 [transpose-execution-plan.md](transpose-execution-plan.md). Same conventions:
 one question per section, slug names the question, Question / Status /
