@@ -134,8 +134,8 @@ The typeclass objects are stateless empty structs, so inheritance adds no data a
 namespace detail {
 
 template <class T,
-          const auto& TC = beman::transpose::traversable_typeclass<beman::transpose::remove_cvref_t<T>>>
-struct validate_impl : beman::transpose::remove_cvref_t<decltype(TC)> {
+          const auto& TC = beman::transpose::traversable_typeclass<std::remove_cvref_t<T>>>
+struct validate_impl : std::remove_cvref_t<decltype(TC)> {
     template <class Pred>
     auto call(Pred&& pred, const T& value) const {
         // for_each is an inherited member — no qualification needed
@@ -152,7 +152,7 @@ struct validate_impl : beman::transpose::remove_cvref_t<decltype(TC)> {
 struct validate_fn {
     template <class Pred, class T>
     auto operator()(Pred&& pred, T&& value) const {
-        return detail::validate_impl<beman::transpose::remove_cvref_t<T>>{}.call(
+        return detail::validate_impl<std::remove_cvref_t<T>>{}.call(
             std::forward<Pred>(pred), std::forward<T>(value));
     }
 };
@@ -165,13 +165,13 @@ When an algorithm needs both Foldable and Traversable, inherit from both:
 
 ```cpp
 template <class T,
-          const auto& FC = beman::transpose::foldable_typeclass<beman::transpose::remove_cvref_t<T>>,
-          const auto& TC = beman::transpose::traversable_typeclass<beman::transpose::remove_cvref_t<T>>>
+          const auto& FC = beman::transpose::foldable_typeclass<std::remove_cvref_t<T>>,
+          const auto& TC = beman::transpose::traversable_typeclass<std::remove_cvref_t<T>>>
 struct transform_if_large_impl
-    : beman::transpose::remove_cvref_t<decltype(FC)>,
-      beman::transpose::remove_cvref_t<decltype(TC)> {
-    using foldable_base    = beman::transpose::remove_cvref_t<decltype(FC)>;
-    using traversable_base = beman::transpose::remove_cvref_t<decltype(TC)>;
+    : std::remove_cvref_t<decltype(FC)>,
+      std::remove_cvref_t<decltype(TC)> {
+    using foldable_base    = std::remove_cvref_t<decltype(FC)>;
+    using traversable_base = std::remove_cvref_t<decltype(TC)>;
 
     template <class F>
     auto call(std::size_t min_size, F&& f, const T& value) const {
@@ -185,7 +185,7 @@ struct transform_if_large_impl
 ### Key points
 
 - The implementation is in `detail` — callers see only the deducing `operator()` on the CPO.
-- `decltype` on a `const auto&` NTTP gives a reference type; use `remove_cvref_t<decltype(TC)>` at base specifiers, nested type extraction, and qualified disambiguation calls.
+- `decltype` on a `const auto&` NTTP gives a reference type; use `std::remove_cvref_t<decltype(TC)>` at base specifiers, nested type extraction, and qualified disambiguation calls.
 - ADL is suppressed because the CPO is an object, not a function.
 - The NTTP defaults pin the typeclass lookup; callers can override if needed.
 - Working example: see `examples/algorithm_object_example.cpp`.

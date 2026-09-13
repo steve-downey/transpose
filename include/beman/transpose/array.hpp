@@ -49,7 +49,7 @@ struct is_std_array_of_extent<std::array<U, N>, N> : std::true_type {};
 //! \expos
 template <class T, std::size_t N>
 inline constexpr bool is_std_array_of_extent_v =
-    is_std_array_of_extent<remove_cvref_t<T>, N>::value;
+    is_std_array_of_extent<std::remove_cvref_t<T>, N>::value;
 
 } // namespace detail
 
@@ -92,12 +92,12 @@ auto transpose_tuple_impl(const std::tuple<std::array<Ts, N>...> &soa,
 
 // \rSec3[transpose.array.applicative]{Applicative instance for array}
 
-//! \returns An `array<remove_cvref_t<VALUE>, N>` each of whose `N` elements
-//! is a copy of `value`.
+//! \returns An `array<std::remove_cvref_t<VALUE>, N>` each of whose `N`
+//! elements is a copy of `value`.
 template <class T, std::size_t N>
 template <class VALUE>
 auto ArrayApplicativeImpl<T, N>::pure(this auto &&, VALUE &&value) {
-    using U = remove_cvref_t<VALUE>;
+    using U = std::remove_cvref_t<VALUE>;
     // Constructed directly rather than default-constructed and filled: every
     // element is a copy of `value`, which is all this operation documents,
     // and filling would additionally require U to be default-constructible
@@ -124,7 +124,7 @@ auto ArrayApplicativeImpl<T, N>::invoke(this auto &&, FUNCTION &&function,
     using Result =
         std::invoke_result_t<FUNCTION &, detail::element_ref_t<FIRST>,
                              detail::element_ref_t<REST>...>;
-    using U = remove_cvref_t<Result>;
+    using U = std::remove_cvref_t<Result>;
 
     // Constructed directly rather than default-constructed and assigned into:
     // the operation documents only that each result element is the result of

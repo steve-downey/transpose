@@ -218,7 +218,7 @@ struct fallible_value_type<Fallible<VALUE, GRADE>> {
 
 template <class CARRIER>
 using fallible_value_type_t =
-    typename fallible_value_type<remove_cvref_t<CARRIER>>::type;
+    typename fallible_value_type<std::remove_cvref_t<CARRIER>>::type;
 
 /** Promotion: a bare value re-indexed at ⊤ acquires the carrier. */
 template <class VALUE>
@@ -245,7 +245,7 @@ struct rebind_grade<Fallible<VALUE, GRADE>, never_fails> {
 
 template <class CARRIER>
 constexpr auto fallible_failed(const CARRIER &carrier) -> bool {
-    if constexpr (is_fallible_v<remove_cvref_t<CARRIER>>) {
+    if constexpr (is_fallible_v<std::remove_cvref_t<CARRIER>>) {
         return !carrier.has_value();
     } else {
         return false;
@@ -254,7 +254,7 @@ constexpr auto fallible_failed(const CARRIER &carrier) -> bool {
 
 template <class CARRIER>
 constexpr auto fallible_value(const CARRIER &carrier) -> decltype(auto) {
-    if constexpr (is_fallible_v<remove_cvref_t<CARRIER>>) {
+    if constexpr (is_fallible_v<std::remove_cvref_t<CARRIER>>) {
         return *carrier;
     } else {
         return (carrier);
@@ -265,24 +265,24 @@ template <class VALUE_TYPE, class GRADE>
 struct FallibleApplicativeImpl {
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
-        -> Fallible<remove_cvref_t<VALUE>, GRADE> {
-        return Fallible<remove_cvref_t<VALUE>, GRADE>{
+        -> Fallible<std::remove_cvref_t<VALUE>, GRADE> {
+        return Fallible<std::remove_cvref_t<VALUE>, GRADE>{
             std::forward<VALUE>(value)};
     }
 
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
-                (is_fallible_v<remove_cvref_t<CARRIERS>> || ...) &&
+                (is_fallible_v<std::remove_cvref_t<CARRIERS>> || ...) &&
                 (detail::mixes_with_model<GRADE, CARRIERS> && ...)
     auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
         -> detail::mixed_result_t<
             GRADE,
             Fallible<
-                remove_cvref_t<std::invoke_result_t<
+                std::remove_cvref_t<std::invoke_result_t<
                     FUNCTION &, const fallible_value_type_t<CARRIERS> &...>>,
                 GRADE>,
             CARRIERS...> {
-        using Result = remove_cvref_t<std::invoke_result_t<
+        using Result = std::remove_cvref_t<std::invoke_result_t<
             FUNCTION &, const fallible_value_type_t<CARRIERS> &...>>;
         using Returned =
             detail::mixed_result_t<GRADE, Fallible<Result, GRADE>, CARRIERS...>;

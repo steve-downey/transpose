@@ -44,11 +44,11 @@ namespace {
 
 template <class CONTEXT>
 using object_for =
-    bt::remove_cvref_t<decltype(bt::applicative_typeclass<CONTEXT>)>;
+    std::remove_cvref_t<decltype(bt::applicative_typeclass<CONTEXT>)>;
 
 template <class STRUCTURE>
 using traversable_for =
-    bt::remove_cvref_t<decltype(bt::traversable_typeclass<STRUCTURE>)>;
+    std::remove_cvref_t<decltype(bt::traversable_typeclass<STRUCTURE>)>;
 
 // A named concept, not a bare requires-expression at block scope: the latter
 // hard-errors on an invalid expression instead of yielding false

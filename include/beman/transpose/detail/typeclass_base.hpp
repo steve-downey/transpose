@@ -18,9 +18,6 @@ namespace beman::transpose {
 // - New concepts should keep lookup static and explicit.
 // - Avoid adding parallel ADL-only customization paths for the same concept.
 
-template <class T>
-using remove_cvref_t = std::remove_cvref_t<T>;
-
 /** Always false, but dependent on a template parameter pack.
  *
  * A `static_assert` written directly with `false` fires as soon as the
@@ -60,9 +57,9 @@ template <class T, class = void>
 struct applicative_value;
 
 template <class T>
-struct applicative_value<T,
-                         std::void_t<typename remove_cvref_t<T>::value_type>> {
-    using type = typename remove_cvref_t<T>::value_type;
+struct applicative_value<
+    T, std::void_t<typename std::remove_cvref_t<T>::value_type>> {
+    using type = typename std::remove_cvref_t<T>::value_type;
 };
 
 template <class T>
@@ -71,8 +68,10 @@ struct applicative_value<std::optional<T>, void> {
 };
 
 /** Convenience alias for `applicative_value<T>::type`. */
+//! \expos
 template <class T>
-using applicative_value_t = typename applicative_value<remove_cvref_t<T>>::type;
+using applicative_value_t =
+    typename applicative_value<std::remove_cvref_t<T>>::type;
 
 namespace detail {
 
@@ -89,7 +88,8 @@ struct is_optional<std::optional<U>> : std::true_type {};
 
 //! \expos
 template <class T>
-inline constexpr bool is_optional_v = is_optional<remove_cvref_t<T>>::value;
+inline constexpr bool is_optional_v =
+    is_optional<std::remove_cvref_t<T>>::value;
 
 /** The type `forward_contained` yields for an operand of type `OPERAND`,
  * for naming in a trailing return type. Spelled before the function so that

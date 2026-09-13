@@ -242,7 +242,7 @@ struct Monad : protected Impl {
      * full instance and "converting" are the same free type-level move.
      * This is `Monad m => Functor m` superclass subsumption, paid for with
      * one visible call that names which functor is meant, instead of a
-     * remove_cvref_t incantation at the call site:
+     * std::remove_cvref_t incantation at the call site:
      *
      *     f(monad_map.as_functor(), xs);
      *
@@ -252,7 +252,7 @@ struct Monad : protected Impl {
      * wants the registered default says so by looking it up.
      */
     constexpr auto as_functor(this auto &&self) {
-        return Functor<remove_cvref_t<decltype(self)>>{};
+        return Functor<std::remove_cvref_t<decltype(self)>>{};
     }
 
   private:
@@ -329,15 +329,15 @@ struct OptionalMonadImpl {
 
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
-        -> std::optional<remove_cvref_t<VALUE>> {
+        -> std::optional<std::remove_cvref_t<VALUE>> {
         return applicative_typeclass<std::optional<VALUE_TYPE>>.pure(
             std::forward<VALUE>(value));
     }
 
     template <class A, class F>
     auto bind(this auto &&, const std::optional<A> &ma, F &&f)
-        -> remove_cvref_t<std::invoke_result_t<F, const A &>> {
-        using Result = remove_cvref_t<std::invoke_result_t<F, const A &>>;
+        -> std::remove_cvref_t<std::invoke_result_t<F, const A &>> {
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const A &>>;
         if (!ma)
             return Result{};
         return Result{std::invoke(std::forward<F>(f), *ma)};
@@ -360,14 +360,14 @@ inline constexpr auto monad_typeclass<std::optional<VALUE_TYPE>> =
 /** Sequences a monadic value `ma` through function `f` (Haskell's `>>=`). */
 template <class MA, class F>
 auto mbind(MA &&ma, F &&f) {
-    const auto &map = monad_typeclass<remove_cvref_t<MA>>;
+    const auto &map = monad_typeclass<std::remove_cvref_t<MA>>;
     return map.bind(std::forward<MA>(ma), std::forward<F>(f));
 }
 
 /** Flattens a nested monadic value; equivalent to `bind(mma, id)`. */
 template <class MMA>
 auto join(MMA &&mma) {
-    const auto &map = monad_typeclass<remove_cvref_t<MMA>>;
+    const auto &map = monad_typeclass<std::remove_cvref_t<MMA>>;
     return map.join(std::forward<MMA>(mma));
 }
 
