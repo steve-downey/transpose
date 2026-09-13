@@ -47,19 +47,21 @@ struct simd_lanes {
 namespace detail {
 
 /** Whether `T`, ignoring cv-qualification and reference, is a `simd_lanes`
- * specialization -- the operand shape this applicative composes. Lets
+ * of exactly width `N` -- the operand shape this applicative composes. Lets
  * `invoke` deduce its operands through forwarding references, which is what
  * carries the caller's value category into the operation, without accepting
- * operands of some other shape. The counterpart of `is_std_array` and
- * `is_zip_list` for the lanewise objects' third member. */
-template <class T>
-struct is_simd_lanes : std::false_type {};
+ * operands of some other shape. The counterpart of
+ * `is_std_array_of_extent` for the lanewise objects' fixed-width member;
+ * the width is part of the shape for the reason recorded there. */
+template <class T, int N>
+struct is_simd_lanes_of_width : std::false_type {};
 
-template <class U, int M>
-struct is_simd_lanes<simd_lanes<U, M>> : std::true_type {};
+template <class U, int N>
+struct is_simd_lanes_of_width<simd_lanes<U, N>, N> : std::true_type {};
 
-template <class T>
-inline constexpr bool is_simd_lanes_v = is_simd_lanes<remove_cvref_t<T>>::value;
+template <class T, int N>
+inline constexpr bool is_simd_lanes_of_width_v =
+    is_simd_lanes_of_width<remove_cvref_t<T>, N>::value;
 
 } // namespace detail
 
@@ -81,8 +83,8 @@ struct SimdLanesApplicativeImpl {
     // so an operand of some other shape would reach the body and diagnose
     // there rather than leave this overload unmatched.
     template <class FUNCTION, class FIRST, class... REST>
-        requires detail::is_simd_lanes_v<FIRST> &&
-                 (detail::is_simd_lanes_v<REST> && ...)
+        requires detail::is_simd_lanes_of_width_v<FIRST, N> &&
+                 (detail::is_simd_lanes_of_width_v<REST, N> && ...)
     auto invoke(this auto &&, FUNCTION &&function, FIRST &&first,
                 REST &&...rest) {
         using Result = std::invoke_result_t<

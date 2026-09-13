@@ -323,3 +323,34 @@ static_assert(!bt::applicative_object<
               bt::remove_cvref_t<
                   decltype(bt::applicative_typeclass<bt::zip_list<int>>)>,
               std::optional<int>>);
+
+// -- A fixed-extent object composes only operands of that extent --
+//
+// Application is positional across all N lanes, so the extent is part of the
+// operand shape rather than a refinement of it: an operand array or lane
+// vector of some other length has every lane past its end read out of
+// bounds, and no diagnostic says so. The constraint is what turns that into
+// an overload that does not match.
+
+namespace {
+
+template <class OBJECT, class FIRST, class SECOND>
+concept composes_pairwise =
+    requires(const OBJECT &object, FIRST &&first, SECOND &&second) {
+        object.invoke(bt::detail::probe_witness2<int>{},
+                      std::forward<FIRST>(first), std::forward<SECOND>(second));
+    };
+
+} // namespace
+
+static_assert(composes_pairwise<bt::ArrayApplicativeMap<int, 4>,
+                                std::array<int, 4>, std::array<int, 4>>);
+static_assert(!composes_pairwise<bt::ArrayApplicativeMap<int, 4>,
+                                 std::array<int, 4>, std::array<int, 2>>);
+
+static_assert(
+    composes_pairwise<bt::SimdLanesApplicativeMap<int, 4>,
+                      bt::simd_lanes<int, 4>, bt::simd_lanes<int, 4>>);
+static_assert(
+    !composes_pairwise<bt::SimdLanesApplicativeMap<int, 4>,
+                       bt::simd_lanes<int, 4>, bt::simd_lanes<int, 2>>);
