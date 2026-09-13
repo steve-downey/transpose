@@ -2093,6 +2093,77 @@ specialization is a regression to per-type keying.
   execution-dependent enters `include/`, and the concept-keyed registration
   must therefore be reachable from the adapter's own header rather than from
   `transpose.hpp`.
+- 2026-09-13 — STAGE 1 AUDIT COMPLETE. The adapter is now concept-keyed and
+  reads its element type from completion signatures; `p2300.test.cpp` pins
+  each claim below. Five findings, in the order they cost time.
+  * THE KEYING WORKS AS DECIDED, AND THE SENTINEL HOLDS. One object
+    (`P2300ApplicativeMap`) is reached from every registered sender type —
+    `just(1)`, a `then`-adapted sender and `just(std::string{})` all resolve
+    to the same object type, asserted directly rather than assumed. `pure(1)`
+    returns `decltype(just(1))`, which is NOT the `S` the object was found
+    under, and that is pinned too: it is the concrete reason the object
+    cannot be templated on `S`, since a per-`S` object would have to promise
+    `pure` returns `S` and no sender applicative can keep that.
+  * THE DEMONSTRATION SENDER IS NOT AN `ex::sender`, checked rather than
+    assumed, so the feared ambiguity between this concept-keyed registration
+    and `sender.hpp`'s per-type one does not arise. Pinned as a
+    `static_assert` in `p2300.test.cpp`: if it ever fails, the keying
+    decision's tripwire applies — resolve by subsumption, never by adding a
+    tie-breaker tag.
+  * A RAW `when_all` IS NOT AN APPLICATIVE ELEMENT, which surprised this
+    stage and is correct. `when_all(just(1), just(2))` completes with TWO
+    value arguments, so it fails `single_value_sender` and is unregistered;
+    the adapter's own `invoke` is `when_all(...) | then(f)`, and the `then`
+    is what collapses the pack back to one value. So the RESULT of `invoke`
+    is an element even though its middle term is not. Both directions pinned,
+    because an agent "fixing" the negative would break the arity contract
+    that [all-of-failure-semantics](#all-of-failure-semantics) and `when_all`
+    both depend on.
+  * THE DISJOINTNESS ASSUMPTION HOLDS, VACUOUSLY, AND IS NOW MEASURED. No
+    sender in the pinned beman.execution has a nested `value_type`, so this
+    adapter's `applicative_value` specialization and the framework's
+    `void_t<typename T::value_type>` path never both match. The exclusion the
+    decision requires is therefore currently doing no work, which is exactly
+    why it is worth keeping: it is the tripwire, not the mechanism.
+  * **THE REGISTRATION MAKES `transpose(vector<S>)` FAIL WORSE, and this is
+    the finding worth carrying to Stage 3.** Before registration, a vector of
+    real senders reached the framework's clean "no matching function for call
+    to `transpose`" — a constraint failure at the call site, measured against
+    an unregistered sender to confirm. After registration the call is viable
+    far enough to instantiate `VectorTraversableImpl::traverse`, and it dies
+    inside `sequence.hpp` at `accumulated = applicative.invoke(...)` with
+    *"no viable overloaded `=`"* and a three-frame template backtrace. The
+    diagnostic is honest — that assignment IS the invariance the fold needs
+    and a real sender does not have — but it is a regression in message
+    quality that registration bought.
+    Not fixed here, deliberately: the fix is the `collect` hook, which is
+    stage [collect-hook](transpose-execution-plan.md#collect-hook)'s
+    deliverable, and Stage 1's acceptance forbids making the vector front
+    door work early. The stage's acceptance is still met — `transpose` over a
+    vector of senders does not work — and no negative `static_assert` could
+    be written for it, since probing it is itself the hard error. Stage 3
+    should treat "this message becomes clean, or becomes a success" as one of
+    its own acceptance signals.
+  * THE POLICY CONCEPT ADMITS EXACTLY ONE SENDER SHAPE, which is finding one
+    above arriving as a bill. `applicative_object` does not constrain what
+    `pure` returns; `applicative_object_for`, the `traverse` policy concept,
+    adds `pure(element) -> same_as<CONTEXT>` per
+    [typeclass-conformance-depth](#typeclass-conformance-depth). Measured
+    across three sender shapes: the deep object concept holds for all three,
+    and the policy concept holds only for `decltype(just(1))` — failing for a
+    `then`-adapted sender and for `when_all(...) | then(...)`. `pure(x)` is
+    always `just(x)`, so the refinement is met only when `CONTEXT` happens to
+    BE the type `pure` produces, and a caller's sender almost never is.
+    One object for all sender types is exactly what makes `pure` free to
+    return a type of its own choosing, and this concept asks for the
+    opposite; the decision is not thereby wrong, but its cost has a name now.
+    Consequence for stage [collect-hook](transpose-execution-plan.md#collect-hook):
+    the vector front door cannot be reached by satisfying the existing policy
+    concept, so `collect` must be probed before that refinement applies, or
+    the refinement must relax for objects supplying `collect`. All three rows
+    are pinned in `p2300.test.cpp` so that choice is made against
+    measurements. Not decided here — it is Stage 3's to raise, under its own
+    slug, with this as the evidence.
 
 ---
 
@@ -2116,6 +2187,26 @@ authoritative statement of that is its completion signatures. Reading a
 `value_type` member would be reading a coincidence.
 **Log:**
 - 2026-09-11 — Drafted.
+- 2026-09-13 — CORRECTION to the Stage 0 entry below, made by Stage 1
+  [sender-registration](transpose-execution-plan.md#sender-registration) on
+  the same day. That entry inferred from "the alias is ill-formed for a
+  two-argument sender" that "a `requires` clause naming the alias is a hard
+  error, not a graceful constraint failure", and called it the same
+  non-SFINAE-friendly hazard
+  [functor-monad-grounding](#functor-monad-grounding) records for
+  `OptionalMonadImpl::bind`. **That inference was wrong**, and the test
+  written to support it already disproved it: ill-formed INSIDE a
+  requires-expression is a constraint failure, which is the whole point of a
+  requires-expression. `execution_probe.test.cpp`'s own
+  `static_assert(!reads_as_single_value<decltype(just(1, 2))>)` is a
+  `requires` clause naming the alias, evaluating to false, compiling.
+  The measurement was right and the conclusion drawn from it was not; the
+  sentence is struck rather than amended, and the corrected fact is that
+  `single_value_sender` can be spelled directly in terms of the alias with
+  no pre-check. Stage 1 pins `just(1, 2)`, `just()`, `just_error(...)`,
+  `just_stopped()` and a raw `when_all` as constraint failures in
+  `p2300.test.cpp`. Worth the space because the wrong version would have
+  cost Stage 1 an afternoon building a pre-check that nothing needs.
 - 2026-09-13 — Merged at Stage 0 as PROPOSED, with ONE What
   corrected against the pinned dependency and verified by compiling it.
   *Plan and draft said:* `value_types_of_t<S, empty_env, type_identity_t,
@@ -2132,14 +2223,7 @@ authoritative statement of that is its completion signatures. Reading a
   is exactly `int`, and the same alias over `decltype(just(1, 2))` is
   ILL-FORMED rather than merely different, because `type_identity_t` is not
   variadic. Both are pinned in
-  `tests/beman/transpose/execution_probe.test.cpp`. The second is the one
-  worth carrying forward: it means the arity constraint Stage 1 writes has
-  to be checked BEFORE this alias is instantiated, not derived from its
-  failure — a `requires` clause naming the alias is a hard error on a
-  two-argument sender, not a graceful constraint failure. That is the same
-  non-SFINAE-friendly hazard
-  [functor-monad-grounding](#functor-monad-grounding) records for
-  `OptionalMonadImpl::bind`, in a new place.
+  `tests/beman/transpose/execution_probe.test.cpp`.
 
 ---
 
