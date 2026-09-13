@@ -12,6 +12,7 @@
 
 #include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace bt = beman::transpose;
@@ -63,3 +64,40 @@ TEST_CASE(
     REQUIRE(transposed.data[0] == std::vector<int>{1, 10, 100});
     REQUIRE(transposed.data[1] == std::vector<int>{2, 20, 200});
 }
+
+// --- The front door is detectable -----------------------------------------
+//
+// transpose's Constraints clause says it is available where
+// traversable_typeclass names a traversable object for the argument's type
+// and applicative_typeclass names an applicative object for that structure's
+// element type. Until that was an associated constraint the declaration
+// said none of it: the return type is deduced, so asking whether transpose
+// is available for a type instantiated the body and hard-errored instead of
+// answering no. A caller could not write a concept over the front door.
+//
+// Spelled as a named concept, not a bare requires-expression at block scope:
+// the latter hard-errors on an invalid expression rather than yielding false
+// ([expr.prim.req]).
+
+namespace {
+
+template <class T>
+concept transposable =
+    requires(T &&value) { bt::transpose(std::forward<T>(value)); };
+
+struct not_a_structure {};
+
+} // namespace
+
+// Positive controls, one per motivating domain.
+static_assert(transposable<std::vector<std::optional<int>>>);
+static_assert(transposable<std::vector<std::optional<int>> &>);
+static_assert(transposable<std::vector<bt::sender<int>>>);
+
+// A type that names no traversable object at all.
+static_assert(!transposable<int>);
+static_assert(!transposable<not_a_structure>);
+
+// A structure that IS traversable, but whose elements are not a context --
+// transposing it is not a meaningful operation, not a missing one.
+static_assert(!transposable<std::vector<int>>);

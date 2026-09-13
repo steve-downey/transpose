@@ -121,7 +121,8 @@ struct $mixes-with-model-impl$<MODEL_GRADE, unit_grade> : true_type {}; // expos
 template<class MODEL_GRADE, class OPERAND>
 concept $mixes-with-model$ =
     $mixes-with-model-impl$<MODEL_GRADE,
-                   grade_of_t<remove_cvref_t<OPERAND>>>::value; // exposition only
+                          grade_of_t<remove_cvref_t<OPERAND>>>::value; // exposition
+                                                                       // only
 ```
 
 ```cpp
