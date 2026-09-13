@@ -107,6 +107,25 @@ var NAVTREE =
       [ "Class D — log drift", "md_docs_review_grading_fidelity_review.html#autotoc_md96", null ],
       [ "Verdict on the documents", "md_docs_review_grading_fidelity_review.html#autotoc_md97", null ]
     ] ],
+    [ "Review of the P3200 Reference Implementation", "md_docs_review_p3200_reference_implementation_review.html", [
+      [ "Executive summary", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md99", null ],
+      [ "Scope and method", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md100", null ],
+      [ "Findings", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md101", [
+        [ "High: vector traversal violates the linear complexity guarantee", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md102", null ],
+        [ "High: sender effects do not obey left-to-right order", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md103", null ],
+        [ "High: <tt>transpose</tt> does not implement its stated constraint", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md104", null ],
+        [ "Medium: Applicative probes require default-constructible result values", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md105", null ],
+        [ "Medium: forwarding-reference front doors do not provide consuming traversal", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md106", null ],
+        [ "Medium: callable detection and invocation use different value categories", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md107", null ],
+        [ "Medium: array operations impose unnecessary construction requirements", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md108", null ],
+        [ "Medium: the short-circuit specification is internally inconsistent", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md109", null ],
+        [ "Evidence gap: the sender example is not a P2300 sender", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md110", null ],
+        [ "Documentation readiness", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md111", null ]
+      ] ],
+      [ "Test and tooling assessment", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md112", null ],
+      [ "Recommended order of work", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md113", null ],
+      [ "Conclusion", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md114", null ]
+    ] ],
     [ "Grading in beman.transpose — Contextful Evolution Plan", "md_docs_transpose_grading_plan.html", [
       [ "0. How to use this document (divergence protocol)", "md_docs_transpose_grading_plan.html#divergence-protocol", null ],
       [ "1. Context: what this library is and what grading is doing in it", "md_docs_transpose_grading_plan.html#context", null ],
@@ -129,32 +148,32 @@ var NAVTREE =
       [ "6. Open questions", "md_docs_transpose_grading_plan.html#open-questions", null ]
     ] ],
     [ "typeclass-object-pattern", "md_docs_typeclass_object_pattern.html", [
-      [ "Typeclass Object Pattern in This Repository", "md_docs_typeclass_object_pattern.html#autotoc_md99", [
-        [ "Why this exists", "md_docs_typeclass_object_pattern.html#autotoc_md100", null ],
-        [ "The surface in this repo", "md_docs_typeclass_object_pattern.html#autotoc_md101", null ],
-        [ "Lookup modes (important)", "md_docs_typeclass_object_pattern.html#autotoc_md102", null ],
-        [ "Core mechanics", "md_docs_typeclass_object_pattern.html#autotoc_md103", [
-          [ "Concept side", "md_docs_typeclass_object_pattern.html#autotoc_md104", null ],
-          [ "Type side", "md_docs_typeclass_object_pattern.html#autotoc_md105", null ],
-          [ "Call side", "md_docs_typeclass_object_pattern.html#autotoc_md106", null ]
+      [ "Typeclass Object Pattern in This Repository", "md_docs_typeclass_object_pattern.html#autotoc_md116", [
+        [ "Why this exists", "md_docs_typeclass_object_pattern.html#autotoc_md117", null ],
+        [ "The surface in this repo", "md_docs_typeclass_object_pattern.html#autotoc_md118", null ],
+        [ "Lookup modes (important)", "md_docs_typeclass_object_pattern.html#autotoc_md119", null ],
+        [ "Core mechanics", "md_docs_typeclass_object_pattern.html#autotoc_md120", [
+          [ "Concept side", "md_docs_typeclass_object_pattern.html#autotoc_md121", null ],
+          [ "Type side", "md_docs_typeclass_object_pattern.html#autotoc_md122", null ],
+          [ "Call side", "md_docs_typeclass_object_pattern.html#autotoc_md123", null ]
         ] ],
-        [ "How to add a new instance", "md_docs_typeclass_object_pattern.html#autotoc_md107", null ],
-        [ "How to add a new concept", "md_docs_typeclass_object_pattern.html#autotoc_md108", null ],
-        [ "Testing and build wiring expectations", "md_docs_typeclass_object_pattern.html#autotoc_md109", null ],
-        [ "Algorithm objects: Inheriting from typeclass instances", "md_docs_typeclass_object_pattern.html#autotoc_md110", [
-          [ "Pattern", "md_docs_typeclass_object_pattern.html#autotoc_md111", null ],
-          [ "Multi-typeclass composition", "md_docs_typeclass_object_pattern.html#autotoc_md112", null ],
-          [ "Key points", "md_docs_typeclass_object_pattern.html#autotoc_md113", null ]
+        [ "How to add a new instance", "md_docs_typeclass_object_pattern.html#autotoc_md124", null ],
+        [ "How to add a new concept", "md_docs_typeclass_object_pattern.html#autotoc_md125", null ],
+        [ "Testing and build wiring expectations", "md_docs_typeclass_object_pattern.html#autotoc_md126", null ],
+        [ "Algorithm objects: Inheriting from typeclass instances", "md_docs_typeclass_object_pattern.html#autotoc_md127", [
+          [ "Pattern", "md_docs_typeclass_object_pattern.html#autotoc_md128", null ],
+          [ "Multi-typeclass composition", "md_docs_typeclass_object_pattern.html#autotoc_md129", null ],
+          [ "Key points", "md_docs_typeclass_object_pattern.html#autotoc_md130", null ]
         ] ],
-        [ "Applicative: Derived invoke via terminating partial application", "md_docs_typeclass_object_pattern.html#autotoc_md114", null ],
-        [ "Traps and corrections from tree-instance implementation", "md_docs_typeclass_object_pattern.html#autotoc_md115", null ],
-        [ "Notes for future cleanup", "md_docs_typeclass_object_pattern.html#autotoc_md116", null ]
+        [ "Applicative: Derived invoke via terminating partial application", "md_docs_typeclass_object_pattern.html#autotoc_md131", null ],
+        [ "Traps and corrections from tree-instance implementation", "md_docs_typeclass_object_pattern.html#autotoc_md132", null ],
+        [ "Notes for future cleanup", "md_docs_typeclass_object_pattern.html#autotoc_md133", null ]
       ] ]
     ] ],
     [ "The wording pipeline", "md_docs_wording_pipeline.html", [
-      [ "The loop", "md_docs_wording_pipeline.html#autotoc_md118", null ],
-      [ "What generates what", "md_docs_wording_pipeline.html#autotoc_md119", null ],
-      [ "Rules for marking up a header", "md_docs_wording_pipeline.html#autotoc_md120", null ]
+      [ "The loop", "md_docs_wording_pipeline.html#autotoc_md135", null ],
+      [ "What generates what", "md_docs_wording_pipeline.html#autotoc_md136", null ],
+      [ "Rules for marking up a header", "md_docs_wording_pipeline.html#autotoc_md137", null ]
     ] ]
   ] ]
 ];
