@@ -201,6 +201,29 @@ struct probe_witness {
     }
 };
 
+/** Representative witness for probing an operation in the consuming
+ * category: it accepts its argument only as a non-`const` rvalue, so an
+ * operation that hands the argument on as a `const` lvalue does not match
+ * it.
+ *
+ * `probe_witness` takes `const ARGUMENT&` and so accepts every category,
+ * which is what makes it the right witness for asking whether an operation
+ * exists at all, and the wrong one for asking which category an operation
+ * passes its argument on in: it answers yes either way. The argument type
+ * is named rather than deduced so that `ARGUMENT&&` is an rvalue reference
+ * and not a forwarding reference.
+ *
+ * Its body establishes only the result type, for the reason `probe_witness`
+ * records.
+ */
+//! \expos
+template <class ARGUMENT, class RESULT>
+struct consuming_probe_witness {
+    constexpr auto operator()(ARGUMENT &&) const -> RESULT {
+        std::unreachable();
+    }
+};
+
 /** The two-argument counterpart of `probe_witness`, for probing derived
  * operations templated over an arbitrary binary callable (`zip_with`, and
  * the state-combining function `fold_left`/`fold_right` take). A single
