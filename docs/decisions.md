@@ -1916,3 +1916,50 @@ promising it does.
   present the Makefile makes the vcpkg toolchain the top-level include, so
   the lockfile provider is not active and the evidence build needs the
   FetchContent path.
+
+---
+
+## explicit-parameter-tier-sufficiency
+
+**Question:** Does the explicit-parameter tier carry real work on its own, or
+does a consumer that adopts the design end up needing the typeclass-lookup
+tier?
+**Status:** OPEN — one field data point recorded below; the question is not
+settled by it.
+**Recorded by:** Steve, from a usage report filed as issue #34.
+**Observation:** [specgen](https://github.com/steve-downey/specgen), a
+Clang-based generator for C++ standard-library specification wording, adopted
+the `traverse`-shaped validation and monoidal-diagnostics ideas from this
+repository and took **only** the explicit-parameter tier: every verb receives
+its operations as ordinary arguments. No CRTP typeclass base, no
+`*_typeclass` lookup, no `Foldable`/`Traversable` specialization.
+
+It took the ideas in its own spellings, not this library's API. `mconcat(range,
+monoid{combine, identity})` and `fold_with` are specgen's names; neither
+exists here. The local analogue is the `*_with` family — `traverse_with` and
+`transpose_with` (`include/beman/transpose/traverse.hpp`), `invoke_with`
+(`include/beman/transpose/apply.hpp`) — together with the monoid objects.
+
+It was sufficient, and reportedly not by a narrow margin.
+**Why it may matter:** The reason given is scale. The tool has on the order of
+four functor-shaped types and ten call sites over them. At that size an
+explicit `{combine, identity}` pair passed by hand costs less than a lookup
+framework and reads at the call site with one less level of indirection. The
+diagnostics monoid is a production consumer — a validator folding over an IR
+tree — so this is not a toy measurement.
+
+The load-bearing part is the threshold, not the preference. Promoting an
+explicit call site to a lookup later is mechanical, which is what made
+deferring free. That is evidence *for* the two-tier shape: the tiers are
+orderable, and a consumer can start at the cheap one and stay there as long as
+it fits. It is not evidence that the lookup tier is unnecessary — specgen
+never reached the scale that motivates it.
+**Consequences:** One consumer's adoption path cost it nothing to skip the
+lookup tier, so if that tier is a maintenance burden, this is not a consumer
+who would notice it being deferred. A single data point at one scale does not
+generalize; what would move the question is a consumer at ten or more
+functor-shaped types reporting either way.
+**Log:**
+- 2026-09-13 — Recorded from issue #34. Upstream provenance: OBS-2 in
+  specgen's `foundation/DIVERGENCES.md`, and decision D16 in its refactoring
+  plan. No change to this library follows from it.
