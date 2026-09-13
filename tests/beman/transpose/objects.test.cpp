@@ -302,3 +302,24 @@ static_assert(!bt::applicative_impl<NoBasisImpl, std::optional<int>>);
 static_assert(!bt::monad_impl<NoBasisImpl, std::optional<int>>);
 static_assert(!bt::foldable_impl<NoBasisImpl, std::vector<int>>);
 static_assert(!bt::traversable_impl<NoBasisImpl, std::vector<int>>);
+
+// -- An object asked about a foreign context answers, rather than diagnosing
+// --
+//
+// Each registered applicative object deduces its operands through forwarding
+// references, so that a caller's value category reaches the composition, and
+// each therefore has to say for itself which operand shape it composes.
+// Without that the operand reaches a body whose return type is deduced, and
+// the concept diagnoses from inside it instead of evaluating to false --
+// which is the one thing a detection concept may not do. These are the
+// negative cases: every object, asked about a context that is not its own.
+static_assert(!bt::applicative_object<bt::OptionalApplicativeMap<int>,
+                                      std::array<int, 3>>);
+static_assert(!bt::applicative_object<bt::ArrayApplicativeMap<int, 3>,
+                                      std::optional<int>>);
+static_assert(!bt::applicative_object<bt::SimdLanesApplicativeMap<int, 4>,
+                                      std::optional<int>>);
+static_assert(!bt::applicative_object<
+              bt::remove_cvref_t<
+                  decltype(bt::applicative_typeclass<bt::zip_list<int>>)>,
+              std::optional<int>>);
