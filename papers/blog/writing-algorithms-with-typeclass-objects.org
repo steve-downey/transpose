@@ -249,7 +249,7 @@ Slightly more syntax; in exchange, the call-site override from earlier, which a 
 * Where it matters, and why it belongs in the standard
 
 This is not a demonstration written once against one type.
-In this proposal's own repository the same fold and traversal algorithms run, unchanged, over a ~BinaryTree<T>~ ([[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::examples/binary_tree.hpp][=examples/binary_tree.hpp=]]) /and/ over the contextual types from part one --- ~optional~, ~std::execution~ senders, and lanewise ~zip_list~/SIMD --- which share nothing with a tree and nothing with each other, yet enter through the identical mechanism.
+In this proposal's own repository the same fold and traversal algorithms run, unchanged, over a ~BinaryTree<T>~ ([[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::examples/binary_tree.hpp][=examples/binary_tree.hpp=]]) /and/ over the contextual types from part one --- ~optional~, the sender-shaped stand-in, and lanewise ~zip_list~/SIMD --- which share nothing with a tree and nothing with each other, yet enter through the identical mechanism.
 
 The same ~foldable_typeclass~ / ~traversable_typeclass~ machinery reaches further in the coordinated paper set, over structures this paper deliberately leaves to its companions:
 
