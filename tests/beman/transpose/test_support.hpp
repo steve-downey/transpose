@@ -8,6 +8,7 @@
 #include <beman/transpose/traverse.hpp>
 
 #include <algorithm>
+#include <concepts>
 #include <functional>
 #include <optional>
 #include <type_traits>
@@ -191,6 +192,24 @@ struct rvalue_only_callable {
     }
 };
 
+/** Invocable only with an rvalue argument.
+ *
+ * The mirror image of `rvalue_only_callable`, which is about the category
+ * of the callable; this one is about the category of the element. A
+ * traversable object passes elements on in the category it received the
+ * structure in, so this callable is usable for a traversal of an rvalue
+ * structure and for no other. An object that accepts an rvalue structure
+ * and then hands its elements on as `const` lvalues does not match it,
+ * which is what makes the obligation checkable rather than promised.
+ */
+struct rvalue_argument_only_callable {
+    int bias;
+
+    auto operator()(int &&element) const -> std::optional<int> {
+        return std::optional<int>{element + bias};
+    }
+};
+
 /** Minimal single-element applicative context used in law tests. */
 template <class VALUE_TYPE>
 struct Identity {
@@ -279,12 +298,21 @@ template <class VALUE_TYPE>
 inline constexpr auto foldable_typeclass<test::Sequence<VALUE_TYPE>> =
     TestSequenceFoldableMap<VALUE_TYPE>{};
 
-/** Traversable implementation for Identity<V>. */
+/** Traversable implementation for Identity<V>.
+ *
+ * Two overloads, because a traversable object passes elements on in the
+ * category it received the structure in. Identity owns its value outright,
+ * so the consuming overload really does hand it over. The constraints are
+ * what let an availability probe answer rather than diagnose: the return
+ * types are deduced, so a callable an overload cannot invoke would
+ * otherwise reach its body.
+ */
 template <class VALUE_TYPE>
 struct TestIdentityTraversableImpl {
     using element_type = VALUE_TYPE;
 
     template <class APPLICATIVE, class FUNCTION>
+        requires std::invocable<FUNCTION &, const VALUE_TYPE &>
     auto traverse(this auto &&, const APPLICATIVE &applicative,
                   FUNCTION &&function,
                   const test::Identity<VALUE_TYPE> &identity) {
@@ -294,6 +322,19 @@ struct TestIdentityTraversableImpl {
                 return test::Identity<U>{std::forward<decltype(value)>(value)};
             },
             std::invoke(std::forward<FUNCTION>(function), identity.value));
+    }
+
+    template <class APPLICATIVE, class FUNCTION>
+        requires std::invocable<FUNCTION &, VALUE_TYPE &&>
+    auto traverse(this auto &&, const APPLICATIVE &applicative,
+                  FUNCTION &&function, test::Identity<VALUE_TYPE> &&identity) {
+        return applicative.invoke(
+            [](auto &&value) {
+                using U = remove_cvref_t<decltype(value)>;
+                return test::Identity<U>{std::forward<decltype(value)>(value)};
+            },
+            std::invoke(std::forward<FUNCTION>(function),
+                        std::move(identity.value)));
     }
 };
 

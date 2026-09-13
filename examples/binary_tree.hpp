@@ -12,6 +12,7 @@
 #include <beman/transpose/traverse.hpp>
 
 #include <cassert>
+#include <concepts>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -256,7 +257,13 @@ template <class T>
 struct BinaryTreeTraversableImpl {
     using element_type = T;
 
+    // A traversable object passes elements on in the category it received
+    // the structure in, so there are two overloads. The constraints are what
+    // make an availability probe answer rather than diagnose: the return
+    // type is deduced, so a callable this overload cannot invoke would
+    // otherwise reach the body.
     template <class APPLICATIVE, class F>
+        requires std::invocable<F &, const T &>
     auto traverse(this auto &&self, const APPLICATIVE &applicative,
                   F &&function, const BinaryTree<T> &tree) {
         auto value_context =
@@ -336,6 +343,31 @@ struct BinaryTreeTraversableImpl {
                     std::forward<decltype(right)>(right));
             },
             value_context, left_context, right_context);
+    }
+
+    /** Consuming traversal: each element is presented to `function` as an
+     * rvalue, because the structure arrived as one.
+     *
+     * BinaryTree is persistent and its subtrees are shared, so an rvalue
+     * tree does not convey ownership of the values inside it -- another
+     * tree may still hold the same nodes. Each element is therefore copied
+     * into a temporary and handed on as an rvalue. The obligation
+     * `traverse_element_t` states is on the category, which this meets; the
+     * copy that an owning structure like `std::vector` avoids in this
+     * overload is not available to a structure that shares its parts, and
+     * the `copy_constructible` constraint is where that shows. An element
+     * type that can be moved but not copied has no consuming traversal of
+     * this structure, and the concepts report so rather than diagnose.
+     */
+    template <class APPLICATIVE, class F>
+        requires std::copy_constructible<T> && std::invocable<F &, T &&>
+    auto traverse(this auto &&self, const APPLICATIVE &applicative,
+                  F &&function, BinaryTree<T> &&tree) {
+        auto consuming = [&function](const T &element) {
+            return std::invoke(function, T(element));
+        };
+        return self.traverse(applicative, consuming,
+                             static_cast<const BinaryTree<T> &>(tree));
     }
 };
 
