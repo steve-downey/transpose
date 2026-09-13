@@ -152,13 +152,20 @@ struct ExpectedApplicativeImpl {
     auto pure(this auto &&, VALUE &&value)
         -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>;
 
-    /** N-ary core: all operands share ERROR_TYPE; leftmost error wins. */
-    template <class FUNCTION, class FIRST, class... REST>
-    auto invoke(this auto &&, FUNCTION &&function,
-                const std::expected<FIRST, ERROR_TYPE> &first,
-                const std::expected<REST, ERROR_TYPE> &...rest)
+    /** N-ary core: all operands share ERROR_TYPE; leftmost error wins.
+     *
+     * Operands are deduced through forwarding references rather than matched
+     * as `const expected<FIRST, ERROR_TYPE>&`, so that a caller handing over
+     * an rvalue has its held value moved from. `all_declare_v` restates in a
+     * constraint the shape the old signature matched by pattern, and remains
+     * exactly complementary to the two cores below.
+     */
+    template <class FUNCTION, class... CARRIERS>
+        requires(sizeof...(CARRIERS) > 0) &&
+                detail::all_declare_v<ERROR_TYPE, CARRIERS...>
+    auto invoke(this auto &&, FUNCTION &&function, CARRIERS &&...operands)
         -> std::expected<remove_cvref_t<std::invoke_result_t<
-                             FUNCTION &, const FIRST &, const REST &...>>,
+                             FUNCTION &, detail::contained_ref_t<CARRIERS>...>>,
                          ERROR_TYPE>;
 
     /** N-ary core: expected operands share ERROR_TYPE, with any number of
@@ -285,13 +292,16 @@ struct AccumulatingExpectedApplicativeImpl {
      * error, possibly several members), failures of distinct members all
      * survive; otherwise there is one slot and this degrades to
      * leftmost-wins, same as the short-circuit object.
+     *
+     * Operands are deduced through forwarding references, as
+     * ExpectedApplicativeImpl's counterpart core explains.
      */
-    template <class FUNCTION, class FIRST, class... REST>
-    auto invoke(this auto &&, FUNCTION &&function,
-                const std::expected<FIRST, ERROR_TYPE> &first,
-                const std::expected<REST, ERROR_TYPE> &...rest)
+    template <class FUNCTION, class... CARRIERS>
+        requires(sizeof...(CARRIERS) > 0) &&
+                detail::all_declare_v<ERROR_TYPE, CARRIERS...>
+    auto invoke(this auto &&, FUNCTION &&function, CARRIERS &&...operands)
         -> std::expected<remove_cvref_t<std::invoke_result_t<
-                             FUNCTION &, const FIRST &, const REST &...>>,
+                             FUNCTION &, detail::contained_ref_t<CARRIERS>...>>,
                          ERROR_TYPE>;
 
     /** N-ary core: expected operands share ERROR_TYPE, with any number of
@@ -446,18 +456,20 @@ auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure(this auto &&,
 //! an `expected` holding the error of the first operand, in that same order,
 //! that does not hold a value.
 //! \remarks `function` is invoked at most once. Composition short-circuits:
-//! only the first error is observed.
+//! only the first error is observed. Each operand's held value is passed on
+//! with that operand's own value category, so a caller that hands over an
+//! rvalue operand has its value moved from rather than copied.
 template <class VALUE_TYPE, class ERROR_TYPE>
-template <class FUNCTION, class FIRST, class... REST>
+template <class FUNCTION, class... CARRIERS>
+    requires(sizeof...(CARRIERS) > 0) &&
+            detail::all_declare_v<ERROR_TYPE, CARRIERS...>
 auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
-    this auto &&, FUNCTION &&function,
-    const std::expected<FIRST, ERROR_TYPE> &first,
-    const std::expected<REST, ERROR_TYPE> &...rest)
+    this auto &&, FUNCTION &&function, CARRIERS &&...operands)
     -> std::expected<remove_cvref_t<std::invoke_result_t<
-                         FUNCTION &, const FIRST &, const REST &...>>,
+                         FUNCTION &, detail::contained_ref_t<CARRIERS>...>>,
                      ERROR_TYPE> {
     using Result = remove_cvref_t<
-        std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
+        std::invoke_result_t<FUNCTION &, detail::contained_ref_t<CARRIERS>...>>;
     using Returned = std::expected<Result, ERROR_TYPE>;
 
     std::optional<ERROR_TYPE> failure;
@@ -466,13 +478,14 @@ auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
             failure = operand.error();
         }
     };
-    record_first_failure(first);
-    (record_first_failure(rest), ...);
+    (record_first_failure(operands), ...);
 
     if (failure.has_value()) {
         return Returned{std::unexpect, std::move(*failure)};
     }
-    return Returned{std::invoke(function, *first, *rest...)};
+    return Returned{std::invoke(
+        function,
+        detail::forward_contained(std::forward<CARRIERS>(operands))...)};
 }
 
 //! \constraints At least one operand is an `expected`; the operands do not
@@ -584,18 +597,20 @@ auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure(
 //! an `expected` holding the combination of every operand's error, combined
 //! in that same order.
 //! \remarks `function` is invoked at most once. Composition accumulates:
-//! every error is observed, not only the first.
+//! every error is observed, not only the first. Each operand's held value is
+//! passed on with that operand's own value category, so a caller that hands
+//! over an rvalue operand has its value moved from rather than copied.
 template <class VALUE_TYPE, class ERROR_TYPE>
-template <class FUNCTION, class FIRST, class... REST>
+template <class FUNCTION, class... CARRIERS>
+    requires(sizeof...(CARRIERS) > 0) &&
+            detail::all_declare_v<ERROR_TYPE, CARRIERS...>
 auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
-    this auto &&, FUNCTION &&function,
-    const std::expected<FIRST, ERROR_TYPE> &first,
-    const std::expected<REST, ERROR_TYPE> &...rest)
+    this auto &&, FUNCTION &&function, CARRIERS &&...operands)
     -> std::expected<remove_cvref_t<std::invoke_result_t<
-                         FUNCTION &, const FIRST &, const REST &...>>,
+                         FUNCTION &, detail::contained_ref_t<CARRIERS>...>>,
                      ERROR_TYPE> {
     using Result = remove_cvref_t<
-        std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
+        std::invoke_result_t<FUNCTION &, detail::contained_ref_t<CARRIERS>...>>;
     using Returned = std::expected<Result, ERROR_TYPE>;
 
     auto extract_failure =
@@ -605,13 +620,15 @@ auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
         }
         return operand.error();
     };
-    auto accumulated = detail::accumulate_failures<ERROR_TYPE>(extract_failure,
-                                                               first, rest...);
+    auto accumulated =
+        detail::accumulate_failures<ERROR_TYPE>(extract_failure, operands...);
 
     if (accumulated.has_value()) {
         return Returned{std::unexpect, std::move(*accumulated)};
     }
-    return Returned{std::invoke(function, *first, *rest...)};
+    return Returned{std::invoke(
+        function,
+        detail::forward_contained(std::forward<CARRIERS>(operands))...)};
 }
 
 //! \constraints At least one operand is an `expected`; the operands do not

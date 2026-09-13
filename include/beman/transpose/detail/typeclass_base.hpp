@@ -3,8 +3,11 @@
 #ifndef BEMAN_TRANSPOSE_DETAIL_TYPECLASS_BASE_HPP
 #define BEMAN_TRANSPOSE_DETAIL_TYPECLASS_BASE_HPP
 
+#include <array>
+#include <cstddef>
 #include <optional>
 #include <type_traits>
+#include <utility>
 
 namespace beman::transpose {
 
@@ -73,6 +76,85 @@ using applicative_value_t = typename applicative_value<remove_cvref_t<T>>::type;
 
 namespace detail {
 
+/** Whether `T`, ignoring cv-qualification and reference, is a
+ * `std::optional` specialization. Lets an `invoke` deduce its operands
+ * through forwarding references -- which is what carries the caller's value
+ * category into the operation -- while still declining operands that are not
+ * of the context it composes. */
+template <class T>
+struct is_optional : std::false_type {};
+
+template <class U>
+struct is_optional<std::optional<U>> : std::true_type {};
+
+//! \expos
+template <class T>
+inline constexpr bool is_optional_v = is_optional<remove_cvref_t<T>>::value;
+
+/** The value an applicative operand holds, with the operand's own value
+ * category.
+ *
+ * An operation that takes its operands by `const&` can only ever copy the
+ * values out of them, and a traversal that accumulates through such an
+ * operation copies its whole accumulated prefix at every step. Deducing the
+ * operand and forwarding through this is what lets a caller who has an
+ * rvalue -- the traversal loop, moving its accumulator forward -- hand the
+ * held value over instead of duplicating it.
+ */
+template <class OPERAND>
+constexpr auto forward_contained(OPERAND &&operand)
+    -> decltype(*std::forward<OPERAND>(operand)) {
+    return *std::forward<OPERAND>(operand);
+}
+
+/** The type `forward_contained` yields for an operand of type `OPERAND`,
+ * for naming in a trailing return type. */
+//! \expos
+template <class OPERAND>
+using contained_ref_t = decltype(forward_contained(std::declval<OPERAND>()));
+
+/** `container[index]`, with `container`'s own value category.
+ *
+ * The lanewise applicative objects read each position of each operand
+ * exactly once, so an rvalue operand's element may be handed over rather
+ * than copied. As with `forward_contained`, this is what keeps a traversal
+ * that accumulates through such an object from duplicating its whole
+ * accumulated result at every lane of every step.
+ */
+template <class CONTAINER>
+constexpr auto forward_at(CONTAINER &&container, std::size_t index)
+    -> decltype(auto) {
+    if constexpr (std::is_lvalue_reference_v<CONTAINER>) {
+        return container[index];
+    } else {
+        return std::move(container[index]);
+    }
+}
+
+/** The type `forward_at` yields for a container of type `CONTAINER`. */
+//! \expos
+template <class CONTAINER>
+using element_ref_t =
+    decltype(forward_at(std::declval<CONTAINER>(), std::size_t{}));
+
+/** Builds a `std::array<U, N>` by calling `generator` with each index in turn.
+ *
+ * Default-constructing the array and then assigning its elements is the
+ * obvious way to fill a fixed-extent result, and it silently requires the
+ * element type to be default-constructible AND assignable -- neither of which
+ * the operations that build such results actually need. Constructing the
+ * array directly from the generated elements requires only what the operation
+ * documents: that each element is constructible from its own result.
+ *
+ * The initializer-clauses of a braced-init-list are sequenced left to right
+ * ([dcl.init.list]/4), so lane 0's element is produced before lane 1's.
+ */
+template <class U, std::size_t N, class GENERATOR, std::size_t... INDICES>
+constexpr auto make_array(GENERATOR &&generator,
+                          std::index_sequence<INDICES...>) -> std::array<U, N> {
+    return std::array<U, N>{generator(INDICES)...};
+}
+
 /** Representative witness callable for probing a one-argument derived
  * operation that is templated over an arbitrary callable -- `fmap`, `map`,
  * `fold_map`, `traverse`, and similar. A concept can check membership for
@@ -80,13 +162,22 @@ namespace detail {
  * is that one instantiation, parameterized by what the probed operation
  * needs the callable to produce. Its presence in a concept is a witness
  * that the operation exists, not a proof that it exists for every callable.
+ *
+ * The body establishes the result TYPE and nothing else. Returning `RESULT{}`
+ * would be simpler, and would impose a default-construction requirement that
+ * no operation's specification asks for: a probe appears inside a
+ * requires-expression, but probing a derived operation with a deduced return
+ * type instantiates enough of that operation's body to instantiate this call,
+ * so `RESULT{}` reaches the compiler and rejects contexts over
+ * non-default-constructible elements. The body is never executed -- a concept
+ * is checked, not evaluated -- so `std::unreachable` is the honest spelling.
  */
 //! \expos
 template <class RESULT>
 struct probe_witness {
     template <class ARGUMENT>
     constexpr auto operator()(const ARGUMENT &) const -> RESULT {
-        return RESULT{};
+        std::unreachable();
     }
 };
 
@@ -98,13 +189,16 @@ struct probe_witness {
  * with either one argument or two would be accepted after the first and
  * never reach the second, silently truncating the arity the probe means to
  * exercise.
+ *
+ * Its body establishes only the result type, for the reason `probe_witness`
+ * records.
  */
 //! \expos
 template <class RESULT>
 struct probe_witness2 {
     template <class FIRST, class SECOND>
     constexpr auto operator()(const FIRST &, const SECOND &) const -> RESULT {
-        return RESULT{};
+        std::unreachable();
     }
 };
 

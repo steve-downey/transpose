@@ -46,3 +46,25 @@ TEST_CASE(
     REQUIRE(result == std::optional<bt::test::Identity<int>>{
                           bt::test::Identity<int>{21}});
 }
+
+TEST_CASE("traverse: the default policy retains the first failure and still "
+          "applies function to every element") {
+    // The wording used to say the default policy "stops at the first failing
+    // element", which reads as though later elements' contexts are never
+    // produced. They are: independent contextual composition means an
+    // element's context does not depend on any other element's value, so
+    // every context is computed before any composition sees it, and only
+    // the reconstruction of the value in context stops. This pins the
+    // difference the old phrasing hid.
+    int applications = 0;
+    auto fails_on_two = [&applications](int element) {
+        ++applications;
+        return element == 2 ? std::optional<int>{}
+                            : std::optional<int>{element};
+    };
+
+    auto result = bt::traverse(fails_on_two, std::vector<int>{1, 2, 3, 4});
+
+    REQUIRE_FALSE(result.has_value());
+    REQUIRE(applications == 4);
+}

@@ -25,6 +25,17 @@ option(
     ${PROJECT_IS_TOP_LEVEL}
 )
 
+# The P2300 evidence -- examples/p2300_adapter.hpp and its test -- is the only
+# thing here with an external dependency, so it is opt-in and OFF by default:
+# a plain build of this repository must not need beman.execution fetched.
+# Turn it on to check the Applicative surface against genuine std::execution
+# senders. See docs/decisions.md#p2300-front-door-shape.
+option(
+    BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE
+    "Enable the non-normative P2300 sender adapter and its test. Requires beman.execution. Default: OFF. Values: { ON, OFF }."
+    OFF
+)
+
 configure_file(
     "${PROJECT_SOURCE_DIR}/include/beman/transpose/config_generated.hpp.in"
     "${PROJECT_BINARY_DIR}/include/beman/transpose/config_generated.hpp"
@@ -55,6 +66,15 @@ add_subdirectory(include/beman/transpose)
 
 include(infra/cmake/beman-install-library.cmake)
 beman_install_library(beman.transpose TARGETS beman.transpose)
+
+if(BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE)
+    # beman.execution builds as C++20 modules by default, and its umbrella
+    # header then resolves to `import` declarations. The adapter is written
+    # against the header path, which is the one a reader can copy. Set,
+    # without FORCE, so an explicit -DBEMAN_USE_MODULES=ON still wins.
+    set(BEMAN_USE_MODULES OFF CACHE BOOL "Build beman.execution as headers.")
+    find_package(beman.execution REQUIRED)
+endif()
 
 if(BEMAN_TRANSPOSE_BUILD_TESTS)
     find_package(Catch2 3 REQUIRED)

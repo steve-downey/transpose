@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <functional>
+#include <optional>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -83,6 +85,111 @@ auto check_functor_composition_law(const F &outer, const G &inner,
     auto right = applicative.map(outer, applicative.map(inner, value));
     return left == right;
 }
+
+/** Copy-constructible, and deliberately nothing more.
+ *
+ * The operations that build results -- `pure`, `invoke`, the array and lane
+ * constructions -- document only that each result element is constructible
+ * from its own result. A scalar fixture satisfies far more than that, so a
+ * suite built from scalars cannot tell a documented requirement from one an
+ * implementation reached for by accident. This type has no default
+ * constructor and no assignment operator, so any operation that needs either
+ * fails to compile against it, and the requirement cannot creep back in
+ * unnoticed.
+ */
+struct copyable_only {
+    int value;
+
+    explicit constexpr copyable_only(int initial) : value(initial) {}
+    constexpr copyable_only(const copyable_only &) = default;
+    constexpr copyable_only(copyable_only &&) = default;
+    auto operator=(const copyable_only &) -> copyable_only & = delete;
+    auto operator=(copyable_only &&) -> copyable_only & = delete;
+    ~copyable_only() = default;
+
+    friend constexpr auto operator==(const copyable_only &left,
+                                     const copyable_only &right) -> bool {
+        return left.value == right.value;
+    }
+};
+
+static_assert(std::is_copy_constructible_v<copyable_only>);
+static_assert(!std::is_default_constructible_v<copyable_only>);
+static_assert(!std::is_copy_assignable_v<copyable_only>);
+static_assert(!std::is_move_assignable_v<copyable_only>);
+
+/** Counts its own copies and moves, so a test can tell linear construction
+ * from quadratic.
+ *
+ * Comparing values proves a traversal computes the right answer and says
+ * nothing about what it cost to get there. A traversal that rebuilds its
+ * whole accumulated prefix at every step returns exactly the same vector as
+ * one that appends to it. The only way to pin the difference is to count,
+ * and the only way to read a count is against a second, larger input: an
+ * absolute bound alone cannot distinguish a linear implementation with a
+ * large constant from a quadratic one.
+ */
+struct counted {
+    static inline long copies = 0;
+    static inline long moves = 0;
+
+    int value;
+
+    explicit counted(int initial) : value(initial) {}
+    counted(const counted &other) : value(other.value) { ++copies; }
+    counted(counted &&other) noexcept : value(other.value) { ++moves; }
+
+    auto operator=(const counted &other) -> counted & {
+        value = other.value;
+        ++copies;
+        return *this;
+    }
+    auto operator=(counted &&other) noexcept -> counted & {
+        value = other.value;
+        ++moves;
+        return *this;
+    }
+    ~counted() = default;
+
+    static void reset() {
+        copies = 0;
+        moves = 0;
+    }
+
+    friend auto operator==(const counted &, const counted &) -> bool = default;
+};
+
+/** Invocable only through an lvalue.
+ *
+ * A traversal invokes a named `function` variable once per element, and a
+ * named variable is an lvalue whether the caller passed a temporary or not.
+ * This callable is therefore usable everywhere the library invokes one --
+ * but a type computation that spells `invoke_result_t<F, ...>` for a deduced
+ * `F&&` tests rvalue invocation instead, and rejects it.
+ */
+struct lvalue_only_callable {
+    int bias;
+
+    auto operator()(int element) & -> std::optional<int> {
+        return std::optional<int>{element + bias};
+    }
+};
+
+/** Invocable only through an rvalue: the mirror-image witness.
+ *
+ * Nothing in the library ever invokes a callable in this category, so this
+ * one must be rejected. Detecting with `invoke_result_t<F, ...>` accepts it
+ * for a caller who passes a temporary, and then fails inside the loop --
+ * a diagnostic from the middle of an instantiation rather than a constraint
+ * that simply does not match.
+ */
+struct rvalue_only_callable {
+    int bias;
+
+    auto operator()(int element) && -> std::optional<int> {
+        return std::optional<int>{element + bias};
+    }
+};
 
 /** Minimal single-element applicative context used in law tests. */
 template <class VALUE_TYPE>
