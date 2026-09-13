@@ -117,10 +117,9 @@ template <class T>
 struct BinaryTreeFoldableImpl {
     template <class F>
     auto fold_map(this auto &&self, F &&function, const BinaryTree<T> &tree)
-        -> beman::transpose::remove_cvref_t<
-            decltype(std::invoke(function, tree.value()))> {
+        -> std::remove_cvref_t<decltype(std::invoke(function, tree.value()))> {
         auto value_result = std::invoke(function, tree.value());
-        using Result = beman::transpose::remove_cvref_t<decltype(value_result)>;
+        using Result = std::remove_cvref_t<decltype(value_result)>;
 
         Result acc = tree.has_left() ? beman::transpose::monoid_combine(
                                            self.fold_map(function, tree.left()),
@@ -170,7 +169,7 @@ struct BinaryTreeApplicativeImpl {
     /** Lift a plain value into a single-leaf tree. */
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value) {
-        using U = beman::transpose::remove_cvref_t<VALUE>;
+        using U = std::remove_cvref_t<VALUE>;
         return BinaryTree<U>::leaf(std::forward<VALUE>(value));
     }
 
@@ -268,12 +267,11 @@ struct BinaryTreeTraversableImpl {
                   F &&function, const BinaryTree<T> &tree) {
         auto value_context =
             std::invoke(std::forward<F>(function), tree.value());
-        using Context =
-            beman::transpose::remove_cvref_t<decltype(value_context)>;
+        using Context = std::remove_cvref_t<decltype(value_context)>;
         using U = beman::transpose::applicative_value_t<Context>;
         using TreeContext = decltype(applicative.invoke(
             [](auto &&value) {
-                using V = beman::transpose::remove_cvref_t<decltype(value)>;
+                using V = std::remove_cvref_t<decltype(value)>;
                 return BinaryTree<V>::leaf(
                     std::forward<decltype(value)>(value));
             },
@@ -282,7 +280,7 @@ struct BinaryTreeTraversableImpl {
         if (!tree.has_left() && !tree.has_right()) {
             return applicative.invoke(
                 [](auto &&value) {
-                    using V = beman::transpose::remove_cvref_t<decltype(value)>;
+                    using V = std::remove_cvref_t<decltype(value)>;
                     return BinaryTree<V>::leaf(
                         std::forward<decltype(value)>(value));
                 },
@@ -304,8 +302,7 @@ struct BinaryTreeTraversableImpl {
         auto to_child_ptr = [&](const auto &child_tree_context) {
             return applicative.invoke(
                 [](auto &&subtree) {
-                    using SubTree =
-                        beman::transpose::remove_cvref_t<decltype(subtree)>;
+                    using SubTree = std::remove_cvref_t<decltype(subtree)>;
                     return std::make_shared<SubTree>(
                         std::forward<decltype(subtree)>(subtree));
                 },
@@ -336,7 +333,7 @@ struct BinaryTreeTraversableImpl {
 
         return applicative.invoke(
             [](auto &&value, auto &&left, auto &&right) {
-                using V = beman::transpose::remove_cvref_t<decltype(value)>;
+                using V = std::remove_cvref_t<decltype(value)>;
                 return BinaryTree<V>::from_children_ptrs(
                     std::forward<decltype(value)>(value),
                     std::forward<decltype(left)>(left),

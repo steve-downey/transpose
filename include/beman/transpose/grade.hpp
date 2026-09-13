@@ -155,7 +155,7 @@ using grade_join_all_t = typename grade_join_all<GRADES...>::type;
 template <class MODEL_GRADE, class OPERAND>
 struct grade_lifted_into_model {
   private:
-    using raw_grade = grade_of_t<remove_cvref_t<OPERAND>>;
+    using raw_grade = grade_of_t<std::remove_cvref_t<OPERAND>>;
 
   public:
     using type = std::conditional_t<std::is_same_v<raw_grade, unit_grade>,
@@ -179,7 +179,7 @@ struct mixes_with_model_impl<MODEL_GRADE, unit_grade> : std::true_type {};
 template <class MODEL_GRADE, class OPERAND>
 concept mixes_with_model =
     mixes_with_model_impl<MODEL_GRADE,
-                          grade_of_t<remove_cvref_t<OPERAND>>>::value;
+                          grade_of_t<std::remove_cvref_t<OPERAND>>>::value;
 
 template <class MODEL_GRADE, class... OPERANDS>
     requires(sizeof...(OPERANDS) > 0) &&
@@ -223,14 +223,16 @@ constexpr auto combine_grade_evidence(const EVIDENCE &lhs,
 //! `unit_grade`; the target must be a model grade.
 template <class TARGET_GRADE, class CARRIER>
     requires grade_semilattice<TARGET_GRADE> &&
-             (std::is_same_v<grade_of_t<remove_cvref_t<CARRIER>>, unit_grade> ||
-              grade_subsumes_v<grade_of_t<remove_cvref_t<CARRIER>>,
+             (std::is_same_v<grade_of_t<std::remove_cvref_t<CARRIER>>,
+                             unit_grade> ||
+              grade_subsumes_v<grade_of_t<std::remove_cvref_t<CARRIER>>,
                                TARGET_GRADE>) &&
              std::constructible_from<
-                 rebind_grade_t<remove_cvref_t<CARRIER>, TARGET_GRADE>, CARRIER>
+                 rebind_grade_t<std::remove_cvref_t<CARRIER>, TARGET_GRADE>,
+                 CARRIER>
 constexpr auto grade_subsume(CARRIER &&value)
-    -> rebind_grade_t<remove_cvref_t<CARRIER>, TARGET_GRADE> {
-    return rebind_grade_t<remove_cvref_t<CARRIER>, TARGET_GRADE>(
+    -> rebind_grade_t<std::remove_cvref_t<CARRIER>, TARGET_GRADE> {
+    return rebind_grade_t<std::remove_cvref_t<CARRIER>, TARGET_GRADE>(
         std::forward<CARRIER>(value));
 }
 

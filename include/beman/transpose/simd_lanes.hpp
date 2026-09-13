@@ -61,7 +61,7 @@ struct is_simd_lanes_of_width<simd_lanes<U, N>, N> : std::true_type {};
 
 template <class T, int N>
 inline constexpr bool is_simd_lanes_of_width_v =
-    is_simd_lanes_of_width<remove_cvref_t<T>, N>::value;
+    is_simd_lanes_of_width<std::remove_cvref_t<T>, N>::value;
 
 } // namespace detail
 
@@ -69,7 +69,7 @@ template <class T, int N>
 struct SimdLanesApplicativeImpl {
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value) {
-        using U = remove_cvref_t<VALUE>;
+        using U = std::remove_cvref_t<VALUE>;
         return simd_lanes<U, N>::repeat(U(std::forward<VALUE>(value)));
     }
 
@@ -91,7 +91,7 @@ struct SimdLanesApplicativeImpl {
             FUNCTION &,
             detail::element_ref_t<decltype(std::forward<FIRST>(first).data)>,
             detail::element_ref_t<decltype(std::forward<REST>(rest).data)>...>;
-        using U = remove_cvref_t<Result>;
+        using U = std::remove_cvref_t<Result>;
 
         // Lanes are constructed, not default-constructed and assigned, so U
         // need not be default-constructible or assignable.
