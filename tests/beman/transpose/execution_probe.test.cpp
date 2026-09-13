@@ -26,10 +26,14 @@
 // the dependency does NOT ship it; see
 // docs/review/prior-art-when-all-range.md.
 //
-// Built only when the execution dependency is enabled. The option's spelling
-// is the repository's existing one, not the plan's proposed
-// BEMAN_TRANSPOSE_WITH_EXECUTION; see the divergence logged at
-// docs/decisions.md#execution-dependency-shape.
+// Built only when the execution dependency is enabled, under
+// BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE. That option, its OFF-by-default
+// polarity, and the d24898d pin are all owned by
+// docs/decisions.md#p2300-front-door-shape; the execution plan's proposed
+// alternative was withdrawn as superseded on 2026-09-13
+// (docs/decisions.md#execution-dependency-shape). Nothing
+// execution-dependent lives under include/, which is why this file is a
+// test rather than a header.
 
 #include <beman/execution/execution.hpp>
 
