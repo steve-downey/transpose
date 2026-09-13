@@ -27,7 +27,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
+#include <concepts>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -378,20 +380,27 @@ TEST_CASE("type requirements: zip_list composes lvalue operands as const") {
     REQUIRE(right == bt::zip_list<int>{{10, 20}});
 }
 
-// --- Elements arrive in the category the structure did --------------------
+// --- Elements arrive in the category the object says they do --------------
 //
 // traverse infers its applicative context from the element category before
-// any traversable object has been selected, which it can only do if every
-// traversable object presents elements in the category it received the
-// structure in. That obligation is what the vector instance's two overloads
-// keep, and what traversable_impl and traversable_object now probe: an
-// object handed an rvalue structure is asked to invoke a callable that
-// accepts an element only as an rvalue.
+// any traversable object has been selected. It can only do that if it knows
+// which category the object will use, and that is not deducible from the
+// structure: an owning structure hands its elements over when it is handed
+// over, and one that shares its parts cannot. So the object declares it, the
+// default is `const` lvalue, and traversable_impl and traversable_object
+// probe the objects that do declare it -- an object handed an rvalue
+// structure is asked to invoke a callable that accepts an element only as an
+// rvalue.
 
 using beman::transpose::test::rvalue_argument_only_callable;
 
+static_assert(bt::consuming_traversable_object<bt::VectorTraversableMap<int>>);
+static_assert(bt::consuming_traversable_object<
+              traversable_for<beman::transpose::test::Identity<int>>>);
+
 static_assert(traversable_with<rvalue_argument_only_callable, std::vector<int>>,
-              "an rvalue structure reaches the consuming overload");
+              "an rvalue structure reaches the consuming overload of an "
+              "object that declares one");
 static_assert(
     !traversable_with<rvalue_argument_only_callable, std::vector<int> &>,
     "a const lvalue structure never presents an rvalue element, and must "
@@ -407,6 +416,64 @@ static_assert(
 static_assert(bt::traversable_object<
               traversable_for<beman::transpose::test::Identity<int>>,
               beman::transpose::test::Identity<int>>);
+
+// An object that does not declare consumption is not asked for it. It
+// conforms, `traverse` infers the `const` lvalue context it really
+// presents, and a callable needing an rvalue element does not match --
+// cleanly, rather than from the middle of an instantiation. This is the
+// shape a structure that shares its parts has: a persistent tree or
+// sequence cannot hand its interior over, and declining costs it nothing.
+
+namespace shared {
+
+template <class T>
+struct Box {
+    using value_type = T;
+    T held;
+};
+
+} // namespace shared
+
+namespace beman::transpose {
+
+template <class T>
+struct BoxTraversableImpl {
+    using element_type = T;
+
+    // No consumes_rvalue_structure: an rvalue Box conveys no ownership of
+    // what it points into, so this object presents const lvalues always.
+    template <class APPLICATIVE, class FUNCTION>
+        requires std::invocable<FUNCTION &, const T &>
+    auto traverse(this auto &&, const APPLICATIVE &applicative,
+                  FUNCTION &&function, const shared::Box<T> &box) {
+        return applicative.invoke(
+            [](auto &&value) {
+                return shared::Box<std::remove_cvref_t<decltype(value)>>{
+                    std::forward<decltype(value)>(value)};
+            },
+            std::invoke(function, box.held));
+    }
+};
+
+template <class T>
+struct BoxTraversableMap : Traversable<BoxTraversableImpl<T>> {
+    using BoxTraversableImpl<T>::traverse;
+};
+
+template <class T>
+inline constexpr auto traversable_typeclass<shared::Box<T>> =
+    BoxTraversableMap<T>{};
+
+} // namespace beman::transpose
+
+static_assert(!bt::consuming_traversable_object<bt::BoxTraversableMap<int>>);
+static_assert(
+    bt::traversable_object<bt::BoxTraversableMap<int>, shared::Box<int>>);
+static_assert(
+    !traversable_with<rvalue_argument_only_callable, shared::Box<int>>);
+static_assert(
+    !traversable_with<rvalue_argument_only_callable, shared::Box<int> &>);
+static_assert(traversable_with<lvalue_only_callable, shared::Box<int>>);
 
 TEST_CASE("type requirements: a consuming traversal presents rvalues") {
     std::vector<int> values{1, 2, 3};
