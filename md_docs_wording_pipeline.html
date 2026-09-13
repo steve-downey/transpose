@@ -95,13 +95,13 @@ $(document).ready(function(){initNavTree('md_docs_wording_pipeline.html',''); in
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><p>P3200's normative wording is generated from the headers, not written by hand. <code>beman.specgen</code> lowers the specgen markup on each in-scope header to a semantic IR and renders mpark/wg21 markdown; <code>papers/D3200R0.md</code> splices the fragments in at build time. See <a class="el" href="md_docs_decisions.html">`decisions.md#wording-generation`</a>.</p>
-<h1><a class="anchor" id="autotoc_md118"></a>
+<h1><a class="anchor" id="autotoc_md135"></a>
 The loop</h1>
 <div class="fragment"><div class="line">make wording        # regenerate papers/wording from the headers</div>
 <div class="line">make wording-check  # fail if the checked-in fragments have drifted</div>
 <div class="line">make papers         # regenerate, then build the PDF</div>
-</div><!-- fragment --><p><code>make wording</code> runs <a href="../scripts/gen-wording.sh"><code>scripts/gen-wording.sh</code></a>, which needs <code>specgen</code> on <code>PATH</code> (or <code>SPECGEN=</code> pointing at it) and a Clang 22 development install. The generated fragments are checked in, so the paper builds without either.</p>
-<h1><a class="anchor" id="autotoc_md119"></a>
+</div><!-- fragment --><p><code>make wording</code> runs <a href="../scripts/gen-wording.sh"><code>scripts/gen-wording.sh</code></a>, which needs <code>specgen</code> on <code>PATH</code> (or <code>SPECGEN=</code> pointing at it) and a Clang 22 development install. If GCC's C++26 standard library is outside Clang's default search path, set <code>GCC_TOOLCHAIN=</code> to its installation prefix. The generated fragments are checked in, so the paper builds without either.</p>
+<h1><a class="anchor" id="autotoc_md136"></a>
 What generates what</h1>
 <p><code>specgen</code> reads only the main file's declaration/comment interleave, so each header is rendered on its own and contributes its own synopsis subclause. <code>--root</code> names that synopsis, which keeps the root fragments distinct in the shared output directory.</p>
 <table class="markdownTable">
@@ -126,7 +126,7 @@ What generates what</h1>
 </table>
 <p><code>--split</code> never deletes files an earlier run left behind, so each header's ordered manifest is written beside the fragments; it is the record the paper's include order is reconciled against.</p>
 <p>Headers outside the proposal carry no markup and are not generated from: <code>fold.hpp</code>, <code>monad.hpp</code>, <code>monoid.hpp</code>, <code>dual_monoid.hpp</code>, <code>functor.hpp</code>, <code>sender.hpp</code>, <code>zip_list.hpp</code>, <code>simd*.hpp</code>, <code>config.hpp</code>. <code>sender</code> and <code>zip_list</code> are non-normative demonstration types (see <a class="el" href="md_docs_provenance.html">`provenance.md`</a>); Monad and Foldable are stated non-goals, so their instances inside generated headers are <code>\omit</code>ted.</p>
-<h1><a class="anchor" id="autotoc_md120"></a>
+<h1><a class="anchor" id="autotoc_md137"></a>
 Rules for marking up a header</h1>
 <p>Comment spelling is significant. <code>//!</code> and <code>/*! */</code> are specgen docblocks and become wording; <code>///</code> and <code>/** */</code> are Doxygen and are stripped; plain <code>//</code> survives as a draft comment where the corresponding source is rendered. Design commentary belongs in <code>///</code> so that it does not land in a rendered synopsis. A trailing <code>// NOLINT(...)</code> on a declaration renders too, so spell those <code>/// NOLINT(...)</code>: clang-tidy honours the marker in any comment form.</p>
 <p><b>Declare members in-class, define them out of line.</b> specgen now splices an in-class body out of the synopsis whichever entities it names, so this is recommended rather than required: the definition's lexical position is what places its wording, which is the reason to keep doing it. Out-of-line definitions of members with an explicit object parameter are accepted by GCC 14/15/16 and Clang 21/22, so the pattern costs nothing.</p>
