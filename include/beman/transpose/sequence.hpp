@@ -37,10 +37,17 @@ namespace beman::transpose {
 //! \omit
 template <class VALUE_TYPE>
 struct VectorFoldableImpl {
+    // The trailing return type is the Impl-keeps-its-basis-SFINAE-friendly
+    // invariant apply.hpp records, applied to the fold basis: computed only
+    // in the body, the result type would be established by instantiating
+    // that body, and an availability probe would diagnose from inside it
+    // rather than fail to match.
     //! \omit
     template <class FUNCTION>
     auto fold_map(this auto &&, FUNCTION &&function,
-                  const std::vector<VALUE_TYPE> &values) {
+                  const std::vector<VALUE_TYPE> &values)
+        -> remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>> {
         using Result = remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
         auto accumulated = monoid_identity<Result>();
