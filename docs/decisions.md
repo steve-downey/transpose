@@ -2008,7 +2008,7 @@ means that on any machine where `beman.execution` happens to be installed,
 the installer never asked for. That is the outcome
 [p2300-front-door-shape](#p2300-front-door-shape) names and forbids, and the
 two entries' Whys never disagreed about it — both want the front door light.
-Only the Whats differed, and the decided one is stricter.
+Only the What differed, and the decided one is stricter.
 **Consequence for the execution plan:** stages 1–3 build on
 `examples/p2300_adapter.hpp` where it lives. `all_of` lands as
 `examples/all_of.hpp` under the same option. The Stage 3 `collect` hook in
