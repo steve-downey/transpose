@@ -30,20 +30,26 @@ namespace beman::transpose {
 namespace detail {
 
 /** Whether `T`, ignoring cv-qualification and reference, is a `std::array`
- * specialization -- the operand shape the array applicative composes. Lets
- * `invoke` deduce its operands through forwarding references, which is what
- * carries the caller's value category into the operation, without accepting
- * operands of some other shape. */
+ * of exactly `N` elements -- the operand shape the array applicative
+ * composes. Lets `invoke` deduce its operands through forwarding references,
+ * which is what carries the caller's value category into the operation,
+ * without accepting operands of some other shape.
+ *
+ * The extent is part of the shape, not a separate refinement of it.
+ * Application is positional across all `N` lanes, so an operand that is a
+ * `std::array` of some other length is not merely an unusual argument: every
+ * lane past its end is read out of bounds. */
 //! \expos
-template <class T>
-struct is_std_array : std::false_type {};
+template <class T, std::size_t N>
+struct is_std_array_of_extent : std::false_type {};
 
-template <class U, std::size_t M>
-struct is_std_array<std::array<U, M>> : std::true_type {};
+template <class U, std::size_t N>
+struct is_std_array_of_extent<std::array<U, N>, N> : std::true_type {};
 
 //! \expos
-template <class T>
-inline constexpr bool is_std_array_v = is_std_array<remove_cvref_t<T>>::value;
+template <class T, std::size_t N>
+inline constexpr bool is_std_array_of_extent_v =
+    is_std_array_of_extent<remove_cvref_t<T>, N>::value;
 
 } // namespace detail
 
@@ -54,8 +60,8 @@ struct ArrayApplicativeImpl {
     auto pure(this auto &&, VALUE &&value);
 
     template <class FUNCTION, class FIRST, class... REST>
-        requires detail::is_std_array_v<FIRST> &&
-                 (detail::is_std_array_v<REST> && ...)
+        requires detail::is_std_array_of_extent_v<FIRST, N> &&
+                 (detail::is_std_array_of_extent_v<REST, N> && ...)
     auto invoke(this auto &&, FUNCTION &&function, FIRST &&first,
                 REST &&...rest);
 };
@@ -106,13 +112,13 @@ auto ArrayApplicativeImpl<T, N>::pure(this auto &&, VALUE &&value) {
 //! operand.
 //! \complexity Exactly `N` applications of `function`.
 //! \remarks Application is positional: operands are combined lane by lane,
-//! and every operand has the same fixed extent `N`. Each position of each
-//! operand is read exactly once, so an operand passed as an rvalue has its
-//! elements handed to `function` rather than copied.
+//! and every operand is constrained to have the same fixed extent `N`. Each
+//! position of each operand is read exactly once, so an operand passed as an
+//! rvalue has its elements handed to `function` rather than copied.
 template <class T, std::size_t N>
 template <class FUNCTION, class FIRST, class... REST>
-    requires detail::is_std_array_v<FIRST> &&
-             (detail::is_std_array_v<REST> && ...)
+    requires detail::is_std_array_of_extent_v<FIRST, N> &&
+             (detail::is_std_array_of_extent_v<REST, N> && ...)
 auto ArrayApplicativeImpl<T, N>::invoke(this auto &&, FUNCTION &&function,
                                         FIRST &&first, REST &&...rest) {
     using Result =
