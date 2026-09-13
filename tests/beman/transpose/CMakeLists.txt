@@ -3,6 +3,7 @@
 
 set(transpose_tests
     baseline_deduction
+    demo_sender_golden
     monoid
     dual_monoid
     error_set
@@ -53,6 +54,20 @@ endforeach()
 # dependency. Its adapter lives under examples/ rather than include/, so that
 # nothing an installation of this library pulls in depends on beman.execution.
 if(BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE)
+    # The dependency compile probe: beman.execution and nothing of ours, so a
+    # broken dependency fails here rather than inside the adapter's
+    # diagnostics. See docs/transpose-execution-plan.md#execution-baseline.
+    add_executable(beman.transpose.tests.execution_probe)
+    target_sources(
+        beman.transpose.tests.execution_probe
+        PRIVATE execution_probe.test.cpp
+    )
+    target_link_libraries(
+        beman.transpose.tests.execution_probe
+        PRIVATE beman::execution Catch2::Catch2WithMain
+    )
+    catch_discover_tests(beman.transpose.tests.execution_probe)
+
     add_executable(beman.transpose.tests.p2300)
     target_sources(beman.transpose.tests.p2300 PRIVATE p2300.test.cpp)
     target_include_directories(
