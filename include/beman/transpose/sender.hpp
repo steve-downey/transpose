@@ -84,9 +84,16 @@ struct SenderApplicativeImpl {
      *
      * The operands must be captured, since the point is to defer running
      * them, but a caller who is finished with an operand can hand it over:
-     * they are deduced through forwarding references and moved into the
-     * capture. A traversal's accumulator is an rvalue at every step, so this
-     * is one copy per element saved rather than a micro-optimization.
+     * they are taken by value and moved into the capture, so an rvalue
+     * operand is moved into the parameter and moved again into the capture
+     * rather than copied. A traversal's accumulator is an rvalue at every
+     * step, so this is one copy per element saved rather than a
+     * micro-optimization.
+     *
+     * Spelling the parameters as `sender<FIRST>` rather than deducing them
+     * through forwarding references is also what states the operand shape
+     * this object composes, which the other registered objects state with
+     * an explicit constraint.
      */
     template <class FUNCTION, class FIRST, class... REST>
     auto invoke(this auto &&, FUNCTION &&function, sender<FIRST> first,
