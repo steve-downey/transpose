@@ -190,6 +190,21 @@ concept applicative_object_for =
         } -> std::same_as<CONTEXT>;
     };
 
+//! \remarks This concept is satisfied when `OBJ` declares an `element_type`
+//! that is itself a context with a conforming applicative object -- the
+//! condition `Traversable::transpose` and `Traversable::transpose_with`
+//! carry on their own declarations. It exists so that `traversable_object`
+//! can make those two operations conditional on that condition rather than
+//! on a second, weaker spelling of it. The conjunction is what lets the
+//! `element_type` half be asked first: an `OBJ` that declares none is not a
+//! transposing object, and naming `OBJ::element_type` in an atomic
+//! constraint on its own would be a substitution failure rather than an
+//! answer.
+//! \expos
+template <class OBJ>
+concept transposing_object = requires { typename OBJ::element_type; } &&
+                             applicative_context<typename OBJ::element_type>;
+
 //! \remarks This concept is satisfied when `IMPL` supplies the minimal
 //! complete basis the `Traversable` CRTP base needs: a declared
 //! `element_type` and `traverse`, probed with a representative witness
@@ -222,30 +237,34 @@ concept traversable_impl = requires(const IMPL &impl,
 //! themselves an applicative context -- transposing such a structure is not
 //! a meaningful operation, not a missing one, so this concept treats
 //! `transpose`/`transpose_with` as conditional the same way
-//! `applicative_object` treats `ap` and `subsume`. This concept does not
+//! `applicative_object` treats `ap` and `subsume`. The condition is
+//! `transposing_object`, which is the one those two operations' own
+//! declarations carry, not a second spelling of it: a condition that merely
+//! asked whether `pure` were usable would be the weaker of the two, and
+//! would demand an operation that is constrained out for every element type
+//! lying between them. This concept does not
 //! require a Foldable object: Traversable needs only an Applicative and the
 //! walk, the DELIBERATE CONSTRAINT `Traversable` itself carries.
 template <class OBJ, class STRUCTURE>
 concept traversable_object =
     requires(const OBJ &obj, const STRUCTURE &structure) {
-        obj.traverse(
-            applicative_typeclass<std::optional<applicative_value_t<STRUCTURE>>>,
-            detail::probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{},
-            structure);
-        obj.for_each(
-            structure,
-            detail::probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{});
-        obj.traverse_with(
-            obj, detail::probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{},
-            structure);
-    } &&
-    (!requires(const OBJ &) {
-        applicative_typeclass<typename OBJ::element_type>.pure(
-            std::declval<typename OBJ::element_type>());
-    } || requires(const OBJ &obj, const STRUCTURE &structure) {
-        obj.transpose(structure);
-        obj.transpose_with(obj, structure);
-    });
+        obj.traverse(applicative_typeclass<
+                         std::optional<applicative_value_t<STRUCTURE>>>,
+                     detail::probe_witness<
+                         std::optional<applicative_value_t<STRUCTURE>>>{},
+                     structure);
+        obj.for_each(structure,
+                     detail::probe_witness<
+                         std::optional<applicative_value_t<STRUCTURE>>>{});
+        obj.traverse_with(obj,
+                          detail::probe_witness<
+                              std::optional<applicative_value_t<STRUCTURE>>>{},
+                          structure);
+    } && (!transposing_object<OBJ> ||
+          requires(const OBJ &obj, const STRUCTURE &structure) {
+              obj.transpose(structure);
+              obj.transpose_with(obj, structure);
+          });
 
 // \rSec3[transpose.traversable.ops]{Traversal operations}
 
