@@ -195,16 +195,23 @@ audit finds under
 [sender-instance-keying](../decisions.md#sender-instance-keying), which the
 ruling designated as Stage 1's logbook.
 
-**The arity constraint has to be checked before the alias is instantiated.**
-Measured this stage and pinned in the probe: with `Tuple` and `Variant` both
-`std::type_identity_t`, `value_types_of_t<decltype(just(1)), env<>>` is exactly
-`int`, but the same alias over `decltype(just(1, 2))` is **ill-formed, not
-merely different**, because `type_identity_t` is not variadic. So a `requires`
-clause that names the alias is a hard error on a two-argument sender rather
-than a graceful constraint failure. This is the same non-SFINAE-friendly hazard
-[functor-monad-grounding](../decisions.md#functor-monad-grounding) records for
-`OptionalMonadImpl::bind`, in a new place, and it is the difference between
-Stage 1's registration failing cleanly and Stage 1's registration diagnosing.
+**The arity reading is ill-formed for a multi-argument sender, and that is
+usable rather than dangerous.** Measured this stage and pinned in the probe:
+with `Tuple` and `Variant` both `std::type_identity_t`,
+`value_types_of_t<decltype(just(1)), env<>>` is exactly `int`, while the same
+alias over `decltype(just(1, 2))` is **ill-formed, not merely different**,
+because `type_identity_t` is not variadic.
+
+> **Corrected 2026-09-13 by Stage 1.** This paragraph originally concluded
+> that a `requires` clause naming the alias is therefore "a hard error on a
+> two-argument sender rather than a graceful constraint failure", and called
+> it the non-SFINAE-friendly hazard `functor-monad-grounding` records. That
+> was wrong, and the probe written to support it already disproved it:
+> ill-formed *inside a requires-expression* is a constraint failure. Stage 1
+> spells `single_value_sender` directly in terms of the alias, with no
+> pre-check, and pins five negatives as clean constraint failures. Corrected
+> in the log under
+> [sender-value-type-reading](../decisions.md#sender-value-type-reading).
 
 **There is a working adapter to read.** `examples/p2300_adapter.hpp` is 90
 lines and already does the `pure`/`invoke` half correctly, including the
