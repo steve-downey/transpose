@@ -35,8 +35,8 @@ inline constexpr $unspecified$ discard_second_eval;
 ```cpp
 template <class IMPL, class CONTEXT>
 concept applicative_impl =
-    requires(const IMPL &impl, const applicative_value_t<CONTEXT> &element) {
-        impl.pure(element);
+    requires(const IMPL &impl) {
+        impl.pure(declval<applicative_value_t<CONTEXT>>());
     } &&
     (requires(const IMPL &impl, const CONTEXT &context) {
         impl.invoke($probe-witness$<applicative_value_t<CONTEXT>>{}, context);
@@ -46,7 +46,7 @@ concept applicative_impl =
     });
 ```
 
-[x+3]{.pnum} *Remarks*: This concept is satisfied when `IMPL` supplies the minimal complete basis the `Applicative` CRTP base needs: `pure`, together with either `invoke` or `ap`. This is the `MINIMAL` pragma to `applicative_object`'s class declaration -- an `IMPL` may satisfy this concept and still fail `applicative_object`, which is exactly the bargain the CRTP base exists to keep. `map`, `lift`, `zip_with`, `discard_first`, `discard_second`, `invoke_with` and `subsume` are all derived and belong to `applicative_object` alone. `pure` is checked for existence only, matching `applicative_object`'s own treatment.
+[x+3]{.pnum} *Remarks*: This concept is satisfied when `IMPL` supplies the minimal complete basis the `Applicative` CRTP base needs: `pure`, together with either `invoke` or `ap`. This is the `MINIMAL` pragma to `applicative_object`'s class declaration -- an `IMPL` may satisfy this concept and still fail `applicative_object`, which is exactly the bargain the CRTP base exists to keep. `map`, `lift`, `zip_with`, `discard_first`, `discard_second`, `invoke_with` and `subsume` are all derived and belong to `applicative_object` alone. `pure` is checked for existence only, matching `applicative_object`'s own treatment, and is probed with an rvalue element for the reason `applicative_object` records.
 
 :::
 
@@ -170,16 +170,15 @@ inline constexpr auto accumulating_applicative_typeclass = false_type{};
 ```cpp
 template <class OBJ, class CONTEXT>
 concept applicative_object =
-    requires(const OBJ &obj, const CONTEXT &context,
-             const applicative_value_t<CONTEXT> &element) {
-        obj.pure(element);
+    requires(const OBJ &obj, const CONTEXT &context) {
+        obj.pure(declval<applicative_value_t<CONTEXT>>());
         obj.invoke($probe-witness$<applicative_value_t<CONTEXT>>{}, context);
         obj.map($probe-witness$<applicative_value_t<CONTEXT>>{}, context);
-        obj.lift(element);
+        obj.lift(declval<applicative_value_t<CONTEXT>>());
         obj.zip_with($probe-witness2$<applicative_value_t<CONTEXT>>{}, context,
                      context);
-        obj.discard_first(context, context);
-        obj.discard_second(context, context);
+        obj.discard_first(declval<CONTEXT>(), declval<CONTEXT>());
+        obj.discard_second(declval<CONTEXT>(), declval<CONTEXT>());
         obj.invoke_with(obj, $probe-witness$<applicative_value_t<CONTEXT>>{},
                         context);
     } &&
@@ -197,6 +196,8 @@ concept applicative_object =
 
 [x+7]{.pnum} *Remarks*: This concept is satisfied when `OBJ` provides the full Applicative object surface over `CONTEXT`: `pure`, the `invoke` basis, and the derived `map`, `lift`, `zip_with`, `discard_first`, `discard_second` and `invoke_with`. `ap` and `subsume` are required only where their own condition -- the same one their own declarations carry, not a second spelling of it -- licenses them: `ap` where `CONTEXT` can hold a callable (probed by lifting a witness callable through `OBJ`'s own `pure`, the same mechanism the library's own ap-from-invoke derivation uses), `subsume` where `CONTEXT` participates in grading. Operations templated over an arbitrary callable are probed with one representative witness ($probe-witness$/$probe-witness2$): this checks that the operation exists, not that it holds for every callable. Conformance here is structural, so a hand-implemented object that never derives from `Applicative<Impl>` can satisfy this concept.
 
+[x+8]{.pnum} Every probe is written in the value category the operation is used in. `pure` and `lift` take a value *into* the context and are probed with an rvalue element; `discard_first` and `discard_second` return a value *out* of one of their operands and are probed with rvalue operands. Probing either with a `const` lvalue asks the context to copy, which no operation's specification requires, and which for an element type that can be moved but not copied is not merely a stricter test but an ill-formed one: these operations have deduced return types, so a probe instantiates the body, and a body that cannot copy is a diagnostic rather than an unsatisfied constraint. A concept that diagnoses cannot be used to detect anything.
+
 :::
 
 ```cpp
@@ -207,10 +208,10 @@ struct OptionalApplicativeImpl {
   auto pure(this auto&&, VALUE&& value) -> optional<remove_cvref_t<VALUE>>;
 
   template<class FUNCTION, class FIRST, class... REST>
-  auto invoke(this auto&&, FUNCTION&& function, const optional<FIRST>& first,
-              const optional<REST>&... rest)
-      -> optional<
-          remove_cvref_t<invoke_result_t<FUNCTION&, const FIRST&, const REST&...>>>;
+    requires $is-optional-v$<FIRST> && ($is-optional-v$<REST> && ...)
+  auto invoke(this auto&&, FUNCTION&& function, FIRST&& first, REST&&... rest)
+      -> optional<remove_cvref_t<invoke_result_t<FUNCTION&, $contained-ref-t$<FIRST>,
+                                                 $contained-ref-t$<REST>...>>>;
 };
 ```
 

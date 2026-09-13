@@ -275,9 +275,9 @@ struct Foldable : protected Impl {
             impl.fold_right(
                 std::forward<T>(value),
                 monoid_identity<remove_cvref_t<std::invoke_result_t<
-                    F, const typename Impl::element_type &>>>(),
+                    F &, const typename Impl::element_type &>>>(),
                 detail::probe_witness2<remove_cvref_t<std::invoke_result_t<
-                    F, const typename Impl::element_type &>>>{});
+                    F &, const typename Impl::element_type &>>>{});
         }
     {
         if constexpr (requires {
@@ -288,7 +288,7 @@ struct Foldable : protected Impl {
                                           std::forward<T>(value));
         } else {
             using Result = remove_cvref_t<
-                std::invoke_result_t<F, const typename Impl::element_type &>>;
+                std::invoke_result_t<F &, const typename Impl::element_type &>>;
             // The declaration's second alternative probes with a named
             // witness, never a lambda: a capturing lambda in a
             // requires-clause is rejected by Clang's front end, and the

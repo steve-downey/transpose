@@ -741,7 +741,9 @@ struct raised_by_result<std::expected<VALUE, error_set_of<RS...>>, VALUE> {
 
 template <class HANDLER, class VALUE, class H>
 struct handler_result_of {
-    using type = remove_cvref_t<std::invoke_result_t<HANDLER, const H &>>;
+    // `HANDLER &`: apply_handler takes the handler by lvalue reference and
+    // invokes it in that category.
+    using type = remove_cvref_t<std::invoke_result_t<HANDLER &, const H &>>;
 };
 
 /** The final grade `recover<HANDLED...>` produces: `(GRADE \ HANDLED) ∪

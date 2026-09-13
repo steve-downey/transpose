@@ -11,6 +11,12 @@
       "package_name": "Catch2",
       "git_repository": "https://github.com/catchorg/Catch2.git",
       "git_tag": "v3.7.1"
+    },
+    {
+      "name": "execution",
+      "package_name": "beman.execution",
+      "git_repository": "https://github.com/bemanproject/execution.git",
+      "git_tag": "d24898d7264e74fb723b50d6275a5d05f65ddb20"
     }
   ]
 }

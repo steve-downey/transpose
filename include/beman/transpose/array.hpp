@@ -27,6 +27,26 @@
 
 namespace beman::transpose {
 
+namespace detail {
+
+/** Whether `T`, ignoring cv-qualification and reference, is a `std::array`
+ * specialization -- the operand shape the array applicative composes. Lets
+ * `invoke` deduce its operands through forwarding references, which is what
+ * carries the caller's value category into the operation, without accepting
+ * operands of some other shape. */
+//! \expos
+template <class T>
+struct is_std_array : std::false_type {};
+
+template <class U, std::size_t M>
+struct is_std_array<std::array<U, M>> : std::true_type {};
+
+//! \expos
+template <class T>
+inline constexpr bool is_std_array_v = is_std_array<remove_cvref_t<T>>::value;
+
+} // namespace detail
+
 template <class T, std::size_t N>
 struct ArrayApplicativeImpl {
     // \ref{transpose.array.applicative}, applicative instance for array
@@ -34,8 +54,10 @@ struct ArrayApplicativeImpl {
     auto pure(this auto &&, VALUE &&value);
 
     template <class FUNCTION, class FIRST, class... REST>
-    auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
-                const REST &...rest);
+        requires detail::is_std_array_v<FIRST> &&
+                 (detail::is_std_array_v<REST> && ...)
+    auto invoke(this auto &&, FUNCTION &&function, FIRST &&first,
+                REST &&...rest);
 };
 
 /// Applicative map for std::array<T, N>: the native n-ary invoke core.
@@ -70,9 +92,13 @@ template <class T, std::size_t N>
 template <class VALUE>
 auto ArrayApplicativeImpl<T, N>::pure(this auto &&, VALUE &&value) {
     using U = remove_cvref_t<VALUE>;
-    std::array<U, N> result;
-    result.fill(U(std::forward<VALUE>(value)));
-    return result;
+    // Constructed directly rather than default-constructed and filled: every
+    // element is a copy of `value`, which is all this operation documents,
+    // and filling would additionally require U to be default-constructible
+    // and assignable.
+    return detail::make_array<U, N>(
+        [&value](std::size_t) -> U { return U(value); },
+        std::make_index_sequence<N>{});
 }
 
 //! \returns An `array` of `N` elements whose element at position `i` is the
@@ -80,22 +106,30 @@ auto ArrayApplicativeImpl<T, N>::pure(this auto &&, VALUE &&value) {
 //! operand.
 //! \complexity Exactly `N` applications of `function`.
 //! \remarks Application is positional: operands are combined lane by lane,
-//! and every operand has the same fixed extent `N`.
+//! and every operand has the same fixed extent `N`. Each position of each
+//! operand is read exactly once, so an operand passed as an rvalue has its
+//! elements handed to `function` rather than copied.
 template <class T, std::size_t N>
 template <class FUNCTION, class FIRST, class... REST>
+    requires detail::is_std_array_v<FIRST> &&
+             (detail::is_std_array_v<REST> && ...)
 auto ArrayApplicativeImpl<T, N>::invoke(this auto &&, FUNCTION &&function,
-                                        const FIRST &first,
-                                        const REST &...rest) {
+                                        FIRST &&first, REST &&...rest) {
     using Result =
-        std::invoke_result_t<FUNCTION, const typename FIRST::value_type &,
-                             const typename REST::value_type &...>;
+        std::invoke_result_t<FUNCTION &, detail::element_ref_t<FIRST>,
+                             detail::element_ref_t<REST>...>;
     using U = remove_cvref_t<Result>;
 
-    std::array<U, N> result;
-    for (std::size_t i = 0; i < N; ++i) {
-        result[i] = std::invoke(function, first[i], rest[i]...);
-    }
-    return result;
+    // Constructed directly rather than default-constructed and assigned into:
+    // the operation documents only that each result element is the result of
+    // one invocation, so U need not be default-constructible or assignable.
+    return detail::make_array<U, N>(
+        [&](std::size_t index) -> U {
+            return std::invoke(
+                function, detail::forward_at(std::forward<FIRST>(first), index),
+                detail::forward_at(std::forward<REST>(rest), index)...);
+        },
+        std::make_index_sequence<N>{});
 }
 
 // \rSec3[transpose.array.tuple]{Transposing a tuple of arrays}

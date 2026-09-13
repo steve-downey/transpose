@@ -17,8 +17,9 @@ make papers         # regenerate, then build the PDF
 
 `make wording` runs [`scripts/gen-wording.sh`](../scripts/gen-wording.sh),
 which needs `specgen` on `PATH` (or `SPECGEN=` pointing at it) and a Clang 22
-development install. The generated fragments are checked in, so the paper
-builds without either.
+development install. If GCC's C++26 standard library is outside Clang's
+default search path, set `GCC_TOOLCHAIN=` to its installation prefix. The
+generated fragments are checked in, so the paper builds without either.
 
 ## What generates what
 

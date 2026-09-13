@@ -1760,3 +1760,159 @@ pinned as negatives instead):
   carry no C++ equation. Assertions unchanged; the left-bias clause (the
   witness kept for a kind is the leftmost) is still checked here and is
   not yet stated there, pending payload-bearing accumulation.
+
+---
+
+## operand-value-category
+
+**Question:** In what value category does an Applicative object's `invoke`
+take its operands, and what may a traversal therefore promise about
+complexity and about move-only values?
+**Status:** DECIDED 2026-09-11
+**Decided by:** Steve, answering the P3200 reference-implementation review.
+**Decision:** Every Applicative object this library registers deduces its
+operands through forwarding references and passes each held value on with
+that operand's own value category. `detail::forward_contained` and
+`detail::forward_at` are the two spellings of that. The vector Traversable
+hands its accumulated result to each composition as an rvalue, and carries a
+second, consuming `traverse` overload so that `transpose(std::move(v))`
+expresses that intent through to `function`.
+
+`transpose`'s Complexity clause is stated in *composition operations* per
+element, not in element operations. The element bound is added as a Remark,
+conditioned on the applicative object composing an rvalue operand without
+duplicating what it holds.
+**Why:** With `const&` operands the only thing an accumulation can do is copy
+the whole prefix built so far, once per element, so a successful
+`transpose(vector<optional<T>>)` over 100 elements performed 5,150 element
+copies while the wording promised linear. The same `const&` path made
+`transpose(std::move(v))` a copy, so a move-only element type was rejected by
+a call that looked like it consumed its argument.
+
+The Complexity clause is split the way it is because the unconditional
+element bound is not the algorithm's to promise. A user-supplied applicative
+object that composes only `const` lvalues is still a perfectly good one, and
+against it the traversal is quadratic in element operations however the
+traversal is written. Promising linear regardless would be a guarantee the
+generic front door cannot keep; promising nothing would understate what the
+registered objects do.
+**Consequences:** An applicative object registered by a program need not opt
+in -- the test suite's `Identity` instance is deliberately left composing
+`const&` operands so that this stays covered -- but only an object that does
+opt in gets the linear element bound.
+
+`zip_list` is the one registered object that cannot simply move: a repeating
+list's single stored value logically occupies every position, so it is read
+once per lane and `forward_zip_list_value_at` copies for exactly that case.
+This is not a corner: the seed of any traversal into that context is
+`pure(...)`, which *is* a repeating list.
+**Log:**
+- 2026-09-11 — Decided. Converted `optional`, `expected` (both the
+  short-circuiting and the accumulating object), `array`, `simd_lanes`,
+  `zip_list` and the demonstration `sender`. The two `expected` homogeneous
+  cores moved from matching `const expected<T, ERROR_TYPE>&` by pattern to
+  constraining on `all_declare_v`, which keeps them exactly complementary to
+  the ungraded-mixed and graded-mixed cores they sit beside. Measured: 5,150
+  element copies to 100 for a 100-element `optional` traversal, and the same
+  for `expected`; the two-size ratio is what the regression test reads, since
+  an absolute bound alone cannot separate a linear implementation with a
+  large constant from a quadratic one.
+- 2026-09-11 — Extended to the conformance concepts, which had the same
+  defect one level up and hid it behind a diagnostic. `applicative_impl` and
+  `applicative_object` probed `pure` and `lift` with a `const` lvalue
+  element, and `applicative_object` probed `discard_first` and
+  `discard_second` with `const` lvalue operands. Those are the two directions
+  a value crosses the context boundary -- in through `pure`/`lift`, out
+  through the `discard_*` pair -- and neither operation's specification asks
+  for a copy. For an element type that can be moved but not copied the probes
+  were not merely stricter, they were ill-formed: the derived operations have
+  deduced return types, so probing instantiates the body, and a body that
+  cannot copy is a hard error rather than an unsatisfied constraint. A
+  concept that diagnoses cannot detect. Every probe now reads in the category
+  the operation is used in. `applicative_object_for` already probed `pure`
+  with an rvalue for its exact-return refinement, so the concept file was
+  already inconsistent with itself.
+
+  Two consequences. `applicative_context` had been introduced the same day as
+  a narrower stand-in, because `applicative_object` would have rejected the
+  consuming traversal added in this same entry; with the probes corrected it
+  is exactly `applicative_object` over the looked-up object again, and the
+  stand-in is gone. And `traverse_context_t` inferred the context from a
+  `const` lvalue element whatever the category of the structure, so the free
+  `traverse` could not reach the consuming path that `transpose` could:
+  `traverse(identity, std::move(v))` over a move-only element type did not
+  compile. It now names `traverse_element_t`, which is the element category
+  matching the structure's own. That makes explicit a requirement the vector
+  instance already kept and the wording did not state: a traversable object
+  passes elements on in the category it received the structure in. Without
+  it the context cannot be inferred before a traversable object is selected.
+
+  Verified on GCC 16 and Clang 23: 241 and 239 tests, the conformance
+  concepts satisfied over `optional<unique_ptr<int>>`, and the negative
+  detection cases still evaluating false rather than diagnosing.
+
+---
+
+## p2300-front-door-shape
+
+**Question:** Does the proposed Applicative and Traversable surface actually
+accommodate `std::execution` (P2300) senders, and what evidence says so?
+**Status:** DECIDED 2026-09-11
+**Decided by:** Steve, answering the P3200 reference-implementation review.
+**Decision:** An Applicative object over genuine senders lives at
+`examples/p2300_adapter.hpp`, written against `bemanproject/execution` and
+exercised by `tests/beman/transpose/p2300.test.cpp`. It is opt-in behind
+`BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`, OFF by default, and lives under
+`examples/` rather than `include/` so that nothing an installation of this
+library pulls in depends on it.
+
+The demonstration `sender<T>` in `include/beman/transpose/sender.hpp` stays,
+and its header comment now says what it does and does not show.
+**Why:** The paper's second motivating domain is deferred computation, and the
+only evidence for it was a `std::function<T()>` wrapper. That is enough to
+show the front door preserves laziness and exercises none of what makes a
+P2300 sender a sender. The review was right that the claim could not rest on
+it.
+
+The adapter supplies only the `pure` + `invoke` basis, so `map`, `zip_with`
+and `lift` in the test are the library's own CRTP derivations running over a
+context they were not designed against. Values, laziness, the error channel
+and move-only values all compose.
+**Consequences:** Writing it established two limits, which are the more
+valuable half of the result.
+
+*The vector front door cannot take real senders.* `VectorTraversableImpl::
+traverse` accumulates with `accumulated = applicative.invoke(...)`, an
+assignment, so the context type must be invariant under composition. It is
+for `optional<vector<T>>`. It is not for a real sender: `then(when_all(acc,
+elem), f)` names a new type at every step, so a runtime-sized traversal
+cannot be written as a loop at all. Transposing a runtime-sized structure of
+senders needs a type-erased sender, which `bemanproject/execution` does not
+ship. The toy `sender<T>` passes only because `std::function<T()>` is already
+type-erased -- the very thing that made it a convenient demonstration is what
+hid the limit. Compile-time-sized transposition, the shape `transpose_tuple`
+already uses, has no such problem, and that is what the adapter demonstrates.
+
+*An operand must have exactly one value completion.* `when_all` requires it,
+so `just_error(...)` and `just_stopped()` cannot be operands. Error
+propagation is therefore shown with an operand that can complete with a value
+and fails at run time. A claim that "error and stopped completions compose"
+would be broader than what holds.
+
+*`when_all` does not sequence its children.* It completes when all of them
+have. The Remarks that say contexts "are composed in that same order" can
+therefore only be about the order results are assembled into the structure,
+not the order in which effects run. A synchronous context makes the two
+coincide; a concurrent one cannot, and the wording should not be read as
+promising it does.
+**Log:**
+- 2026-09-11 — Decided and built. Pinned at
+  `d24898d7264e74fb723b50d6275a5d05f65ddb20`; the project has no tags.
+  Verified with GCC 16 against a local checkout via
+  `-DFETCHCONTENT_SOURCE_DIR_EXECUTION=...`; five cases green.
+  Two follow-ups are open rather than done. The evidence is not in CI, so it
+  can rot: enabling it in one workflow job is the obvious next step. And the
+  vcpkg dependency path does not resolve `beman.execution` -- when vcpkg is
+  present the Makefile makes the vcpkg toolchain the top-level include, so
+  the lockfile provider is not active and the evidence build needs the
+  FetchContent path.

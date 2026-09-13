@@ -12,14 +12,15 @@ template<class VALUE> auto pure(this auto&&, VALUE&& value);
 
 ```cpp
 template<class FUNCTION, class FIRST, class... REST>
-auto invoke(this auto&&, FUNCTION&& function, const FIRST& first, const REST&... rest);
+  requires $is-std-array-v$<FIRST> && ($is-std-array-v$<REST> && ...)
+auto invoke(this auto&&, FUNCTION&& function, FIRST&& first, REST&&... rest);
 ```
 
 [x+1]{.pnum} *Returns*: An `array` of `N` elements whose element at position `i` is the result of invoking `function` with the element at position `i` of each operand.
 
 [x+2]{.pnum} *Complexity*: Exactly `N` applications of `function`.
 
-[x+3]{.pnum} *Remarks*: Application is positional: operands are combined lane by lane, and every operand has the same fixed extent `N`.
+[x+3]{.pnum} *Remarks*: Application is positional: operands are combined lane by lane, and every operand has the same fixed extent `N`. Each position of each operand is read exactly once, so an operand passed as an rvalue has its elements handed to `function` rather than copied.
 
 :::
 

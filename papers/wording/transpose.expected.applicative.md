@@ -12,17 +12,16 @@ auto pure(this auto&&, VALUE&& value) -> expected<remove_cvref_t<VALUE>, ERROR_T
 [x]{.pnum} *Returns*: An `expected` holding `value`.
 
 ```cpp
-template<class FUNCTION, class FIRST, class... REST>
-auto invoke(this auto&&, FUNCTION&& function, const expected<FIRST, ERROR_TYPE>& first,
-            const expected<REST, ERROR_TYPE>&... rest)
-    -> expected<
-        remove_cvref_t<invoke_result_t<FUNCTION&, const FIRST&, const REST&...>>,
-        ERROR_TYPE>;
+template<class FUNCTION, class... CARRIERS>
+  requires(sizeof...(CARRIERS) > 0) && $all-declare-v$<ERROR_TYPE, CARRIERS...>
+auto invoke(this auto&&, FUNCTION&& function, CARRIERS&&... operands) -> expected<
+    remove_cvref_t<invoke_result_t<FUNCTION&, $contained-ref-t$<CARRIERS>...>>,
+    ERROR_TYPE>;
 ```
 
 [x+1]{.pnum} *Returns*: If every operand holds a value, an `expected` holding the result of invoking `function` with those values, in the order written; otherwise an `expected` holding the error of the first operand, in that same order, that does not hold a value.
 
-[x+2]{.pnum} *Remarks*: `function` is invoked at most once. Composition short-circuits: only the first error is observed.
+[x+2]{.pnum} *Remarks*: `function` is invoked at most once. Composition short-circuits: only the first error is observed. Each operand's held value is passed on with that operand's own value category, so a caller that hands over an rvalue operand has its value moved from rather than copied.
 
 ```cpp
 template<class FUNCTION, class... CARRIERS>

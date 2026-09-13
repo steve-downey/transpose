@@ -87,6 +87,50 @@ auto zip_list_value_at(const zip_list<T> &list, std::size_t index)
     return list.data[index];
 }
 
+/** The value at `index`, handed over rather than copied where that is safe.
+ *
+ * A finite list's element at `index` is read exactly once, so an rvalue
+ * operand's element may be moved from. A repeating list's single stored
+ * value logically occupies every position and is therefore read once per
+ * lane: moving from it would empty it after the first. That distinction is
+ * not decorative -- the seed of a traversal into this context is
+ * `pure(...)`, which is exactly a repeating list, so the wrong choice here
+ * would corrupt every traversal after its first lane.
+ *
+ * The rvalue branch yields a prvalue rather than a reference: the two cases
+ * would otherwise have to return `T&&` and `const T&` from one function.
+ * Lvalue operands keep the existing `const T&` path, so nothing is
+ * materialized for a caller that was not offering to give anything up.
+ */
+template <class LIST>
+constexpr auto forward_zip_list_value_at(LIST &&list, std::size_t index)
+    -> decltype(auto) {
+    if constexpr (std::is_lvalue_reference_v<LIST>) {
+        return zip_list_value_at(list, index);
+    } else {
+        using Value = typename remove_cvref_t<LIST>::value_type;
+        return list.is_repeating() ? Value(*list.repeated)
+                                   : Value(std::move(list.data[index]));
+    }
+}
+
+/** The type `forward_zip_list_value_at` yields for an operand of type
+ * `LIST`. */
+template <class LIST>
+using zip_list_value_ref_t =
+    decltype(forward_zip_list_value_at(std::declval<LIST>(), std::size_t{}));
+
+/** Whether `T`, ignoring cv-qualification and reference, is a `zip_list`
+ * specialization. */
+template <class T>
+struct is_zip_list : std::false_type {};
+
+template <class U>
+struct is_zip_list<zip_list<U>> : std::true_type {};
+
+template <class T>
+inline constexpr bool is_zip_list_v = is_zip_list<remove_cvref_t<T>>::value;
+
 template <class FIRST, class... REST>
 auto zip_list_result_size(const FIRST &first, const REST &...rest)
     -> std::optional<std::size_t> {
@@ -128,29 +172,48 @@ struct ZipListApplicativeImpl {
      * @return zip_list of results
      */
     template <class FUNCTION, class FIRST, class... REST>
-    auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
-                const REST &...rest) {
+        requires detail::is_zip_list_v<FIRST> &&
+                 (detail::is_zip_list_v<REST> && ...)
+    auto invoke(this auto &&, FUNCTION &&function, FIRST &&first,
+                REST &&...rest) {
+        // The callable is moved into a local `callable` and then invoked as
+        // an lvalue once per lane, so that -- not `FUNCTION` -- is the
+        // category to detect in. Operands are deduced through forwarding
+        // references so that a caller offering an rvalue has each lane handed
+        // over instead of copied; see forward_zip_list_value_at for why a
+        // repeating operand is exempt.
         using Result =
-            std::invoke_result_t<FUNCTION, const typename FIRST::value_type &,
-                                 const typename REST::value_type &...>;
+            std::invoke_result_t<remove_cvref_t<FUNCTION> &,
+                                 detail::zip_list_value_ref_t<FIRST>,
+                                 detail::zip_list_value_ref_t<REST>...>;
 
         using U = remove_cvref_t<Result>;
         auto callable = std::forward<FUNCTION>(function);
         const auto count = detail::zip_list_result_size(first, rest...);
 
         if (!count.has_value()) {
-            return zip_list<U>::repeat(
-                std::invoke(callable, detail::zip_list_value_at(first, 0),
-                            detail::zip_list_value_at(rest, 0)...));
+            // Every operand is infinite, so every operand is repeating, and
+            // forward_zip_list_value_at copies rather than moves for exactly
+            // that case. Spelling it the same way in both branches is what
+            // keeps this result the same type as the loop's.
+            return zip_list<U>::repeat(std::invoke(
+                callable,
+                detail::forward_zip_list_value_at(std::forward<FIRST>(first),
+                                                  0),
+                detail::forward_zip_list_value_at(std::forward<REST>(rest),
+                                                  0)...));
         }
 
         zip_list<U> result;
         result.data.reserve(*count);
 
         for (std::size_t index = 0; index < *count; ++index) {
-            result.data.push_back(
-                std::invoke(callable, detail::zip_list_value_at(first, index),
-                            detail::zip_list_value_at(rest, index)...));
+            result.data.push_back(std::invoke(
+                callable,
+                detail::forward_zip_list_value_at(std::forward<FIRST>(first),
+                                                  index),
+                detail::forward_zip_list_value_at(std::forward<REST>(rest),
+                                                  index)...));
         }
 
         return result;

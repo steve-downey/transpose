@@ -29,6 +29,7 @@ return traversable_map.traverse(applicative_map, forward<F>(function),
 
 ```cpp
 template<class TRAVERSABLE_MAP, class T>
+  requires $applicative-context$<typename remove_cvref_t<TRAVERSABLE_MAP>::element_type>
 auto transpose_with(this auto&& self, const TRAVERSABLE_MAP& traversable_map,
                     T&& value);
 ```

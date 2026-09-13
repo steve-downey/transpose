@@ -33,9 +33,11 @@ struct simd_lanes {
     std::array<T, N> data;
 
     static auto repeat(T value) -> simd_lanes {
-        simd_lanes result;
-        result.data.fill(value);
-        return result;
+        // Built element by element rather than default-constructed and
+        // filled, so T need only be copy-constructible.
+        return simd_lanes{detail::make_array<T, static_cast<std::size_t>(N)>(
+            [&value](std::size_t) -> T { return T(value); },
+            std::make_index_sequence<static_cast<std::size_t>(N)>{})};
     }
 
     friend auto operator==(const simd_lanes &, const simd_lanes &)
@@ -50,20 +52,33 @@ struct SimdLanesApplicativeImpl {
         return simd_lanes<U, N>::repeat(U(std::forward<VALUE>(value)));
     }
 
+    // Operands are deduced through forwarding references so that an rvalue
+    // operand's lanes are handed to `function` rather than copied. Each lane
+    // is read exactly once, so that is safe. It matters because the
+    // accumulator of a traversal into this context is an rvalue at every
+    // step: copying it would rebuild the whole accumulated result per lane.
     template <class FUNCTION, class FIRST, class... REST>
-    auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
-                const REST &...rest) {
-        using Result =
-            std::invoke_result_t<FUNCTION, const typename FIRST::value_type &,
-                                 const typename REST::value_type &...>;
+    auto invoke(this auto &&, FUNCTION &&function, FIRST &&first,
+                REST &&...rest) {
+        using Result = std::invoke_result_t<
+            FUNCTION &,
+            detail::element_ref_t<decltype(std::forward<FIRST>(first).data)>,
+            detail::element_ref_t<decltype(std::forward<REST>(rest).data)>...>;
         using U = remove_cvref_t<Result>;
 
-        simd_lanes<U, N> result;
-        for (int i = 0; i < N; ++i) {
-            result.data[i] =
-                std::invoke(function, first.data[i], rest.data[i]...);
-        }
-        return result;
+        // Lanes are constructed, not default-constructed and assigned, so U
+        // need not be default-constructible or assignable.
+        return simd_lanes<U, N>{
+            detail::make_array<U, static_cast<std::size_t>(N)>(
+                [&](std::size_t index) -> U {
+                    return std::invoke(
+                        function,
+                        detail::forward_at(std::forward<FIRST>(first).data,
+                                           index),
+                        detail::forward_at(std::forward<REST>(rest).data,
+                                           index)...);
+                },
+                std::make_index_sequence<static_cast<std::size_t>(N)>{})};
     }
 };
 

@@ -3,11 +3,33 @@
 
 #include <beman/transpose/sender.hpp>
 
+#include <beman/transpose/transpose.hpp>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <memory>
+#include <vector>
 
 namespace bt = beman::transpose;
+
+namespace {
+
+// Counting executions cannot see an ordering defect: four operands that each
+// run exactly once run exactly once in any order. These fixtures record WHICH
+// operand ran, so the composition order the wording promises is observable.
+struct effect_log {
+    std::vector<int> order;
+};
+
+auto tagged_sender(const std::shared_ptr<effect_log> &log, int tag)
+    -> bt::sender<int> {
+    return bt::sender<int>{[log, tag] {
+        log->order.push_back(tag);
+        return tag;
+    }};
+}
+
+} // namespace
 
 TEST_CASE("sender: ready value runs on get") {
     auto s = bt::sender<int>::ready(42);
@@ -67,4 +89,33 @@ TEST_CASE("sender: a lifted callable applied through invoke stays deferred") {
     REQUIRE(*runs == 0);
     REQUIRE(combined.get() == 42);
     REQUIRE(*runs == 1);
+}
+
+TEST_CASE("sender: invoke runs its operands in the order written") {
+    auto log = std::make_shared<effect_log>();
+    const auto &app = bt::applicative_typeclass<bt::sender<int>>;
+
+    auto combined =
+        app.invoke([](int a, int b, int c, int d) { return a + b + c + d; },
+                   tagged_sender(log, 1), tagged_sender(log, 2),
+                   tagged_sender(log, 3), tagged_sender(log, 4));
+
+    REQUIRE(log->order.empty());
+    REQUIRE(combined.get() == 10);
+    REQUIRE(log->order == std::vector<int>{1, 2, 3, 4});
+}
+
+TEST_CASE("sender: transpose composes element effects in iteration order") {
+    auto log = std::make_shared<effect_log>();
+
+    std::vector<bt::sender<int>> senders;
+    for (int tag = 1; tag <= 4; ++tag) {
+        senders.push_back(tagged_sender(log, tag));
+    }
+
+    auto combined = bt::transpose(senders);
+
+    REQUIRE(log->order.empty());
+    REQUIRE(combined.get() == std::vector<int>{1, 2, 3, 4});
+    REQUIRE(log->order == std::vector<int>{1, 2, 3, 4});
 }
