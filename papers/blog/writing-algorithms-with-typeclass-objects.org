@@ -227,11 +227,11 @@ It does not hand you an operation.
 A customization point object like ~std::ranges::begin~ is a single operation that finds its implementation by ADL.
 There is no grouping, no derivation, no object that bundles a concept's operations together.
 And this is the one that fails hardest on the applicative family from part two.
-Those operations are not independent: ~map~, ~zip_with~, and ~apply~ all derive from the ~pure~ + ~invoke~ core, and the bundle literally accepts /either/ of two cores --- ~invoke~ or the classic ~apply~ --- the way Foldable takes ~fold_map~ or ~fold_right~, deriving whichever you did not supply.
+Those operations are not independent: ~map~, ~zip_with~, and ~ap~ all derive from the ~pure~ + ~invoke~ core, and the bundle literally accepts /either/ of two cores --- ~invoke~ or the classic ~ap~ --- the way Foldable takes ~fold_map~ or ~fold_right~, deriving whichever you did not supply.
 A pile of one-CPO-per-operation hooks has nowhere to put that --- no shared place to derive one operation from another, or to say "either of these primitives will do."
 That is the coherence a bundle keeps and à la carte CPOs throw away.
-~std::simd::vec~ is the registered proof: it supplies ~pure~ and ~invoke~, ~apply~ cannot be derived for it (no ~vec<callable>~ exists to hold a function), and every derived operation still works.
-Under a lone global ~apply~ CPO that type is simply locked out; under the bundle it participates.
+~std::simd::vec~ is the registered proof: it supplies ~pure~ and ~invoke~, ~ap~ cannot be derived for it (no ~vec<callable>~ exists to hold a function), and every derived operation still works.
+Under a lone global ~ap~ CPO that type is simply locked out; under the bundle it participates.
 
 ** Concepts --- constraints, not dispatch
 
@@ -268,7 +268,7 @@ Independent extension points that compose --- no reopening classes, no monkey-pa
 Which is the real argument of this series.
 ~transpose~ is one operation the standard library has no spelling for, and consuming it --- writing the algorithms --- is where a /bundle/ beats every à la carte alternative, because the applicative family only holds together when its operations derive from a small coherent core rather than being scattered across independent hooks.
 
-Standardizing ~transpose~ and ~traverse~ without standardizing something like this substrate would push the customization story back toward trait-only or ~tag_invoke~-heavy designs --- exactly the designs that fracture the family, scattering ~pure~, ~invoke~, ~apply~, ~map~, and ~zip_with~ across independent hooks with no shared place to derive one from another.
+Standardizing ~transpose~ and ~traverse~ without standardizing something like this substrate would push the customization story back toward trait-only or ~tag_invoke~-heavy designs --- exactly the designs that fracture the family, scattering ~pure~, ~invoke~, ~ap~, ~map~, and ~zip_with~ across independent hooks with no shared place to derive one from another.
 The verbs need a mechanism strong enough to keep their primitive and derived operations coherent across unrelated types.
 That is what a typeclass object is.
 
