@@ -354,3 +354,54 @@ static_assert(
 static_assert(
     !composes_pairwise<bt::SimdLanesApplicativeMap<int, 4>,
                        bt::simd_lanes<int, 4>, bt::simd_lanes<int, 2>>);
+
+// -- transpose is conditional on the condition transpose itself carries --
+//
+// Traversable::transpose and Traversable::transpose_with are declared with
+// an applicative_context constraint on the element type, and
+// traversable_object makes them conditional on that same condition. Asking
+// instead whether the element type's registered object has a usable `pure`
+// is the weaker question: an element type that answers yes to it and no to
+// applicative_context would have transpose demanded of an object whose
+// transpose is constrained out, and the concept would report a defect where
+// there is none.
+
+namespace {
+
+// A context whose registered object has a usable `pure` and nothing else.
+struct half_context {
+    using value_type = int;
+    int held;
+};
+
+struct HalfApplicativeObject {
+    template <class VALUE>
+    auto pure(VALUE &&) const -> half_context {
+        return half_context{0};
+    }
+};
+
+} // namespace
+
+template <>
+inline constexpr auto bt::applicative_typeclass<half_context> =
+    HalfApplicativeObject{};
+
+static_assert(!bt::applicative_context<half_context>);
+static_assert(!bt::transposing_object<bt::VectorTraversableMap<half_context>>);
+
+// The weaker question answers yes for this element type, which is what
+// pins the two spellings apart rather than merely restating one of them.
+static_assert(requires {
+    bt::applicative_typeclass<half_context>.pure(std::declval<half_context>());
+});
+
+static_assert(bt::traversable_object<bt::VectorTraversableMap<half_context>,
+                                     std::vector<half_context>>);
+
+// And the positive case is still required to provide transpose.
+static_assert(
+    bt::transposing_object<bt::VectorTraversableMap<std::optional<int>>>);
+static_assert(
+    bt::traversable_object<bt::VectorTraversableMap<std::optional<int>>,
+                           std::vector<std::optional<int>>>);
