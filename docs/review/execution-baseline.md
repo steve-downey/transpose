@@ -85,10 +85,16 @@ counts across presets:
 Baseline before this stage was 239 / 244. The four added tests are this
 stage's own: one in `demo_sender_golden.test.cpp` (built always) and two in
 `execution_probe.test.cpp` plus its static assertions (built under the
-option). **No existing test, golden, header, or example was modified.** The
-whole diff is additions: `git diff --stat` reports 483 insertions and zero
-deletions across `docs/decisions.md` and
-`tests/beman/transpose/CMakeLists.txt`.
+option).
+
+**No existing test, golden, header, or example was modified** — not by the
+stage and not by the reconciliation that followed it. Everything under
+`include/`, `examples/` and every pre-existing file under `tests/` is
+byte-identical to what it was before this branch started; the only
+non-documentation change in the whole branch is the two new test files and
+the `tests/.../CMakeLists.txt` lines that register them. The documentation
+diff does contain deletions, all of them in `docs/`, and all of them the
+reconciliation rewriting entries the ruling withdrew or moved.
 
 **The demonstration sender's "unconditional".**
 `tests/beman/transpose/demo_sender_golden.test.cpp` is a translation unit
