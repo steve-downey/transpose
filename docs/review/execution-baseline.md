@@ -4,11 +4,10 @@ Stage [execution-baseline](../transpose-execution-plan.md#execution-baseline),
 the first stage of [transpose-execution-plan.md](../transpose-execution-plan.md).
 Run 2026-09-13.
 
-**Status: four of five deliverables complete; deliverable 2 is STOPPED and
-needs Steve.** Nothing is blocked behind it — the suite is green in every
-configuration and the later stages have what they need — but the question it
-raises is a one-way door and the plan's own protocol forbids taking it by
-default.
+**Status: COMPLETE.** Ruled by Steve 2026-09-13, same day: the dependency
+question is withdrawn rather than answered, so Stage 0 shrank to three
+deliverables and all three are done. The suite is green in every
+configuration.
 
 ---
 
@@ -18,19 +17,46 @@ The plan was drafted without
 [p2300-front-door-shape](../decisions.md#p2300-front-door-shape) in view, and
 that entry is a Steve ruling dated 2026-09-11 — the same day the plan was
 drafted — answering very nearly the same question.
-[transpose-execution-plan.md §1](../transpose-execution-plan.md#context) states
-that "a survey of every steve-downey repository on 2026-09-11 found no
-implementation over real `std::execution` senders anywhere". That is false of
-*this* repository on that date: `examples/p2300_adapter.hpp` and
-`tests/beman/transpose/p2300.test.cpp` are exactly such an implementation.
+[transpose-execution-plan.md §1](../transpose-execution-plan.md#context)
+originally stated that "a survey of every steve-downey repository on
+2026-09-11 found no implementation over real `std::execution` senders
+anywhere". That was false of *this* repository on that date:
+`examples/p2300_adapter.hpp` and `tests/beman/transpose/p2300.test.cpp` are
+exactly such an implementation. **That paragraph has been replaced**; §1 now
+points at the adapter and tells the next agent to read it first.
 
-This does not sink the plan. Its load-bearing argument — the fold cannot work,
-the way through is a native n-ary composition, and nobody has written one —
-survives intact, and §2 below says why. But three stage premises moved, and
-the consequences are logged under the implicated slugs rather than left in
-this note, per divergence protocol rule 3.
+**The ruling, in one line: `p2300-front-door-shape` stands, and nothing
+execution-dependent enters `include/`.** Consequences, all now written into
+the plan and the log:
 
----
+- Stages 1–3 build on `examples/p2300_adapter.hpp` where it lives.
+- `all_of` lands as `examples/all_of.hpp` under
+  `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`, pinned `d24898d`.
+- The Stage 3 `collect` hook in `sequence.hpp` is the **only** `include/`
+  change the plan makes, and it stays sender-free — which
+  [runtime-arity-composition](../decisions.md#runtime-arity-composition)'s own
+  Sentinel already demanded, from the opposite direction.
+- [execution-dependency-shape](../decisions.md#execution-dependency-shape) and
+  [demo-sender-fate](../decisions.md#demo-sender-fate) are **WITHDRAWN** as
+  superseded. Both slugs are kept, redirecting, so existing links resolve.
+- **Stage 1 becomes an audit**, not a build: hold the adapter up against the
+  keying and value-reading entries and bring it to them, plus the law harness
+  and move-only coverage. Gaps get logged under
+  [sender-instance-keying](../decisions.md#sender-instance-keying), which is
+  now Stage 1's logbook by explicit direction.
+- Stage 0's dependency-wiring deliverable is **struck**, the dependency
+  having been wired since 2026-09-11.
+
+The one thing the ruling deliberately did *not* settle:
+`p2300-front-door-shape`'s Consequences paragraph saying runtime-sized
+transposition "needs a type-erased sender" is **not** ratified.
+[runtime-arity-composition](../decisions.md#runtime-arity-composition) and
+[erasure-boundary](../decisions.md#erasure-boundary) are kept and they say the
+opposite. **Stage 2 carries a standing instruction as deliverable 7:** when
+the allocation-count test passes, write a dated Log entry under
+`p2300-front-door-shape` recording the refutation — and if it does not pass,
+write that there instead. Until one of those entries exists, the paragraph
+stands as the live claim.
 
 ## 2. What was pinned
 
@@ -83,15 +109,27 @@ there rather than inside the adapter's diagnostics. It probes exactly the four
 names the plan's registration is built on — `just`, `when_all`, `then`,
 `sync_wait` — plus the completion-signature reading Stage 1 needs.
 
-**The addendum, merged.** Ten entries now live in
-[decisions.md](../decisions.md): seven from the addendum, the three OPEN
-questions it carried, and one new OPEN slug this stage raised
-([execution-toolchain-floor](../decisions.md#execution-toolchain-floor)).
-Attribution is explicit: `sender-instance-keying` and `erasure-boundary` carry
-Steve's 2026-09-11 ratification; `sender-value-type-reading`,
-`runtime-arity-composition`, `all-of-failure-semantics` and `demo-sender-fate`
-carry **"Default-as-drafted at Stage 0 … not individually ruled by Steve"**, so
-a later reader can tell a default from a ruling.
+**The addendum, merged and reconciled.** Eleven slugs now live in
+[decisions.md](../decisions.md), and the addendum file carries a SUPERSEDED
+banner so no later agent reads decisions out of the draft — which is the
+mistake that caused this reconciliation. Statuses after the ruling:
+
+| Slug | Status |
+|---|---|
+| `sender-instance-keying` | DECIDED — Steve, 2026-09-11. Now also **Stage 1's logbook** |
+| `erasure-boundary` | DECIDED — Steve, 2026-09-11 |
+| `sender-value-type-reading` | **PROPOSED** — kept as written, not graduated |
+| `runtime-arity-composition` | DECIDED default-as-drafted; **CONTESTED**, settled by Stage 2 measurement |
+| `all-of-failure-semantics` | DECIDED default-as-drafted |
+| `execution-dependency-shape` | **WITHDRAWN** — superseded, redirects |
+| `demo-sender-fate` | **WITHDRAWN** — superseded, redirects; its golden stays |
+| `execution-toolchain-floor` | OPEN — new, raised by this stage |
+| `sender-error-grade`, `sender-monad-instance`, `static-arity-array` | OPEN — carried over |
+
+Attribution is explicit throughout: entries that are Steve rulings say so,
+and entries taken by default say **"Default-as-drafted at Stage 0 … not
+individually ruled by Steve"**, so a later reader can tell one from the other
+without archaeology.
 
 ---
 
@@ -99,57 +137,57 @@ a later reader can tell a default from a ruling.
 
 Five items. Each is logged under its slug; this is the index.
 
-**(a) Deliverable 2 is STOPPED.**
+**(a) The dependency question — RESOLVED by withdrawal.** Raised at Stage 0 as
+a rule-2 divergence and stopped rather than defaulted, because taking the
+draft would have reversed a Steve ruling by inaction. Ruled the same day:
 [execution-dependency-shape](../decisions.md#execution-dependency-shape) is
-merged as **OPEN**, not default-as-drafted, because taking the default would
-reverse a Steve ruling by inaction. The drafted shape (option
-`BEMAN_TRANSPOSE_WITH_EXECUTION`, default ON when found, headers in
-`include/` reachable from `transpose.hpp`) is weaker on both axes than the
-decided shape (`BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`, OFF always, adapter
-under `examples/`). The two *Whys* agree completely — both want the front door
-light — so this is divergence protocol rule 2: propose and wait. Three
-separable axes are set out in the slug; **axis 2 (header location) is the only
-one that changes what an installation pulls in, and it is what Stage 1 and
-Stage 2's file paths are written against.**
+**WITHDRAWN**, [p2300-front-door-shape](../decisions.md#p2300-front-door-shape)
+stands, and the plan's Stage 0 deliverable 2 is struck rather than performed.
+No new option, no new pin, no `include/` dependency.
 
 **(b) `empty_env` does not exist.** Logged under
 [sender-value-type-reading](../decisions.md#sender-value-type-reading). The
 pinned dependency spells the empty environment `env<>`, the newer P2300
 spelling after LWG replaced the dedicated type. A What, handled the way the
 Stage 0 tripwire handles the namespace case: log, proceed with the real one.
+The plan's Stage 1 text now says `env<>`.
 
 **(c) Stage 1's basis already exists.** Logged under
 [p2300-front-door-shape](../decisions.md#p2300-front-door-shape).
 `P2300ApplicativeImpl` already supplies `pure = just` and
-`invoke = when_all | then` with forwarded operands — Stage 1's deliverable 1,
-second bullet, written and green. Stage 1's real content is the registration
-and the value reading, which the adapter deliberately did not do.
+`invoke = when_all | then` with forwarded operands. This is why the ruling
+turned Stage 1 into an audit; the plan's Stage 1 has been rewritten
+accordingly, and its known starting gap is stated: no `applicative_typeclass`
+registration, no `applicative_value` reading.
 
-**(d) The plan's Stage 2 completion signatures are a revision behind.** Logged
-under [all-of-failure-semantics](../decisions.md#all-of-failure-semantics).
-P3887R1 (LWG-approved 2025-11) says `when_all` advertises `set_stopped` only
-if a child does; the plan lists it unconditionally. Because the decision
-grounds `all_of` in "follow `when_all`", the approved `when_all` is the one to
-follow.
+**(d) The plan's Stage 2 completion signatures were a revision behind.**
+Logged under
+[all-of-failure-semantics](../decisions.md#all-of-failure-semantics).
+P3887R1 (LWG-approved 2025-11) makes `when_all`'s `set_stopped` conditional on
+a child sending it; the plan listed it unconditionally. **Corrected in the
+plan**, inline at the deliverable, with the reasoning quoted.
 
-**(e) The plan's Stage 2 layout trips the plan's Stage 2 tripwire.** Logged
-under [erasure-boundary](../decisions.md#erasure-boundary). Deliverable 2 asks
-for child operation states in one allocation *and* slots as a separate
-`vector<optional<T>>` — two blocks before the result vector — while the
-tripwire stops on more than one allocation that is not the result. The
-tension is internal to the plan.
+**(e) The plan's Stage 2 layout tripped the plan's Stage 2 tripwire.** Logged
+under [erasure-boundary](../decisions.md#erasure-boundary). Deliverable 2
+asked for child op-states in one allocation *plus* a separate
+`vector<optional<T>>` — two blocks before the result vector, while the
+tripwire stops at more than one. **Corrected in the plan**: the tripwire is
+the sensor and stands, the layout is what gives.
 
 ---
 
 ## 4. What the next stage's agent needs that the plan does not say
 
-**Read [execution-dependency-shape](../decisions.md#execution-dependency-shape)
-before writing a single file path.** Stage 1's deliverable 1 says
-`include/beman/transpose/execution.hpp`, included from `transpose.hpp`. Whether
-that location is permitted is exactly what is open. If Steve rules for
-`examples/`, Stage 1's deliverables are unchanged in substance and relocated in
-fact — adapt under rule 2, do not follow the plan's paths literally, and do not
-treat the relocation as licence to change what the header contains.
+**Stage 1 is an audit. Read `examples/p2300_adapter.hpp` first.** It is 90
+lines, already does the `pure`/`invoke` half correctly — including the
+forwarding the plan calls out as a correction to the demo sender's `const&`
+spelling — and its header comment states what writing it established that it
+*cannot* establish. The registration and the value reading are the gap.
+Everything stays in `examples/`; **nothing execution-dependent enters
+`include/`**, and the plan's Stage 1 tripwires now say so. Log every gap the
+audit finds under
+[sender-instance-keying](../decisions.md#sender-instance-keying), which the
+ruling designated as Stage 1's logbook.
 
 **The arity constraint has to be checked before the alias is instantiated.**
 Measured this stage and pinned in the probe: with `Tuple` and `Variant` both
@@ -207,19 +245,27 @@ written" is very nearly literally true.
 
 | # | Deliverable | Outcome |
 |---|---|---|
-| 1 | Merge addendum into `decisions.md` | **Done**, with `execution-dependency-shape` held OPEN — see §3(a) |
-| 2 | Bring in `beman.execution` per the drafted shape | **STOPPED**, rule 2. Recording half done: namespace, standard level, pin, resolution path all in §2 |
-| 3 | Compile probe under every preset | **Done** — `execution_probe.test.cpp`, green on both presets under the existing option guard |
+| 1 | Merge addendum into `decisions.md` | **Done**, reconciled per the ruling: two withdrawn, one kept PROPOSED, three kept; addendum banner-marked SUPERSEDED |
+| 2 | Bring in `beman.execution` | **STRUCK** by the ruling — already wired since 2026-09-11. Recording half done: namespace, standard level, pin, resolution path in §2 |
+| 3 | Compile probe under every preset | **Done** — `execution_probe.test.cpp`, green on both presets |
 | 4 | Golden capture of the demo sender | **Done** — `demo_sender_golden.test.cpp`; existing goldens untouched |
-| 5 | Prior-art note | **Done** — [prior-art-when-all-range.md](prior-art-when-all-range.md), with two findings that contradict Stage 2's text |
+| 5 | Prior-art note | **Done** — [prior-art-when-all-range.md](prior-art-when-all-range.md), with two findings that corrected Stage 2's text |
+
+Also done under the ruling, beyond the original deliverables: the plan's §1
+survey paragraph replaced; Stage 0 shrunk; Stage 1 rewritten as an audit;
+Stage 2 relocated to `examples/all_of.hpp`, corrected on both counts above,
+and given the refutation log entry as deliverable 7; Stage 3 marked as the
+only `include/` change with a sender-free tripwire.
 
 **Acceptance.** "Probe green on gcc and llvm presets with the option ON" —
 yes. "Whole existing suite green with the option OFF and ON" — yes, all four
 combinations, zero failures, no existing assertion changed. "Addendum merged"
-— yes, with one entry deliberately merged as OPEN. Subject to the compiler
-substitution recorded in §4, which is the one respect in which this stage's
-acceptance is weaker than the words ask for.
+— yes, reconciled. Subject to the compiler substitution recorded in §4, which
+is the one respect in which this stage's acceptance is weaker than the words
+ask for.
 
-**Tripwires.** None fired that were not already answered. Package-not-found-
-under-vcpkg: already answered, 2026-09-11. Namespace differs: it does not.
-Any existing golden changed: none — verified by diff, zero deletions.
+**Tripwires.** None fired that were not already answered.
+Package-not-found-under-vcpkg: already answered 2026-09-11, and the
+deliverable that would have acted on it is struck. Namespace differs: it does
+not. Any existing golden changed: none — verified by diff, zero deletions to
+any pre-existing file.

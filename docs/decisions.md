@@ -1959,72 +1959,82 @@ promising it does.
     propose and nothing to wait for.
   * THE EVIDENCE STILL IS NOT IN CI. The follow-up this entry left open on
     2026-09-11 is still open on 2026-09-13; nothing in Stage 0 closed it.
+- 2026-09-13 — THIS ENTRY STANDS, ruled by Steve the same day, resolving the
+  divergence above. **Nothing execution-dependent enters `include/`.** The
+  execution plan's stages 1–3 build on `examples/p2300_adapter.hpp` where it
+  lives; `all_of` lands as `examples/all_of.hpp` under this entry's existing
+  `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`, pinned at this entry's existing
+  `d24898d`; and the Stage 3 `collect` hook in `sequence.hpp` is the only
+  `include/` change the plan makes, staying sender-free. Two addendum entries
+  drafted without this one in view are withdrawn as superseded —
+  [execution-dependency-shape](#execution-dependency-shape) and
+  [demo-sender-fate](#demo-sender-fate) — and the plan's Stage 0
+  dependency-wiring deliverable is struck rather than performed, the
+  dependency having been wired since 2026-09-11.
+  **What remains genuinely contested, and how it gets settled.** This entry's
+  Consequences paragraph reading "transposing a runtime-sized structure of
+  senders needs a type-erased sender" is NOT ratified by this ruling;
+  [runtime-arity-composition](#runtime-arity-composition) and
+  [erasure-boundary](#erasure-boundary) are kept, and they say the opposite.
+  The standing instruction, from the same ruling: **when Stage 2's
+  allocation-count test passes, add a dated Log entry here recording that the
+  "needs a type-erased sender" consequence is refuted by a non-erased n-ary
+  operation state.** Until that entry exists the paragraph stands as written,
+  and a later reader should treat it as the live claim rather than assume the
+  plan won by being newer.
 
 ---
 
 ## execution-dependency-shape
 
 **Question:** How does `beman.execution` enter the build, and is it required?
-**Status:** OPEN 2026-09-13 — drafted PROPOSED 2026-09-11 in the execution
-plan's addendum; default-as-drafted deliberately WITHHELD at Stage 0, because
-taking it would reverse a DECIDED entry by default. Steve's ruling needed.
-**Drafted decision (not adopted):** Optional dependency behind
-`BEMAN_TRANSPOSE_WITH_EXECUTION`, default ON when the package is found and
-OFF otherwise, found via vcpkg with a pinned FetchContent fallback. The
-execution-dependent headers (`execution.hpp`, `all_of.hpp`) included from
-`transpose.hpp` under the option.
-**Why (the drafted Why, which is NOT in dispute):** P3200 proposes
-Traversable/Applicative machinery, not senders; a hard dependency on an
-execution implementation would make the paper's reference implementation
-unbuildable for readers who only want the `optional`/`expected` story, and
-would tie the library's Beman conformance to another library's release
-cadence. Optional keeps the front door light and still lets CI prove the real
-instance on every commit.
-**Why it is not adopted as drafted:**
-[p2300-front-door-shape](#p2300-front-door-shape) already decided this
-question, on 2026-09-11, by Steve, and decided it in the same direction but
-strictly further: option `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`, **OFF by
-default unconditionally**, with the adapter under `examples/` rather than
-`include/` "so that nothing an installation of this library pulls in depends
-on it". The drafted shape is weaker on both axes that matter. Default-ON-when-
-found means that on any machine where `beman.execution` happens to be
-installed, `#include <beman/transpose/transpose.hpp>` acquires an execution
-dependency the installer never asked for — which is the outcome the decided
-entry names and forbids. So the two Whys agree and the two Whats do not:
-divergence protocol rule 2, propose and wait.
-**The three axes needing a ruling,** stated separately because they are
-separable and a ruling may split them:
-1. *Default polarity.* OFF always (decided), or ON when found (drafted).
-2. *Header location.* `examples/` only (decided), or `include/` reachable
-   from `transpose.hpp` under a guard (drafted, and what stages 1–3 are
-   written against: `include/beman/transpose/execution.hpp` and `all_of.hpp`).
-3. *Option spelling.* `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE` (existing, and
-   now naming more than evidence if stages 1–3 land), or
-   `BEMAN_TRANSPOSE_WITH_EXECUTION` (drafted), or a rename of the first.
-**Note for whoever rules:** axis 2 is the one-way door the plan's Stage 0 Why
-calls out, and it is the only one that changes what an installation pulls in.
-Axes 1 and 3 are reversible at any time. A ruling that keeps `examples/` does
-not block stages 1–3; it relocates their deliverables, and the plan's Stage 1
-and 2 texts would need their paths adapted under rule 2 rather than followed
-literally.
+**Status:** WITHDRAWN 2026-09-13. Superseded by
+[p2300-front-door-shape](#p2300-front-door-shape), which answered this
+question on 2026-09-11 and stands.
+**Decided by:** Steve Downey, 2026-09-13, ruling on the Stage 0 divergence.
+**Decision:** There is no separate answer here. The dependency enters exactly
+as [p2300-front-door-shape](#p2300-front-door-shape) says it does: optional,
+behind `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`, **OFF by default
+unconditionally**, resolved through `lockfile.json` FetchContent pinned at
+`d24898d7264e74fb723b50d6275a5d05f65ddb20`, with everything
+execution-dependent under `examples/`. **Nothing execution-dependent enters
+`include/`.** The slug is kept rather than deleted so that the links the
+execution plan and its addendum already carry resolve to this redirection
+instead of to nothing.
+**Why the drafted answer was not taken:** it was drafted without the deciding
+entry in view, and was weaker on the axis that matters. Default-ON-when-found
+means that on any machine where `beman.execution` happens to be installed,
+`#include <beman/transpose/transpose.hpp>` acquires an execution dependency
+the installer never asked for. That is the outcome
+[p2300-front-door-shape](#p2300-front-door-shape) names and forbids, and the
+two entries' Whys never disagreed about it — both want the front door light.
+Only the Whats differed, and the decided one is stricter.
+**Consequence for the execution plan:** stages 1–3 build on
+`examples/p2300_adapter.hpp` where it lives. `all_of` lands as
+`examples/all_of.hpp` under the same option. The Stage 3 `collect` hook in
+`sequence.hpp` is the only `include/` change the plan makes, and it stays
+sender-free — which is what
+[runtime-arity-composition](#runtime-arity-composition) already required of
+it for independent reasons.
 **Log:**
 - 2026-09-11 — Drafted PROPOSED in the execution plan's addendum.
 - 2026-09-13 — Merged at Stage 0
   [execution-baseline](transpose-execution-plan.md#execution-baseline) as
-  OPEN rather than default-as-drafted, per the reasoning above. Recorded
-  facts that a ruling can use, all verified in this stage rather than
+  OPEN rather than default-as-drafted, because taking the default would have
+  reversed a DECIDED entry by inaction (divergence protocol rule 2).
+  Facts recorded for the ruling, all measured in that stage rather than
   assumed: the dependency resolves through `lockfile.json` FetchContent at
   `d24898d7264e74fb723b50d6275a5d05f65ddb20`, not through vcpkg
   (`vcpkg.json` lists only `catch2`); the exported namespace is
-  `beman::execution`, matching the drafted text, with a legacy
-  `beman::execution26` tree still shipped alongside in
-  `include/beman/execution26/` (two headers) which is what
+  `beman::execution`, with a legacy `beman::execution26` tree still shipped
+  alongside in `include/beman/execution26/` (two headers), which is what
   `compile-time-scheme` was using; and the dependency requires C++23 or
   greater, declaring `cxx_std_${CMAKE_CXX_STANDARD}` rather than a floor of
-  its own, so it inherits this repository's C++23. The whole existing suite
-  is green with the existing option both OFF (239 tests) and ON (244) on
-  both presets, so nothing about the current shape is blocking; this is a
-  question of what the shape should BE, not of whether it works.
+  its own, so it inherits this repository's C++23.
+- 2026-09-13 — WITHDRAWN by Steve's ruling, same day. The existing entry
+  stands; no new option, no new pin, no `include/` dependency. Stage 0's
+  dependency-wiring deliverable is struck from the plan rather than
+  performed, the dependency having been wired since 2026-09-11.
 
 ---
 
@@ -2066,17 +2076,34 @@ specialization is a regression to per-type keying.
   "under the empty environment": the pinned dependency spells that type
   `beman::execution::env<>` and exports no `empty_env` at all. See
   [sender-value-type-reading](#sender-value-type-reading).
+- 2026-09-13 — THIS SLUG IS NOW STAGE 1'S LOGBOOK, by Steve's ruling of the
+  same day. Stage 1 is no longer "write a registration"; it is **audit
+  `examples/p2300_adapter.hpp` against this entry and
+  [sender-value-type-reading](#sender-value-type-reading), and bring it up to
+  them** — concept-keyed rather than per-type, one object for all sender
+  types, element type read from completion signatures — plus the law harness
+  and move-only coverage the adapter does not yet have. The adapter today
+  supplies the `pure`/`invoke` basis and deliberately performs NO
+  `applicative_typeclass` registration and NO `applicative_value` reading, so
+  the audit has real work to do and a known starting gap.
+  **Every gap the audit finds is logged here**, under this slug, rather than
+  under a new one — that is what the ruling directs, and it keeps the keying
+  question and the evidence for it in one place. Two constraints inherited
+  from the same ruling: the work stays in `examples/`, nothing
+  execution-dependent enters `include/`, and the concept-keyed registration
+  must therefore be reachable from the adapter's own header rather than from
+  `transpose.hpp`.
 
 ---
 
 ## sender-value-type-reading
 
 **Question:** How is `applicative_value_t<S>` read for a sender?
-**Status:** DECIDED 2026-09-13
-**Decided by:** Default-as-drafted at Stage 0
-[execution-baseline](transpose-execution-plan.md#execution-baseline), per
-transpose-execution-plan.md §3 deliverable 1. Not individually ruled by Steve.
-**Decision:** A specialization of `applicative_value` for
+**Status:** PROPOSED 2026-09-11, still PROPOSED after the 2026-09-13 ruling,
+which kept it as written rather than graduating it. Stage 1 audits the
+adapter against it; a gap found there is logged under
+[sender-instance-keying](#sender-instance-keying).
+**Proposed decision:** A specialization of `applicative_value` for
 `single_value_sender` types reading
 `value_types_of_t<S, env<>, type_identity_t, type_identity_t>`, decayed.
 The `void_t<typename T::value_type>` path is not used for senders even if
@@ -2089,7 +2116,7 @@ authoritative statement of that is its completion signatures. Reading a
 `value_type` member would be reading a coincidence.
 **Log:**
 - 2026-09-11 — Drafted.
-- 2026-09-13 — Merged at Stage 0, default-as-drafted, with ONE What
+- 2026-09-13 — Merged at Stage 0 as PROPOSED, with ONE What
   corrected against the pinned dependency and verified by compiling it.
   *Plan and draft said:* `value_types_of_t<S, empty_env, type_identity_t,
   type_identity_t>`. *Reality:* `beman::execution` at
@@ -2161,6 +2188,24 @@ could offer it for performance (a single-pass `expected` collect avoids
   between them is Stage 2's allocation-count tripwire, which is a
   measurement; an argument either way before that measurement exists should
   be treated as unsupported by both entries.
+- 2026-09-13 — Location and division of labour fixed by Steve's ruling.
+  `all_of` lands as **`examples/all_of.hpp`** under
+  `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`. The Stage 3 `collect` hook in
+  `sequence.hpp` is **the only `include/` change this plan makes, and it
+  stays sender-free** — which this entry's own Sentinel already demanded for
+  independent reasons ("the vector Traversable naming any sender type, or any
+  `if constexpr` on 'is a sender', violates this decision"). The ruling and
+  the sentinel agree from different directions: the hook probes for a
+  `collect` member and knows nothing about what supplies it, so the generic
+  half can live in `include/` precisely because it is generic, and the sender
+  half must live in `examples/` because it is not.
+  **Standing instruction for Stage 2:** when the allocation-count test
+  passes, add a dated Log entry under
+  [p2300-front-door-shape](#p2300-front-door-shape) recording that its
+  "needs a type-erased sender" consequence is refuted by a non-erased n-ary
+  operation state. That entry is the one this decision contests, and the
+  refutation is not complete until it is written where the contested claim
+  lives.
 
 ---
 
@@ -2192,6 +2237,14 @@ demo sender in a different coat.
   the text now names the headers by role rather than by path. No change of
   substance — the boundary is about what the code may contain, not where it
   lives.
+- 2026-09-13 — Location fixed by Steve's ruling: the header this boundary
+  governs is **`examples/all_of.hpp`**, under
+  `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`, not `include/beman/transpose/`.
+  Nothing about the boundary itself changes — it is a rule about what the
+  code may contain, and one allocation is one allocation wherever the file
+  sits. Worth stating because the measurement gets easier: a header under
+  `examples/` that no installation pulls in can carry the allocation-counting
+  test's hooks without any of it becoming library surface.
   The complementary pin landed this stage:
   `tests/beman/transpose/demo_sender_golden.test.cpp` asserts that the
   DEMONSTRATION sender is invariant under composition and copyable, which is
@@ -2275,43 +2328,47 @@ same children, which is the property the paper wants to state: `all_of`
     treat the plan's unconditional list as superseded and say so in its own
     review note; this is not a licence to change anything else in the
     signature set.
+- 2026-09-13 — Kept by Steve's ruling, unchanged. The algorithm these
+  semantics govern lands as `examples/all_of.hpp` under
+  `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`; the failure and ordering rules are
+  unaffected by where the header sits.
 
 ---
 
 ## demo-sender-fate
 
 **Question:** Does the `std::function` demonstration `sender<T>` stay?
-**Status:** DECIDED 2026-09-13, restating and extending a ruling Steve
-already made on 2026-09-11 under
-[p2300-front-door-shape](#p2300-front-door-shape).
-**Decided by:** Steve Downey 2026-09-11 for the substance ("the demonstration
-`sender<T>` stays, and its header comment now says what it does and does not
-show"); default-as-drafted at Stage 0 for the word "unconditional".
-**Decision:** Stays, unchanged, unconditional. It is renamed only in prose:
-docs and paper call it the *demonstration* sender and say why it exists.
-**Why:** It is the pedagogical instance in three published posts and the
-test carrier the 2026-09-07 worklist designated for the sender-shaped lazy
-monad (its erasure is what makes `sender<sender<A>>` a nameable type). It
-also builds without the execution dependency. Deleting it would break
-published examples for no gain; keeping it *and* the real instance is the
-contrast the paper needs.
+**Status:** WITHDRAWN 2026-09-13. Superseded by
+[p2300-front-door-shape](#p2300-front-door-shape), which ruled on this on
+2026-09-11.
+**Decided by:** Steve Downey, 2026-09-11, under the superseding entry;
+withdrawal 2026-09-13.
+**Decision:** There is no separate answer here.
+[p2300-front-door-shape](#p2300-front-door-shape) already says it: "the
+demonstration `sender<T>` in `include/beman/transpose/sender.hpp` stays, and
+its header comment now says what it does and does not show." Both halves were
+already done when this was drafted — the type is untouched and the header
+comment carries its WHAT IT SHOWS and AND WHAT IT HIDES paragraphs. The slug
+is kept so existing links redirect rather than dangle.
+**What the draft would have added, and where it went instead:** one word,
+"unconditional" — that the demonstration sender is reachable with no
+dependency on an execution implementation at all. That claim is now pinned,
+by `tests/beman/transpose/demo_sender_golden.test.cpp`, a translation unit
+whose only library include is `sender.hpp` and which is built in every
+configuration. Under the 2026-09-13 ruling the claim is not at risk from this
+plan anyway — nothing execution-dependent enters `include/`, so
+`transpose.hpp` cannot acquire the dependency — but the golden is the sensor
+that keeps it true rather than merely intended.
 **Log:**
-- 2026-09-11 — Drafted; the substance was independently ruled the same day
-  under [p2300-front-door-shape](#p2300-front-door-shape), whose decision
-  text already says the demonstration sender stays and whose header comment
-  edit already did the prose half. Merging this entry therefore adds one
-  word to a standing ruling rather than making a new one.
-- 2026-09-13 — Merged and pinned at Stage 0. The prose half was already done:
-  `include/beman/transpose/sender.hpp`'s header comment carries both the
-  WHAT IT SHOWS and AND WHAT IT HIDES paragraphs. The "unconditional" half
-  was NOT pinned anywhere, and now is, by
-  `tests/beman/transpose/demo_sender_golden.test.cpp` — a translation unit
-  whose only library include is `sender.hpp` and which is built in every
-  configuration. If a later stage makes `transpose.hpp` pull an
-  execution-dependent header in unconditionally, or gives `sender.hpp` an
-  execution include, that file stops compiling. The front-door DEDUCTIONS
-  were already golden in `baseline_deduction.test.cpp` (which is likewise
-  built in every configuration), so they are deliberately not repeated.
+- 2026-09-11 — Drafted PROPOSED in the execution plan's addendum, without the
+  same-day ruling in view.
+- 2026-09-13 — Pinned at Stage 0
+  [execution-baseline](transpose-execution-plan.md#execution-baseline) by
+  `demo_sender_golden.test.cpp`. The front-door DEDUCTIONS were already
+  golden in `baseline_deduction.test.cpp`, which is likewise built in every
+  configuration, so they are deliberately not repeated there.
+- 2026-09-13 — WITHDRAWN by Steve's ruling: already ruled, nothing left to
+  decide. The golden stays.
 
 ---
 
