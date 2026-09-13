@@ -91,6 +91,28 @@ struct is_optional<std::optional<U>> : std::true_type {};
 template <class T>
 inline constexpr bool is_optional_v = is_optional<remove_cvref_t<T>>::value;
 
+/** The type `forward_contained` yields for an operand of type `OPERAND`,
+ * for naming in a trailing return type. Spelled before the function so that
+ * the function can name it and keep a trailing return type, rather than
+ * deducing its return type from a body that a probe would have to
+ * instantiate.
+ *
+ * An rvalue operand's value is handed over; an lvalue operand's value is a
+ * `const` lvalue whether or not the operand itself is `const`. Simply
+ * forwarding the operand would conflate two different things: carrying the
+ * caller's value category, which is the point, and stripping `const` from a
+ * non-`const` lvalue, which is not. The latter hands `function` a mutable
+ * reference into the caller's operand -- enough to select a `T&` overload
+ * over a `const T&` one, and to write through it -- where the composition is
+ * specified only to invoke `function` on the value the operand holds.
+ */
+//! \expos
+template <class OPERAND>
+using contained_ref_t = std::conditional_t<
+    std::is_lvalue_reference_v<OPERAND>,
+    const std::remove_reference_t<decltype(*std::declval<OPERAND &>())> &,
+    decltype(*std::declval<OPERAND>())>;
+
 /** The value an applicative operand holds, with the operand's own value
  * category.
  *
@@ -99,19 +121,14 @@ inline constexpr bool is_optional_v = is_optional<remove_cvref_t<T>>::value;
  * operation copies its whole accumulated prefix at every step. Deducing the
  * operand and forwarding through this is what lets a caller who has an
  * rvalue -- the traversal loop, moving its accumulator forward -- hand the
- * held value over instead of duplicating it.
+ * held value over instead of duplicating it. Only an rvalue: see
+ * `contained_ref_t`.
  */
 template <class OPERAND>
 constexpr auto forward_contained(OPERAND &&operand)
-    -> decltype(*std::forward<OPERAND>(operand)) {
+    -> contained_ref_t<OPERAND> {
     return *std::forward<OPERAND>(operand);
 }
-
-/** The type `forward_contained` yields for an operand of type `OPERAND`,
- * for naming in a trailing return type. */
-//! \expos
-template <class OPERAND>
-using contained_ref_t = decltype(forward_contained(std::declval<OPERAND>()));
 
 /** `container[index]`, with `container`'s own value category.
  *
@@ -119,13 +136,16 @@ using contained_ref_t = decltype(forward_contained(std::declval<OPERAND>()));
  * exactly once, so an rvalue operand's element may be handed over rather
  * than copied. As with `forward_contained`, this is what keeps a traversal
  * that accumulates through such an object from duplicating its whole
- * accumulated result at every lane of every step.
+ * accumulated result at every lane of every step -- and, as there, an
+ * lvalue operand's element is a `const` lvalue whether or not the operand
+ * itself is `const`. `container[index]` on a non-`const` lvalue operand
+ * would be a mutable reference into the caller's container.
  */
 template <class CONTAINER>
 constexpr auto forward_at(CONTAINER &&container, std::size_t index)
     -> decltype(auto) {
     if constexpr (std::is_lvalue_reference_v<CONTAINER>) {
-        return container[index];
+        return std::as_const(container)[index];
     } else {
         return std::move(container[index]);
     }
