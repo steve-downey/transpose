@@ -54,34 +54,33 @@ You asked for the Functor instance of a specific type and got it.
 
 ** Explicit object argument
 
-Pass a specific instance at the call site.
-Because the object is an ordinary value, you can substitute a different one --- local policy override, with no change to the type involved.
+Pass the instance at the call site, as an ordinary argument.
+A function takes the typeclass object by reference; the caller decides which one it gets.
 
-From [[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::examples/lookup_modes_example.cpp][=examples/lookup_modes_example.cpp=]]:
+From [[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::examples/lookup_modes_example.cpp][=examples/lookup_modes_example.cpp=]], where ~bt~ is that file's alias for ~beman::transpose~:
 
 #+begin_src cpp
-auto explicit_object_lookup_example() -> std::optional<int> {
-    OptionalFunctorObject functor;
-    std::optional<int> value{41};
-
-    return functor.fmap([](int x) { return x + 1; }, value);
-}
+auto fmap_with = [](const auto &tc, const auto &val) {
+    return tc.fmap([](int x) { return x + 1; }, val);
+};
+auto result2 = fmap_with(bt::functor_typeclass<std::optional<int>>, value);
 #+end_src
 
-This is the thing a trait or a CPO cannot hand you: the ability to swap the /implementation/ at one call site without touching, wrapping, or newtyping the value.
+~fmap_with~ is handed the instance that lookup would have found anyway, which is the dull case and exactly the one worth showing: the mechanism is argument passing, nothing more.
+That is also what makes the interesting case available --- substitute a different instance at this one call site, a local policy override with no change to the type involved.
+A trait or a CPO cannot hand you that, because there is no object to pass.
 
 ** NTTP pinning
 
 Bind the looked-up object as a non-type template parameter with a default.
 Lookup happens once, at instantiation, and callers can override the default but do not have to.
 
-From [[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::tests/beman/transpose/fold.test.cpp][=tests/beman/transpose/fold.test.cpp=]]:
+From the same file:
 
 #+begin_src cpp
-template <class STRUCTURE,
-          const auto& FOLDABLE = beman::transpose::foldable_typeclass<STRUCTURE>>
-auto sum_with_nttp_lookup(const STRUCTURE& structure) {
-    return FOLDABLE.fold_map([](int x) { return x; }, structure);
+template <class CONTEXT, const auto &FUNCTOR = bt::functor_typeclass<CONTEXT>>
+auto fmap_plus_one(const CONTEXT &value) {
+    return FUNCTOR.fmap([](int x) { return x + 1; }, value);
 }
 #+end_src
 
