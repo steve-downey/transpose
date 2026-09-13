@@ -84,6 +84,14 @@ template <class VALUE_TYPE>
 struct VectorTraversableImpl {
     using element_type = VALUE_TYPE;
 
+    //! \remarks A `vector` handed over as an rvalue owns its elements
+    //! outright, so this instance really does hand them on: the second
+    //! `traverse` overload below presents each element to `function` as an
+    //! rvalue, one move per element where the first overload costs a copy.
+    //! Declaring it is what lets `traverse` infer its context from the
+    //! consuming call before this object has been selected.
+    static constexpr bool consumes_rvalue_structure = true;
+
     // \ref{transpose.range.traverse}, traversable instance for vector
     template <class APPLICATIVE, class FUNCTION>
     auto traverse(this auto &&, const APPLICATIVE &applicative,
