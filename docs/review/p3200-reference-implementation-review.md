@@ -1,6 +1,6 @@
 # Review of the P3200 Reference Implementation
 
-Date: 2026-09-11  
+Date: 2026-09-11
 Reviewed commit: `9359461` (`main`)
 
 ## Executive summary

@@ -102,7 +102,8 @@ inline constexpr bool is_optional_v = is_optional<remove_cvref_t<T>>::value;
  * held value over instead of duplicating it.
  */
 template <class OPERAND>
-constexpr auto forward_contained(OPERAND &&operand) -> decltype(auto) {
+constexpr auto forward_contained(OPERAND &&operand)
+    -> decltype(*std::forward<OPERAND>(operand)) {
     return *std::forward<OPERAND>(operand);
 }
 
