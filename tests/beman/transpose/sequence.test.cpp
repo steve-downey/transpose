@@ -88,6 +88,13 @@ TEST_CASE("sequence: successful traversal is linear in element copies") {
     INFO("copies for 100 elements: " << small);
     INFO("copies for 200 elements: " << large);
 
+    // The ratio below reads as a bound on growth only while there is
+    // something to grow. Both helpers traverse an lvalue and build an
+    // independent result, so every element is copied at least once and this
+    // holds; a helper rewritten to hand its vector over would drive the
+    // count to zero, and `0 < 0` would report a performance regression
+    // where the real news is that the bound no longer applies.
+    REQUIRE(small > 0);
     REQUIRE(small <= 4 * 100);
     REQUIRE(large < 3 * small);
 }
@@ -123,6 +130,8 @@ TEST_CASE("sequence: traversal into expected is linear in element copies") {
     INFO("copies for 100 elements: " << small);
     INFO("copies for 200 elements: " << large);
 
+    // See the preceding case for why the ratio needs a floor under it.
+    REQUIRE(small > 0);
     REQUIRE(small <= 4 * 100);
     REQUIRE(large < 3 * small);
 }
