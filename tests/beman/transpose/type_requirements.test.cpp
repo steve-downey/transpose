@@ -377,3 +377,43 @@ TEST_CASE("type requirements: zip_list composes lvalue operands as const") {
     REQUIRE(left == bt::zip_list<int>{{1, 2}});
     REQUIRE(right == bt::zip_list<int>{{10, 20}});
 }
+
+// --- Elements arrive in the category the structure did --------------------
+//
+// traverse infers its applicative context from the element category before
+// any traversable object has been selected, which it can only do if every
+// traversable object presents elements in the category it received the
+// structure in. That obligation is what the vector instance's two overloads
+// keep, and what traversable_impl and traversable_object now probe: an
+// object handed an rvalue structure is asked to invoke a callable that
+// accepts an element only as an rvalue.
+
+using beman::transpose::test::rvalue_argument_only_callable;
+
+static_assert(traversable_with<rvalue_argument_only_callable, std::vector<int>>,
+              "an rvalue structure reaches the consuming overload");
+static_assert(
+    !traversable_with<rvalue_argument_only_callable, std::vector<int> &>,
+    "a const lvalue structure never presents an rvalue element, and must "
+    "fail to match rather than fail mid-instantiation");
+
+static_assert(traversable_with<rvalue_argument_only_callable,
+                               beman::transpose::test::Identity<int>>);
+static_assert(!traversable_with<rvalue_argument_only_callable,
+                                beman::transpose::test::Identity<int> &>);
+
+static_assert(
+    bt::traversable_impl<bt::VectorTraversableImpl<int>, std::vector<int>>);
+static_assert(bt::traversable_object<
+              traversable_for<beman::transpose::test::Identity<int>>,
+              beman::transpose::test::Identity<int>>);
+
+TEST_CASE("type requirements: a consuming traversal presents rvalues") {
+    std::vector<int> values{1, 2, 3};
+
+    auto traversed =
+        bt::traverse(rvalue_argument_only_callable{10}, std::move(values));
+
+    REQUIRE(traversed.has_value());
+    REQUIRE(*traversed == std::vector<int>{11, 12, 13});
+}
