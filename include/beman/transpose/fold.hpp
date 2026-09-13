@@ -6,6 +6,7 @@
 #include <beman/transpose/detail/typeclass_base.hpp>
 #include <beman/transpose/monoid.hpp>
 
+#include <concepts>
 #include <cstddef>
 #include <functional>
 #include <optional>
@@ -95,6 +96,19 @@ struct First {
 // the fold family's clauses, and hoisting the probes into named callables
 // is both the workaround and consistent with the concepts, which already
 // probe with named witnesses.
+//
+// Each of the three is constrained on `copy_constructible`. Unlike
+// probe_witness, whose body establishes a result type and nothing else,
+// these three stand in for derivations that really do copy the element --
+// `combine_all` folds with the identity function, `to_vector` collects each
+// element into a vector, `find_first` carries a matching element out in a
+// `First`. That requirement has to be stated rather than discovered in a
+// body: probing an operation with a deduced return type instantiates enough
+// of it to instantiate the witness call, so an unstated copy would reach
+// the compiler as a diagnostic from inside the probe, and a concept that
+// diagnoses cannot be used to detect anything. Stated, the probe answers
+// `false` for an element type that cannot be copied -- which is the true
+// answer, since the derivation could not have run.
 
 /** Identity-shaped probe: returns its argument by value, so the probed
  * `fold_map` sees a callable whose result type is the element type itself
@@ -102,6 +116,7 @@ struct First {
  */
 struct identity_probe_witness {
     template <class ARGUMENT>
+        requires std::copy_constructible<ARGUMENT>
     constexpr auto operator()(const ARGUMENT &argument) const -> ARGUMENT {
         return argument;
     }
@@ -112,6 +127,7 @@ struct identity_probe_witness {
  */
 struct vector_probe_witness {
     template <class ARGUMENT>
+        requires std::copy_constructible<ARGUMENT>
     constexpr auto operator()(const ARGUMENT &argument) const
         -> std::vector<ARGUMENT> {
         return std::vector<ARGUMENT>{argument};
@@ -123,6 +139,7 @@ struct vector_probe_witness {
  */
 struct first_probe_witness {
     template <class ARGUMENT>
+        requires std::copy_constructible<ARGUMENT>
     constexpr auto operator()(const ARGUMENT &) const -> First<ARGUMENT> {
         return First<ARGUMENT>{};
     }
