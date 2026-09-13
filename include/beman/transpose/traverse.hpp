@@ -25,9 +25,8 @@ namespace beman::transpose {
 //! simply does not match.
 //! \expos
 template <class CONTEXT>
-concept applicative_context =
-    applicative_object<remove_cvref_t<decltype(applicative_typeclass<CONTEXT>)>,
-                       CONTEXT>;
+concept applicative_context = applicative_object<
+    std::remove_cvref_t<decltype(applicative_typeclass<CONTEXT>)>, CONTEXT>;
 
 /// Traversable pattern invariants:
 /// - Instances are single lookup objects that provide traverse(F, T).
@@ -87,7 +86,7 @@ struct Traversable : protected Impl {
 
     template <class TRAVERSABLE_MAP, class T>
         requires applicative_context<
-            typename remove_cvref_t<TRAVERSABLE_MAP>::element_type>
+            typename std::remove_cvref_t<TRAVERSABLE_MAP>::element_type>
     auto transpose_with(this auto &&self,
                         const TRAVERSABLE_MAP &traversable_map, T &&value);
 
@@ -114,8 +113,8 @@ inline constexpr auto traversable_typeclass = std::false_type{};
 /// constraints below evaluate false for such a type instead of diagnosing.
 //! \expos
 template <class T>
-using traversable_object_t =
-    remove_cvref_t<decltype(traversable_typeclass<remove_cvref_t<T>>)>;
+using traversable_object_t = std::remove_cvref_t<
+    decltype(traversable_typeclass<std::remove_cvref_t<T>>)>;
 
 //! \expos
 template <class T>
@@ -162,7 +161,7 @@ using traverse_element_t = std::conditional_t<std::is_lvalue_reference_v<T>,
 //! \expos
 template <class F, class T>
 using traverse_context_t =
-    remove_cvref_t<std::invoke_result_t<F &, traverse_element_t<T>>>;
+    std::remove_cvref_t<std::invoke_result_t<F &, traverse_element_t<T>>>;
 
 //! \remarks This concept is satisfied when `traversable_typeclass` names a
 //! traversable object for `T` and `applicative_typeclass` names an
@@ -315,7 +314,7 @@ template <class Impl>
 template <class T, class F>
 auto Traversable<Impl>::for_each(this auto &&self, T &&value, F &&function) {
     using Context =
-        remove_cvref_t<std::invoke_result_t<F &, const element_type &>>;
+        std::remove_cvref_t<std::invoke_result_t<F &, const element_type &>>;
     const auto &applicative = applicative_typeclass<Context>;
     return self.traverse(applicative, std::forward<F>(function),
                          std::forward<T>(value));
@@ -354,8 +353,9 @@ template <class TRAVERSABLE_MAP, class T, class F>
 auto Traversable<Impl>::traverse_with(this auto &&,
                                       const TRAVERSABLE_MAP &traversable_map,
                                       F &&function, T &&value) {
-    using Context = remove_cvref_t<std::invoke_result_t<
-        F &, const typename remove_cvref_t<TRAVERSABLE_MAP>::element_type &>>;
+    using Context = std::remove_cvref_t<std::invoke_result_t<
+        F &,
+        const typename std::remove_cvref_t<TRAVERSABLE_MAP>::element_type &>>;
     const auto &applicative = applicative_typeclass<Context>;
     return traversable_map.traverse(applicative, std::forward<F>(function),
                                     std::forward<T>(value));
@@ -376,7 +376,7 @@ auto Traversable<Impl>::traverse_with(this auto &&,
 template <class Impl>
 template <class TRAVERSABLE_MAP, class T>
     requires applicative_context<
-        typename remove_cvref_t<TRAVERSABLE_MAP>::element_type>
+        typename std::remove_cvref_t<TRAVERSABLE_MAP>::element_type>
 auto Traversable<Impl>::transpose_with(this auto &&self,
                                        const TRAVERSABLE_MAP &traversable_map,
                                        T &&value) {
@@ -412,11 +412,11 @@ auto Traversable<Impl>::transpose_with(this auto &&self,
 //! composition to decline to produce: by the time it sees an element's
 //! context, that context has already been computed.
 template <class F, class T,
-          class POLICY = remove_cvref_t<
+          class POLICY = std::remove_cvref_t<
               decltype(applicative_typeclass<traverse_context_t<F, T>>)>>
     requires applicative_object_for<POLICY, traverse_context_t<F, T>>
 auto traverse(F &&function, T &&value, POLICY policy = POLICY{}) {
-    const auto &map = traversable_typeclass<remove_cvref_t<T>>;
+    const auto &map = traversable_typeclass<std::remove_cvref_t<T>>;
     return map.traverse(policy, std::forward<F>(function),
                         std::forward<T>(value));
 }

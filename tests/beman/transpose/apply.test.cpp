@@ -24,8 +24,8 @@ namespace {
 struct MarkedMapImpl {
     template <class VALUE>
     [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
-        -> std::optional<bt::remove_cvref_t<VALUE>> {
-        return std::optional<bt::remove_cvref_t<VALUE>>{
+        -> std::optional<std::remove_cvref_t<VALUE>> {
+        return std::optional<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
@@ -33,9 +33,9 @@ struct MarkedMapImpl {
     [[maybe_unused]] auto invoke(this auto &&, FUNCTION &&function,
                                  const std::optional<FIRST> &first,
                                  const std::optional<REST> &...rest)
-        -> std::optional<bt::remove_cvref_t<
+        -> std::optional<std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
-        using Result = bt::remove_cvref_t<
+        using Result = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
         if (first.has_value() && (... && rest.has_value())) {
             return std::optional<Result>{
@@ -57,8 +57,8 @@ struct MarkedMapMap : bt::Applicative<MarkedMapImpl> {};
 struct PerInstantiationMapImpl {
     template <class VALUE>
     [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
-        -> std::optional<bt::remove_cvref_t<VALUE>> {
-        return std::optional<bt::remove_cvref_t<VALUE>>{
+        -> std::optional<std::remove_cvref_t<VALUE>> {
+        return std::optional<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
@@ -66,9 +66,9 @@ struct PerInstantiationMapImpl {
     auto invoke(this auto &&, FUNCTION &&function,
                 const std::optional<FIRST> &first,
                 const std::optional<REST> &...rest)
-        -> std::optional<bt::remove_cvref_t<
+        -> std::optional<std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
-        using Result = bt::remove_cvref_t<
+        using Result = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
         if (first.has_value() && (... && rest.has_value())) {
             return std::optional<Result>{
@@ -91,8 +91,8 @@ struct PerInstantiationMapMap : bt::Applicative<PerInstantiationMapImpl> {};
 struct MarkedZipWithImpl {
     template <class VALUE>
     [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
-        -> std::optional<bt::remove_cvref_t<VALUE>> {
-        return std::optional<bt::remove_cvref_t<VALUE>>{
+        -> std::optional<std::remove_cvref_t<VALUE>> {
+        return std::optional<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
@@ -100,9 +100,9 @@ struct MarkedZipWithImpl {
     [[maybe_unused]] auto invoke(this auto &&, FUNCTION &&function,
                                  const std::optional<FIRST> &first,
                                  const std::optional<REST> &...rest)
-        -> std::optional<bt::remove_cvref_t<
+        -> std::optional<std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
-        using Result = bt::remove_cvref_t<
+        using Result = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
         if (first.has_value() && (... && rest.has_value())) {
             return std::optional<Result>{
@@ -126,8 +126,8 @@ struct MarkedZipWithMap : bt::Applicative<MarkedZipWithImpl> {};
 struct AllNativeImpl {
     template <class VALUE>
     [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
-        -> std::optional<bt::remove_cvref_t<VALUE>> {
-        return std::optional<bt::remove_cvref_t<VALUE>>{
+        -> std::optional<std::remove_cvref_t<VALUE>> {
+        return std::optional<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
@@ -135,9 +135,9 @@ struct AllNativeImpl {
     [[maybe_unused]] auto invoke(this auto &&, FUNCTION &&function,
                                  const std::optional<FIRST> &first,
                                  const std::optional<REST> &...rest)
-        -> std::optional<bt::remove_cvref_t<
+        -> std::optional<std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
-        using Result = bt::remove_cvref_t<
+        using Result = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
         if (first.has_value() && (... && rest.has_value())) {
             return std::optional<Result>{
@@ -177,17 +177,17 @@ struct AllNativeMap : bt::Applicative<AllNativeImpl> {};
 struct ApOnlyImpl {
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
-        -> std::optional<bt::remove_cvref_t<VALUE>> {
-        return std::optional<bt::remove_cvref_t<VALUE>>{
+        -> std::optional<std::remove_cvref_t<VALUE>> {
+        return std::optional<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
     template <class FUNCTION, class ARGUMENT>
     auto ap(this auto &&, const std::optional<FUNCTION> &function,
             const std::optional<ARGUMENT> &argument)
-        -> std::optional<bt::remove_cvref_t<
+        -> std::optional<std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const ARGUMENT &>>> {
-        using Result = bt::remove_cvref_t<
+        using Result = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const ARGUMENT &>>;
         if (function.has_value() && argument.has_value()) {
             return std::optional<Result>{std::invoke(*function, *argument)};
@@ -241,7 +241,7 @@ TEST_CASE("apply: ap is a supported basis and secondary operation") {
     REQUIRE(app.ap(lifted, std::optional<int>{5}) ==
             app.invoke(call, lifted, std::optional<int>{5}));
 
-    using Map = bt::remove_cvref_t<decltype(app)>;
+    using Map = std::remove_cvref_t<decltype(app)>;
     STATIC_REQUIRE(bt::test::has_apply_form<Map, std::optional<int (*)(int)>,
                                             std::optional<int>>);
 
@@ -403,7 +403,7 @@ TEST_CASE("apply: an ap-only Impl still derives the full surface") {
 
 TEST_CASE("apply: an inapplicable callable still makes map and zip_with "
           "disappear, not hard-error") {
-    using Map = bt::remove_cvref_t<
+    using Map = std::remove_cvref_t<
         decltype(bt::applicative_typeclass<std::optional<int>>)>;
     static_assert(!has_map<Map, StringOnlyCallable, std::optional<int>>);
     static_assert(!has_zip_with<Map, StringOnlyCallable, std::optional<int>,

@@ -291,9 +291,9 @@ struct Foldable : protected Impl {
             typename Impl::element_type;
             impl.fold_right(
                 std::forward<T>(value),
-                monoid_identity<remove_cvref_t<std::invoke_result_t<
+                monoid_identity<std::remove_cvref_t<std::invoke_result_t<
                     F &, const typename Impl::element_type &>>>(),
-                detail::probe_witness2<remove_cvref_t<std::invoke_result_t<
+                detail::probe_witness2<std::remove_cvref_t<std::invoke_result_t<
                     F &, const typename Impl::element_type &>>>{});
         }
     {
@@ -304,7 +304,7 @@ struct Foldable : protected Impl {
             return impl_of(self).fold_map(std::forward<F>(function),
                                           std::forward<T>(value));
         } else {
-            using Result = remove_cvref_t<
+            using Result = std::remove_cvref_t<
                 std::invoke_result_t<F &, const typename Impl::element_type &>>;
             // The declaration's second alternative probes with a named
             // witness, never a lambda: a capturing lambda in a
@@ -316,7 +316,7 @@ struct Foldable : protected Impl {
             // GHC-MINIMAL-style last-resort message, not load-bearing SFINAE
             // -- so the concept-based condition is exactly as informative.
             static_assert(
-                foldable_impl<Impl, remove_cvref_t<T>>,
+                foldable_impl<Impl, std::remove_cvref_t<T>>,
                 "Foldable Impl must provide at least one basis: "
                 "fold_map(f, container), or fold_right(container, state, f) "
                 "plus element_type.");
@@ -369,9 +369,10 @@ struct Foldable : protected Impl {
             // witness, not a lambda: fold_map is generic in its callable,
             // so only the return-type shape (LeftFoldProgram<StateType>)
             // matters for the probe.
-            self.fold_map(detail::probe_witness<
-                              detail::LeftFoldProgram<remove_cvref_t<STATE>>>{},
-                          std::forward<T>(value));
+            self.fold_map(
+                detail::probe_witness<
+                    detail::LeftFoldProgram<std::remove_cvref_t<STATE>>>{},
+                std::forward<T>(value));
         }
     {
         if constexpr (requires {
@@ -383,12 +384,12 @@ struct Foldable : protected Impl {
                                            std::move(initial_state),
                                            std::forward<F>(function));
         } else {
-            using StateType = remove_cvref_t<STATE>;
+            using StateType = std::remove_cvref_t<STATE>;
             auto step = std::forward<F>(function);
 
             const auto program = self.fold_map(
                 [&step](const auto &x) {
-                    using ValueType = remove_cvref_t<decltype(x)>;
+                    using ValueType = std::remove_cvref_t<decltype(x)>;
                     return detail::LeftFoldProgram<StateType>{
                         [x_copy = ValueType(x), &step](StateType s) {
                             return std::invoke(step, std::move(s), x_copy);
@@ -412,7 +413,7 @@ struct Foldable : protected Impl {
         } || requires(const Impl &impl) {
             impl.fold_map(
                 detail::probe_witness<
-                    detail::RightFoldProgram<remove_cvref_t<STATE>>>{},
+                    detail::RightFoldProgram<std::remove_cvref_t<STATE>>>{},
                 std::forward<T>(value));
         }
     {
@@ -425,19 +426,19 @@ struct Foldable : protected Impl {
                                             std::move(initial_state),
                                             std::forward<F>(function));
         } else {
-            using StateType = remove_cvref_t<STATE>;
+            using StateType = std::remove_cvref_t<STATE>;
             auto step = std::forward<F>(function);
 
             // See fold_map's static_assert for why the concept-based
             // condition is provably redundant here rather than load-bearing.
             static_assert(
-                foldable_impl<Impl, remove_cvref_t<T>>,
+                foldable_impl<Impl, std::remove_cvref_t<T>>,
                 "Foldable Impl must provide at least one basis: "
                 "fold_map(f, container), or fold_right(container, state, f) "
                 "plus element_type.");
             const auto program = impl_of(self).fold_map(
                 [&step](const auto &x) {
-                    using ValueType = remove_cvref_t<decltype(x)>;
+                    using ValueType = std::remove_cvref_t<decltype(x)>;
                     return detail::RightFoldProgram<StateType>{
                         [x_copy = ValueType(x), &step](StateType s) {
                             return std::invoke(step, x_copy, std::move(s));
@@ -593,7 +594,7 @@ struct Foldable : protected Impl {
         } else {
             return self.fold_map(
                 [](const auto &x) {
-                    using ValueType = remove_cvref_t<decltype(x)>;
+                    using ValueType = std::remove_cvref_t<decltype(x)>;
                     return std::vector<ValueType>{x};
                 },
                 std::forward<T>(value));
@@ -623,7 +624,7 @@ struct Foldable : protected Impl {
         } else {
             const auto result = self.fold_map(
                 [&predicate](const auto &x) {
-                    using X = remove_cvref_t<decltype(x)>;
+                    using X = std::remove_cvref_t<decltype(x)>;
                     if (std::invoke(predicate, x)) {
                         return detail::First<X>{{x}};
                     }

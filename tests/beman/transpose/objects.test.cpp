@@ -50,8 +50,8 @@ namespace {
 struct ApOnlyImpl {
     template <class VALUE>
     [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
-        -> std::optional<bt::remove_cvref_t<VALUE>> {
-        return std::optional<bt::remove_cvref_t<VALUE>>{
+        -> std::optional<std::remove_cvref_t<VALUE>> {
+        return std::optional<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
@@ -59,9 +59,9 @@ struct ApOnlyImpl {
     [[maybe_unused]] auto ap(this auto &&,
                              const std::optional<FUNCTION> &function,
                              const std::optional<ARGUMENT> &argument)
-        -> std::optional<bt::remove_cvref_t<
+        -> std::optional<std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const ARGUMENT &>>> {
-        using Result = bt::remove_cvref_t<
+        using Result = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const ARGUMENT &>>;
         if (function.has_value() && argument.has_value()) {
             return std::optional<Result>{std::invoke(*function, *argument)};
@@ -83,8 +83,8 @@ struct ApOnlyMap : bt::Applicative<ApOnlyImpl> {};
 struct PureOnlyApplicativeObject {
     template <class VALUE>
     [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
-        -> std::optional<bt::remove_cvref_t<VALUE>> {
-        return std::optional<bt::remove_cvref_t<VALUE>>{
+        -> std::optional<std::remove_cvref_t<VALUE>> {
+        return std::optional<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 };
@@ -130,23 +130,23 @@ static_assert(bt::functor_object<bt::VectorFunctorMap<int>, std::vector<int>>);
 static_assert(bt::applicative_object<bt::OptionalApplicativeMap<int>,
                                      std::optional<int>>);
 static_assert(bt::applicative_object<
-              bt::remove_cvref_t<
+              std::remove_cvref_t<
                   decltype(bt::applicative_typeclass<bt::zip_list<int>>)>,
               bt::zip_list<int>>);
 static_assert(bt::applicative_object<bt::ArrayApplicativeMap<int, 3>,
                                      std::array<int, 3>>);
 static_assert(bt::applicative_object<
-              bt::remove_cvref_t<
+              std::remove_cvref_t<
                   decltype(bt::applicative_typeclass<bt::sender<int>>)>,
               bt::sender<int>>);
 static_assert(bt::applicative_object<
-              bt::remove_cvref_t<decltype(bt::applicative_typeclass<
-                                          std::expected<int, std::string>>)>,
+              std::remove_cvref_t<decltype(bt::applicative_typeclass<
+                                           std::expected<int, std::string>>)>,
               std::expected<int, std::string>>);
 static_assert(
     bt::applicative_object<
-        bt::remove_cvref_t<decltype(bt::accumulating_applicative_typeclass<
-                                    std::expected<int, std::string>>)>,
+        std::remove_cvref_t<decltype(bt::accumulating_applicative_typeclass<
+                                     std::expected<int, std::string>>)>,
         std::expected<int, std::string>>);
 
 static_assert(bt::monad_object<bt::OptionalMonadMap<int>, std::optional<int>>);
@@ -213,7 +213,7 @@ static_assert(bt::functor_object<bt::Functor<bt::OptionalMonadMap<int>>,
 // -- as_functor() names the same wrapping --
 static_assert(
     bt::functor_object<
-        bt::remove_cvref_t<
+        std::remove_cvref_t<
             decltype(bt::monad_typeclass<std::optional<int>>.as_functor())>,
         std::optional<int>>);
 
@@ -320,7 +320,7 @@ static_assert(!bt::applicative_object<bt::ArrayApplicativeMap<int, 3>,
 static_assert(!bt::applicative_object<bt::SimdLanesApplicativeMap<int, 4>,
                                       std::optional<int>>);
 static_assert(!bt::applicative_object<
-              bt::remove_cvref_t<
+              std::remove_cvref_t<
                   decltype(bt::applicative_typeclass<bt::zip_list<int>>)>,
               std::optional<int>>);
 

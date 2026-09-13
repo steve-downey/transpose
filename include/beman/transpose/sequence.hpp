@@ -46,9 +46,9 @@ struct VectorFoldableImpl {
     template <class FUNCTION>
     auto fold_map(this auto &&, FUNCTION &&function,
                   const std::vector<VALUE_TYPE> &values)
-        -> remove_cvref_t<
+        -> std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>> {
-        using Result = remove_cvref_t<
+        using Result = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
         auto accumulated = monoid_identity<Result>();
         for (const auto &value : values) {
@@ -159,8 +159,8 @@ template <class APPLICATIVE, class FUNCTION>
 auto VectorTraversableImpl<VALUE_TYPE>::traverse(
     this auto &&, const APPLICATIVE &applicative, FUNCTION &&function,
     const std::vector<VALUE_TYPE> &values) {
-    using Effect =
-        remove_cvref_t<std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
+    using Effect = std::remove_cvref_t<
+        std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
     using Element = applicative_value_t<Effect>;
 
     std::vector<Element> collected;
@@ -189,7 +189,7 @@ auto VectorTraversableImpl<VALUE_TYPE>::traverse(
     this auto &&, const APPLICATIVE &applicative, FUNCTION &&function,
     std::vector<VALUE_TYPE> &&values) {
     using Effect =
-        remove_cvref_t<std::invoke_result_t<FUNCTION &, VALUE_TYPE &&>>;
+        std::remove_cvref_t<std::invoke_result_t<FUNCTION &, VALUE_TYPE &&>>;
     using Element = applicative_value_t<Effect>;
 
     std::vector<Element> collected;
