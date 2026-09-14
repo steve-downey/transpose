@@ -126,24 +126,39 @@ That is why ~transpose~ runs on ~simd_lanes~ for transposition (an array, which 
 The register is not left outside, though: ~std::simd::vec~ is a registered applicative context in its own right --- ~map~ and ~zip_with~ run lane by lane through the same mechanism as ~optional~ and senders --- it just is not a /structure/ that can be walked and rebuilt.
 Part two makes that distinction precise, and the precise point where the real register stops typechecking is the precise point where the abstraction pays for itself.
 
-The third context is the interesting one for modern C++: a *deferred* computation, a ~std::execution~ sender.
-A vector of senders transposes into one sender of a vector --- "run these and gather the results" --- with nothing executed until the composed sender is run:
+The third context is the interesting one for modern C++: a *deferred* computation, a sender.
+A vector of senders transposes into one sender of a vector --- "run these and gather the results" --- with nothing executed until the composed sender is run.
 
-#+begin_src cpp
-#include <beman/transpose/exec.hpp>   // sender-aware transpose, on beman.execution
-namespace ex = beman::execution;
+The type that does it here is a stand-in: ~bt::sender<T>~ is a ~std::function<T()>~ that runs when you call ~get()~, with no completion signatures, no error or stopped channel, no environment and no scheduler.
+It shows that the front door preserves laziness, and that is all it shows.
+Whether the shape survives contact with a real P2300 sender is a different question, and the only way to answer it was to write the thing.
+So: an applicative object over [[https://github.com/bemanproject/execution][=beman.execution=]] senders now lives in the repository at =examples/p2300_adapter.hpp=, exercised by =tests/beman/transpose/p2300.test.cpp=, behind an off-by-default build option because it is the one piece here with an external dependency.
+It supplies ~pure~ and ~invoke~ and nothing else --- ~pure~ is ~just~, ~invoke~ is ~when_all~ followed by ~then~ --- so ~map~, ~zip_with~ and ~lift~ in those tests are this library's own derived operations running over a context nobody designed them against.
+Values, laziness, the error channel and move-only values all compose.
 
-std::vector<S> senders = ...;                    // S is a real std::execution sender of T
-auto out = bt::transpose(senders);               // out : a sender of std::vector<T>
-auto [values] = ex::sync_wait(std::move(out)).value();   // now it runs
-#+end_src
+And then it stops composing, which is the part worth the page.
 
-This one is real, on [[https://github.com/bemanproject/execution][=beman.execution=]] (a P2300 ~std::execution~ implementation) --- not a stand-in.
-And here is the part I like.
-You might expect to need a type-erased ~task<>~ to name "a sender of a vector," since composing senders changes their type at every step.
-You don't.
-A ~std::vector~ is /homogeneous/: every element is the same concrete sender type ~S~, so the result is a single concrete sender type, and the transpose gathers the children with no ~task<>~ and no ~std::function~ anywhere.
-The type system already had the common type; the abstraction just had to stop reaching for erasure it didn't need.
+I had wanted to say that you never need a type-erased ~task<>~ to name "a sender of a vector": a ~std::vector~ is /homogeneous/, every element the same concrete sender type, so the result is one concrete type and the erasure everybody reaches for was never needed.
+Writing the adapter is what showed that to be false.
+The vector traversal accumulates with an assignment --- ~accumulated = applicative.invoke(...)~ --- and an assignment requires the context type to be invariant under composition.
+~optional~ is.
+A real sender is not: ~then(when_all(acc, elem), f)~ names a new type at every step, so a runtime-sized traversal of real senders cannot be written as that loop at all.
+It needs a type-erased sender, and ~beman.execution~ does not ship one.
+
+The stand-in passes precisely because ~std::function<T()>~ had already erased the type.
+The convenience that made it a good demonstration is the same property that hid the limit.
+Compile-time-sized transposition --- the shape ~transpose_tuple~ already uses --- has no such problem, and that is what the adapter demonstrates.
+
+The honest claim is narrower than the one I wanted and more useful.
+The abstraction does not make erasure unnecessary.
+It moves the question to a place where you can see the answer: erasure is needed exactly when the structure's size is a run-time property, and not otherwise.
+A hand-written gathering loop never tells you that, because it never had to name the type.
+
+One more thing fell out of writing it.
+~when_all~ does not sequence its children; it completes when all of them have.
+So when ~transpose~ promises the contexts are composed in order, that is a promise about the order results are assembled into the structure, not the order in which effects run.
+A synchronous context makes the two coincide.
+A concurrent one cannot, and the specification should not be read as saying it does.
 
 * Why this is not ~transform~, ~ranges~, or ~zip~
 
