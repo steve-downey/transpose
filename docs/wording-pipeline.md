@@ -24,9 +24,17 @@ generated fragments are checked in, so the paper builds without either.
 ## What generates what
 
 `specgen` reads only the main file's declaration/comment interleave, so each
-header is rendered on its own and contributes its own synopsis subclause.
+header is *parsed* on its own and contributes its own synopsis subclause.
 `--root` names that synopsis, which keeps the root fragments distinct in the
 shared output directory.
+
+They are *rendered* together. `gen-wording.sh` runs in two phases: each header
+emits its document as IR (`generate --emit-ir`), then one `render` takes all
+eight (`--from-ir`/`--root` once per document). That is what lets `--validate`
+see the paper rather than a header -- the applicative clause specifies
+`subsume` in terms of `grade_subsume`, which is specified over in `grade.hpp`,
+and a validator scoped to one header calls that a foreign name. The IR is an
+intermediate, written to a temporary directory and not checked in.
 
 | header | `--root` | subclauses |
 | ------ | -------- | ---------- |
@@ -39,9 +47,19 @@ shared output directory.
 | `error_set.hpp` | `transpose.errset.syn` | `.cons` `.obs` `.ops` `.empty` `.lattice` `.recover` |
 | `expected.hpp` | `transpose.expected.syn` | `.applicative` `.accumulating` |
 
-`--split` never deletes files an earlier run left behind, so each header's
-ordered manifest is written beside the fragments; it is the record the paper's
-include order is reconciled against.
+`--split` never deletes files an earlier run left behind, so the ordered
+manifest is written beside the fragments; it is the record the paper's include
+order is reconciled against. One render writes one manifest,
+`transpose.manifest`, for the whole paper in paper order -- the per-header
+manifests date from when each header was rendered on its own, and are replaced
+the first time a render succeeds.
+
+**`make wording` does not currently succeed.** Rendering the documents
+together is meant to clear the cross-header findings and does not: the union
+`--validate` builds from the sibling documents admits their exposition-only
+names but not the ones they fully specify, so `traverse.hpp`'s wording still
+cannot name `applicative_typeclass`. Tracked at steve-downey/specgen#109. The
+checked-in fragments are therefore older than the headers.
 
 Headers outside the proposal carry no markup and are not generated from:
 `fold.hpp`, `monad.hpp`, `monoid.hpp`, `dual_monoid.hpp`, `functor.hpp`,
