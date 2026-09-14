@@ -51,9 +51,12 @@
 
 #include <beman/execution/execution.hpp>
 
+#include "all_of.hpp"
+
 #include <beman/transpose/apply.hpp>
 
 #include <utility>
+#include <vector>
 
 namespace beman::transpose::examples {
 
@@ -84,11 +87,32 @@ struct P2300ApplicativeImpl {
         return ex::when_all(std::forward<SENDERS>(senders)...) |
                ex::then(std::forward<FUNCTION>(function));
     }
+
+    /** The range twin of `invoke`: compose a RUNTIME-SIZED collection of
+     * operands into one context holding a vector of their values.
+     *
+     * docs/decisions.md#runtime-arity-composition. `invoke` is variadic, so
+     * it cannot serve a structure whose size is not known until run time,
+     * and the vector Traversable's left fold cannot either -- its
+     * accumulator assignment needs the context type to be invariant under
+     * composition, and no real sender is. `collect` moves the n-ary
+     * knowledge to the one place that has it, this object, and leaves the
+     * Traversable generic.
+     *
+     * It is optional in `applicative_object`: every other registered
+     * instance composes type-stably and keeps the fold. Stage collect-hook
+     * is what teaches the Traversable to prefer this when an object offers
+     * it; until then nothing calls it but the tests. */
+    template <class SENDER>
+    auto collect(this auto &&, std::vector<SENDER> senders) {
+        return all_of(std::move(senders));
+    }
 };
 
 /** Applicative map over P2300 senders: the basis above, everything else
  * derived by the library's own CRTP base. */
 struct P2300ApplicativeMap : Applicative<P2300ApplicativeImpl> {
+    using P2300ApplicativeImpl::collect;
     using P2300ApplicativeImpl::invoke;
     using P2300ApplicativeImpl::pure;
 };

@@ -198,6 +198,9 @@ existing golden → STOP.
 
 ### Stage 1 — [sender-registration](#sender-registration) {#sender-registration}
 
+**Status: COMPLETE 2026-09-13.** See
+[docs/review/execution-sender-registration.md](review/execution-sender-registration.md).
+
 **Why.** The typeclass object is looked up by carrier type
 (`applicative_typeclass<S>`), and P2300 has no single `M`: every adaptor is
 its own type. Registration therefore has to be by *concept*, and the
@@ -264,6 +267,12 @@ Anything execution-dependent landing under `include/` → STOP; that is the
 2026-09-13 ruling.
 
 ### Stage 2 — [all-of-algorithm](#all-of-algorithm) {#all-of-algorithm}
+
+**Status: COMPLETE 2026-09-14.** See
+[docs/review/execution-all-of-algorithm.md](review/execution-all-of-algorithm.md).
+The contested consequence of
+[p2300-front-door-shape](decisions.md#p2300-front-door-shape) is refuted by
+measurement, and the refutation is logged there.
 
 **Why.** This is the piece nobody has written and the one the paper's claim
 rests on. `when_all` is variadic; the structure is runtime-sized; the only
