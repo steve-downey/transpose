@@ -54,34 +54,33 @@ You asked for the Functor instance of a specific type and got it.
 
 ** Explicit object argument
 
-Pass a specific instance at the call site.
-Because the object is an ordinary value, you can substitute a different one --- local policy override, with no change to the type involved.
+Pass the instance at the call site, as an ordinary argument.
+A function takes the typeclass object by reference; the caller decides which one it gets.
 
-From [[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::examples/lookup_modes_example.cpp][=examples/lookup_modes_example.cpp=]]:
+From [[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::examples/lookup_modes_example.cpp][=examples/lookup_modes_example.cpp=]], where ~bt~ is that file's alias for ~beman::transpose~:
 
 #+begin_src cpp
-auto explicit_object_lookup_example() -> std::optional<int> {
-    OptionalFunctorObject functor;
-    std::optional<int> value{41};
-
-    return functor.fmap([](int x) { return x + 1; }, value);
-}
+auto fmap_with = [](const auto &tc, const auto &val) {
+    return tc.fmap([](int x) { return x + 1; }, val);
+};
+auto result2 = fmap_with(bt::functor_typeclass<std::optional<int>>, value);
 #+end_src
 
-This is the thing a trait or a CPO cannot hand you: the ability to swap the /implementation/ at one call site without touching, wrapping, or newtyping the value.
+~fmap_with~ is handed the instance that lookup would have found anyway, which is the dull case and exactly the one worth showing: the mechanism is argument passing, nothing more.
+That is also what makes the interesting case available --- substitute a different instance at this one call site, a local policy override with no change to the type involved.
+A trait or a CPO cannot hand you that, because there is no object to pass.
 
 ** NTTP pinning
 
 Bind the looked-up object as a non-type template parameter with a default.
 Lookup happens once, at instantiation, and callers can override the default but do not have to.
 
-From [[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::tests/beman/transpose/fold.test.cpp][=tests/beman/transpose/fold.test.cpp=]]:
+From the same file:
 
 #+begin_src cpp
-template <class STRUCTURE,
-          const auto& FOLDABLE = beman::transpose::foldable_typeclass<STRUCTURE>>
-auto sum_with_nttp_lookup(const STRUCTURE& structure) {
-    return FOLDABLE.fold_map([](int x) { return x; }, structure);
+template <class CONTEXT, const auto &FUNCTOR = bt::functor_typeclass<CONTEXT>>
+auto fmap_plus_one(const CONTEXT &value) {
+    return FUNCTOR.fmap([](int x) { return x + 1; }, value);
 }
 #+end_src
 
@@ -227,11 +226,11 @@ It does not hand you an operation.
 A customization point object like ~std::ranges::begin~ is a single operation that finds its implementation by ADL.
 There is no grouping, no derivation, no object that bundles a concept's operations together.
 And this is the one that fails hardest on the applicative family from part two.
-Those operations are not independent: ~map~, ~zip_with~, and ~apply~ all derive from the ~pure~ + ~invoke~ core, and the bundle literally accepts /either/ of two cores --- ~invoke~ or the classic ~apply~ --- the way Foldable takes ~fold_map~ or ~fold_right~, deriving whichever you did not supply.
+Those operations are not independent: ~map~, ~zip_with~, and ~ap~ all derive from the ~pure~ + ~invoke~ core, and the bundle literally accepts /either/ of two cores --- ~invoke~ or the classic ~ap~ --- the way Foldable takes ~fold_map~ or ~fold_right~, deriving whichever you did not supply.
 A pile of one-CPO-per-operation hooks has nowhere to put that --- no shared place to derive one operation from another, or to say "either of these primitives will do."
 That is the coherence a bundle keeps and à la carte CPOs throw away.
-~std::simd::vec~ is the registered proof: it supplies ~pure~ and ~invoke~, ~apply~ cannot be derived for it (no ~vec<callable>~ exists to hold a function), and every derived operation still works.
-Under a lone global ~apply~ CPO that type is simply locked out; under the bundle it participates.
+~std::simd::vec~ is the registered proof: it supplies ~pure~ and ~invoke~, ~ap~ cannot be derived for it (no ~vec<callable>~ exists to hold a function), and every derived operation still works.
+Under a lone global ~ap~ CPO that type is simply locked out; under the bundle it participates.
 
 ** Concepts --- constraints, not dispatch
 
@@ -250,7 +249,7 @@ Slightly more syntax; in exchange, the call-site override from earlier, which a 
 * Where it matters, and why it belongs in the standard
 
 This is not a demonstration written once against one type.
-In this proposal's own repository the same fold and traversal algorithms run, unchanged, over a ~BinaryTree<T>~ ([[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::examples/binary_tree.hpp][=examples/binary_tree.hpp=]]) /and/ over the contextual types from part one --- ~optional~, ~std::execution~ senders, and lanewise ~zip_list~/SIMD --- which share nothing with a tree and nothing with each other, yet enter through the identical mechanism.
+In this proposal's own repository the same fold and traversal algorithms run, unchanged, over a ~BinaryTree<T>~ ([[orgit-file:~/src/transpose/main::blog/writing-algorithms-with-typeclass-objects::examples/binary_tree.hpp][=examples/binary_tree.hpp=]]) /and/ over the contextual types from part one --- ~optional~, the sender-shaped stand-in, and lanewise ~zip_list~/SIMD --- which share nothing with a tree and nothing with each other, yet enter through the identical mechanism.
 
 The same ~foldable_typeclass~ / ~traversable_typeclass~ machinery reaches further in the coordinated paper set, over structures this paper deliberately leaves to its companions:
 
@@ -268,7 +267,7 @@ Independent extension points that compose --- no reopening classes, no monkey-pa
 Which is the real argument of this series.
 ~transpose~ is one operation the standard library has no spelling for, and consuming it --- writing the algorithms --- is where a /bundle/ beats every à la carte alternative, because the applicative family only holds together when its operations derive from a small coherent core rather than being scattered across independent hooks.
 
-Standardizing ~transpose~ and ~traverse~ without standardizing something like this substrate would push the customization story back toward trait-only or ~tag_invoke~-heavy designs --- exactly the designs that fracture the family, scattering ~pure~, ~invoke~, ~apply~, ~map~, and ~zip_with~ across independent hooks with no shared place to derive one from another.
+Standardizing ~transpose~ and ~traverse~ without standardizing something like this substrate would push the customization story back toward trait-only or ~tag_invoke~-heavy designs --- exactly the designs that fracture the family, scattering ~pure~, ~invoke~, ~ap~, ~map~, and ~zip_with~ across independent hooks with no shared place to derive one from another.
 The verbs need a mechanism strong enough to keep their primitive and derived operations coherent across unrelated types.
 That is what a typeclass object is.
 
