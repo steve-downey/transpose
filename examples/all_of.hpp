@@ -22,8 +22,11 @@
 // dispatch, and per-element heap allocation of operation states. It permits
 // exactly two allocations: ONE block holding the n child operation states
 // and their result slots, whose size is `n * sizeof(holder)` with `holder`
-// a compile-time-known type; and the result vector<T>. `all_of.test.cpp`
-// counts both, separately, for n = 1000.
+// a compile-time-known type; and the result vector<T>.
+// `all_of_allocation.test.cpp` counts both, separately, for n = 1000 -- it is
+// a separate executable from `all_of.test.cpp` because counting allocations
+// means replacing global operator new, and the ThreadSanitizer runtime
+// defines those symbols itself, so the two cannot share a translation unit.
 //
 // Nothing here is type-erased. `all_of_sender<S>` is spelled from `S`, so a
 // caller keeps composing on the real thing. This header includes no
