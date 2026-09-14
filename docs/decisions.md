@@ -1982,6 +1982,44 @@ promising it does.
   operation state.** Until that entry exists the paragraph stands as written,
   and a later reader should treat it as the live claim rather than assume the
   plan won by being newer.
+- 2026-09-14 — **REFUTED, BY MEASUREMENT.** Stage
+  [all-of-algorithm](transpose-execution-plan.md#all-of-algorithm) discharged
+  the standing instruction above. This entry's Consequences paragraph reads
+  "Transposing a runtime-sized structure of senders needs a type-erased
+  sender, which `bemanproject/execution` does not ship." **It does not.** It
+  needs a native n-ary composition, and `examples/all_of.hpp` is one:
+  `all_of(std::vector<S>) -> all_of_sender<S>`, an operation state owning
+  *n* child operation states constructed in place and never moved.
+  The numbers, from `tests/beman/transpose/all_of_allocation.test.cpp` at
+  n = 1000: **one** allocation during `connect`, of **32,000 bytes =
+  n x sizeof(holder)** with `sizeof(holder) == 32`; **one** further
+  allocation during `start`, the result `vector<T>`; **two** in total, the
+  second being exactly the one the boundary decision permits.
+  `holder` is `{optional<T> value; connect_result_t<S, element_receiver> op;}`
+  -- the child's result slot colocated with the child's operation state,
+  which is what keeps the budget at one block rather than two. Also
+  asserted: `decltype(all_of(v))` is `all_of_sender<S>`, so the type is
+  spelled from `S` and nothing is erased; and neither the sender, the
+  operation state nor the holder is polymorphic. The header stores no
+  callable and includes no `<functional>`.
+  Behaviour, green on gcc-debug and llvm-debug and **TSan clean** on the
+  concurrent case: results in input order while sixteen children complete on
+  their own threads in deliberately reversed order; laziness; the empty and
+  one-child cases; a child's error propagating with siblings observing the
+  stop request; an external stop reaching the children; a move-only payload.
+
+  **What this does NOT yet show, stated so the refutation is not read wider
+  than it is.** `transpose(std::vector<S>)` over a real sender still does not
+  work -- the vector Traversable still folds, and teaching it to prefer a
+  native `collect` is stage
+  [collect-hook](transpose-execution-plan.md#collect-hook)'s deliverable. So
+  the second half of this entry's finding, that the vector front door cannot
+  take real senders, remains true TODAY, and is now true for a reason that
+  has a fix rather than for the reason this entry gave. The first half --
+  that the fix must be type erasure -- is what the measurement refutes.
+  [runtime-arity-composition](#runtime-arity-composition) and
+  [erasure-boundary](#erasure-boundary) are no longer contested; this
+  paragraph is.
 
 ---
 
@@ -2235,9 +2273,11 @@ n-ary combination is a new type at every step?
 **Decided by:** Default-as-drafted at Stage 0
 [execution-baseline](transpose-execution-plan.md#execution-baseline), per
 transpose-execution-plan.md §3 deliverable 1. Not individually ruled by Steve.
-**Contested:** contradicts a Consequences paragraph of
-[p2300-front-door-shape](#p2300-front-door-shape), which Steve ruled on
-2026-09-11. See the Log there and below.
+**Was contested, now settled (2026-09-14):** this entry contradicted a
+Consequences paragraph of
+[p2300-front-door-shape](#p2300-front-door-shape). The contradiction was
+resolved by measurement at stage all-of-algorithm, in this entry's favour;
+the refutation is logged under that entry. See the Log there and below.
 **Decision:** The Applicative object may offer a native range composition
 `collect(std::vector<S>) -> S'` with `applicative_value_t<S'> =
 vector<applicative_value_t<S>>`. The vector Traversable's `traverse` prefers
@@ -2272,6 +2312,18 @@ could offer it for performance (a single-pass `expected` collect avoids
   between them is Stage 2's allocation-count tripwire, which is a
   measurement; an argument either way before that measurement exists should
   be treated as unsupported by both entries.
+- 2026-09-14 — **SETTLED IN THIS ENTRY'S FAVOUR; the CONTESTED flag is
+  removed.** Stage [all-of-algorithm](transpose-execution-plan.md#all-of-algorithm)
+  built the native n-ary composition and measured it, and the refutation is
+  written where the contested claim lives, under
+  [p2300-front-door-shape](#p2300-front-door-shape), per the standing
+  instruction. `collect` exists on the adapter's object as
+  `collect(std::vector<S>) = all_of(std::move(v))`, so the n-ary knowledge
+  sits in the applicative object exactly as this entry said it should. The
+  Traversable side -- preferring `collect` over the fold -- is untouched and
+  remains stage [collect-hook](transpose-execution-plan.md#collect-hook)'s.
+  The Sentinel still holds: nothing in `sequence.hpp` names a sender, and
+  nothing execution-dependent has entered `include/`.
 - 2026-09-13 — Location and division of labour fixed by Steve's ruling.
   `all_of` lands as **`examples/all_of.hpp`** under
   `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`. The Stage 3 `collect` hook in
@@ -2358,6 +2410,31 @@ demo sender in a different coat.
   boundary, not as the shape Stage 2 must adopt — per the plan's own "record
   only; do not copy". What Stage 2 may not do is relax the tripwire to fit
   the drafted layout (divergence protocol rule 4).
+- 2026-09-14 — SENTINEL FIRED, AND PASSED. Stage
+  [all-of-algorithm](transpose-execution-plan.md#all-of-algorithm) built
+  `examples/all_of.hpp` and measured it at n = 1000: one allocation at
+  `connect` of n x sizeof(holder) = 32,000 bytes, plus the result vector at
+  completion, and nothing else. This entry's own words -- "its size is a
+  function of `n` and `sizeof(connect_result_t<S, R>)`, known at `connect`"
+  -- are now a passing assertion rather than a design intention. The
+  refutation that follows from it is logged under
+  [p2300-front-door-shape](#p2300-front-door-shape).
+  Two things worth carrying forward.
+  *The layout that meets the budget is the colocated one*, as the 2026-09-13
+  entry above predicted from libunifex. The drafted layout -- child
+  operation states in one block, result slots in a separate
+  `vector<optional<T>>` -- is two blocks before the result vector and would
+  have tripped this sentinel. Each child's slot now sits INSIDE its holder,
+  beside its operation state.
+  *The measurement cannot share a translation unit with ThreadSanitizer.*
+  Counting allocations means replacing global `operator new`/`operator
+  delete`, and the TSan runtime defines those symbols itself, so the TU does
+  not link. The measurement is therefore its own executable
+  (`all_of_allocation.test.cpp`), which leaves the behaviour tests --
+  including the concurrent one this algorithm most needs checked -- buildable
+  under TSan. Not a workaround for a defect in either tool: it is the shape
+  the two requirements force, and a later stage adding allocation
+  measurement should expect to pay it.
 
 ---
 
@@ -2416,6 +2493,23 @@ same children, which is the property the paper wants to state: `all_of`
   semantics govern lands as `examples/all_of.hpp` under
   `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`; the failure and ordering rules are
   unaffected by where the header sits.
+- 2026-09-14 — IMPLEMENTED, with the P3887R1 correction applied and checked.
+  `examples/all_of.hpp` follows `when_all` as this entry directs: the first
+  error or stop to ARRIVE requests stop on all siblings and is reported once
+  every child has completed; error outranks stopped, spelled the way P2300's
+  own `when_all` spells it -- `set_error` uses `exchange` and so claims the
+  slot even from a recorded `stopped`, while `set_stopped` uses a
+  compare-exchange and only claims it from `started`. That asymmetry is the
+  reason a stopped child cannot mask a later error, and it is exactly where
+  libunifex's `when_all_range` differs, sharing one flag between the two;
+  the prior-art note records the difference and this entry's Why is what
+  chose against it.
+  `set_stopped_t()` is advertised ONLY if a child sends it, per P3887R1
+  (LWG-approved 2025-11), pinned both ways in `all_of.test.cpp`: a vector of
+  `just` senders does not advertise it, a vector of stoppable senders does.
+  Result order is input order, checked against sixteen children completing on
+  their own threads in deliberately reversed order, TSan clean. `n == 0`
+  completes immediately with an empty vector; `n == 1` is not special-cased.
 
 ---
 
