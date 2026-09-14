@@ -88,19 +88,19 @@ You get a friendlier surface for free, because everything else falls out of ~pur
 
 - ~map(f, cx)~ is just ~invoke~ with one argument.
 - ~zip_with(f, cx, cy)~ is ~invoke~ with two.
-- ~apply(cf, cx)~ --- the textbook primitive, a function /already inside the context/ applied to an argument inside the context, ~C<(T -> U)>, C<T> -> C<U>~ --- is ~invoke~ of "evaluate": ~invoke([](f, x){ return f(x); }, cf, cx)~.
+- ~ap(cf, cx)~ --- the textbook primitive, a function /already inside the context/ applied to an argument inside the context, ~C<(T -> U)>, C<T> -> C<U>~ --- is ~invoke~ of "evaluate": ~invoke([](f, x){ return f(x); }, cf, cx)~.
 
-That last line deserves a pause, because the classic literature runs it the other way around --- ~apply~ as the primitive, everything derived from it.
+That last line deserves a pause, because the classic literature runs it the other way around --- the one-step application as the primitive, everything derived from it.
 Both presentations are equivalent when the context can hold a function, and a type may supply whichever core is natural (part three shows how).
 But ~invoke~ is the more /general/ shape: it never needs a function to sit inside the context at all.
-Some contexts --- a hardware SIMD register is the concrete one --- can hold numbers but not callables, so ~apply~ for them cannot even be spelled, while ~invoke~ is perfectly well-defined.
-That is why ~invoke~ is the core here, and ~apply~ the derived convenience that exists where it can.
+Some contexts --- a hardware SIMD register is the concrete one --- can hold numbers but not callables, so ~ap~ for them cannot even be spelled, while ~invoke~ is perfectly well-defined.
+That is why ~invoke~ is the verb this library puts in front of you, and ~ap~ the secondary one: still a perfectly good basis for a type that can supply it, just not one every context can spell.
 
 * Independence is the whole point
 
 Here is the property that makes it *Applicative* and not something stronger.
 
-In ~invoke~ --- and so in ~map~, ~zip_with~, and the classic ~apply~ --- the arguments are /independent/.
+In ~invoke~ --- and so in ~map~, ~zip_with~, and the classic ~ap~ --- the arguments are /independent/.
 Combining two in-context values never lets one value /steer/ the other's computation.
 An ~optional~'s presence does not depend on another ~optional~'s contents.
 One sender does not wait to see another's result before starting.
