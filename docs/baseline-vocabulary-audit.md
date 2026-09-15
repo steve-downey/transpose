@@ -72,7 +72,7 @@ For completeness, the full set of namespace-scope public entities, none of which
 - Typeclass CRTP bases: `Functor`, `Applicative`, `Monad`, `Foldable`, `Traversable`, `Monoid`.
 - Lookup variable templates: `functor_typeclass`, `applicative_typeclass`, `monad_typeclass`, `foldable_typeclass`, `traversable_typeclass`, `monoid_v`.
 - Free verbs: `traverse`, `transpose`, `transpose_tuple`, `mbind`, `join`, `monoid_identity`, `monoid_combine`.
-- Traits: `remove_cvref_t`, `applicative_value` / `applicative_value_t`.
+- Traits: `applicative_value` / `applicative_value_t`. (`remove_cvref_t` was a re-spelling of `std::remove_cvref_t` and was dropped 2026-09-13; uses name the standard trait directly.)
 - Carriers and their instances: `std::optional`, `std::vector`, `std::array`, `sender`, `zip_list`, and the SIMD lane types behind `__has_include(<simd>)`.
 
 ## Tripwire check
