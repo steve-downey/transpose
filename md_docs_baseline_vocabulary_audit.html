@@ -140,7 +140,7 @@ Public surface inventory</h1>
 <li>Typeclass CRTP bases: <code>Functor</code>, <code>Applicative</code>, <code>Monad</code>, <code>Foldable</code>, <code>Traversable</code>, <code>Monoid</code>.</li>
 <li>Lookup variable templates: <code>functor_typeclass</code>, <code>applicative_typeclass</code>, <code>monad_typeclass</code>, <code>foldable_typeclass</code>, <code>traversable_typeclass</code>, <code>monoid_v</code>.</li>
 <li>Free verbs: <code>traverse</code>, <code>transpose</code>, <code>transpose_tuple</code>, <code>mbind</code>, <code>join</code>, <code>monoid_identity</code>, <code>monoid_combine</code>.</li>
-<li>Traits: <code>remove_cvref_t</code>, <code>applicative_value</code> / <code>applicative_value_t</code>.</li>
+<li>Traits: <code>applicative_value</code> / <code>applicative_value_t</code>. (<code>remove_cvref_t</code> was a re-spelling of <code>std::remove_cvref_t</code> and was dropped 2026-09-13; uses name the standard trait directly.)</li>
 <li>Carriers and their instances: <code>std::optional</code>, <code>std::vector</code>, <code>std::array</code>, <code>sender</code>, <code>zip_list</code>, and the SIMD lane types behind <code>__has_include(&lt;simd&gt;)</code>.</li>
 </ul>
 <h1><a class="anchor" id="autotoc_md6"></a>
