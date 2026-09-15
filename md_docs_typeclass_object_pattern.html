@@ -239,8 +239,8 @@ Pattern</h3>
 <div class="fragment"><div class="line"><span class="keyword">namespace </span>detail {</div>
 <div class="line"> </div>
 <div class="line"><span class="keyword">template</span> &lt;<span class="keyword">class </span>T,</div>
-<div class="line">          <span class="keyword">const</span> <span class="keyword">auto</span>&amp; TC = beman::transpose::traversable_typeclass&lt;beman::transpose::remove_cvref_t&lt;T&gt;&gt;&gt;</div>
-<div class="line"><span class="keyword">struct </span>validate_impl : beman::transpose::remove_cvref_t&lt;decltype(TC)&gt; {</div>
+<div class="line">          <span class="keyword">const</span> <span class="keyword">auto</span>&amp; TC = beman::transpose::traversable_typeclass&lt;std::remove_cvref_t&lt;T&gt;&gt;&gt;</div>
+<div class="line"><span class="keyword">struct </span>validate_impl : std::remove_cvref_t&lt;decltype(TC)&gt; {</div>
 <div class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> Pred&gt;</div>
 <div class="line">    <span class="keyword">auto</span> call(Pred&amp;&amp; pred, <span class="keyword">const</span> T&amp; value)<span class="keyword"> const </span>{</div>
 <div class="line">        <span class="comment">// for_each is an inherited member — no qualification needed</span></div>
@@ -257,7 +257,7 @@ Pattern</h3>
 <div class="line"><span class="keyword">struct </span>validate_fn {</div>
 <div class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> Pred, <span class="keyword">class</span> T&gt;</div>
 <div class="line">    <span class="keyword">auto</span> operator()(Pred&amp;&amp; pred, T&amp;&amp; value)<span class="keyword"> const </span>{</div>
-<div class="line">        <span class="keywordflow">return</span> detail::validate_impl&lt;beman::transpose::remove_cvref_t&lt;T&gt;&gt;{}.call(</div>
+<div class="line">        <span class="keywordflow">return</span> detail::validate_impl&lt;std::remove_cvref_t&lt;T&gt;&gt;{}.call(</div>
 <div class="line">            std::forward&lt;Pred&gt;(pred), std::forward&lt;T&gt;(value));</div>
 <div class="line">    }</div>
 <div class="line">};</div>
@@ -266,13 +266,13 @@ Pattern</h3>
 Multi-typeclass composition</h3>
 <p>When an algorithm needs both Foldable and Traversable, inherit from both:</p>
 <div class="fragment"><div class="line"><span class="keyword">template</span> &lt;<span class="keyword">class </span>T,</div>
-<div class="line">          <span class="keyword">const</span> <span class="keyword">auto</span>&amp; FC = beman::transpose::foldable_typeclass&lt;beman::transpose::remove_cvref_t&lt;T&gt;&gt;,</div>
-<div class="line">          <span class="keyword">const</span> <span class="keyword">auto</span>&amp; TC = beman::transpose::traversable_typeclass&lt;beman::transpose::remove_cvref_t&lt;T&gt;&gt;&gt;</div>
+<div class="line">          <span class="keyword">const</span> <span class="keyword">auto</span>&amp; FC = beman::transpose::foldable_typeclass&lt;std::remove_cvref_t&lt;T&gt;&gt;,</div>
+<div class="line">          <span class="keyword">const</span> <span class="keyword">auto</span>&amp; TC = beman::transpose::traversable_typeclass&lt;std::remove_cvref_t&lt;T&gt;&gt;&gt;</div>
 <div class="line"><span class="keyword">struct </span>transform_if_large_impl</div>
-<div class="line">    : beman::transpose::remove_cvref_t&lt;decltype(FC)&gt;,</div>
-<div class="line">      beman::transpose::remove_cvref_t&lt;decltype(TC)&gt; {</div>
-<div class="line">    <span class="keyword">using </span>foldable_base    = beman::transpose::remove_cvref_t&lt;<span class="keyword">decltype</span>(FC)&gt;;</div>
-<div class="line">    <span class="keyword">using </span>traversable_base = beman::transpose::remove_cvref_t&lt;<span class="keyword">decltype</span>(TC)&gt;;</div>
+<div class="line">    : std::remove_cvref_t&lt;decltype(FC)&gt;,</div>
+<div class="line">      std::remove_cvref_t&lt;decltype(TC)&gt; {</div>
+<div class="line">    <span class="keyword">using </span>foldable_base    = std::remove_cvref_t&lt;<span class="keyword">decltype</span>(FC)&gt;;</div>
+<div class="line">    <span class="keyword">using </span>traversable_base = std::remove_cvref_t&lt;<span class="keyword">decltype</span>(TC)&gt;;</div>
 <div class="line"> </div>
 <div class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> F&gt;</div>
 <div class="line">    <span class="keyword">auto</span> call(std::size_t min_size, F&amp;&amp; f, <span class="keyword">const</span> T&amp; value)<span class="keyword"> const </span>{</div>
@@ -285,7 +285,7 @@ Multi-typeclass composition</h3>
 Key points</h3>
 <ul>
 <li>The implementation is in <code>detail</code> — callers see only the deducing <code>operator()</code> on the CPO.</li>
-<li><code>decltype</code> on a <code>const auto&amp;</code> NTTP gives a reference type; use <code>remove_cvref_t&lt;decltype(TC)&gt;</code> at base specifiers, nested type extraction, and qualified disambiguation calls.</li>
+<li><code>decltype</code> on a <code>const auto&amp;</code> NTTP gives a reference type; use <code>std::remove_cvref_t&lt;decltype(TC)&gt;</code> at base specifiers, nested type extraction, and qualified disambiguation calls.</li>
 <li>ADL is suppressed because the CPO is an object, not a function.</li>
 <li>The NTTP defaults pin the typeclass lookup; callers can override if needed.</li>
 <li>Working example: see <code>examples/algorithm_object_example.cpp</code>.</li>
