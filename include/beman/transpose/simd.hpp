@@ -46,13 +46,13 @@ struct SimdVecApplicativeImpl {
     /** Broadcast a scalar to every lane. */
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
-        -> std::simd::vec<remove_cvref_t<VALUE>, width>
+        -> std::simd::vec<std::remove_cvref_t<VALUE>, width>
         requires requires {
-            std::simd::vec<remove_cvref_t<VALUE>, width>(
+            std::simd::vec<std::remove_cvref_t<VALUE>, width>(
                 std::forward<VALUE>(value));
         }
     {
-        return std::simd::vec<remove_cvref_t<VALUE>, width>(
+        return std::simd::vec<std::remove_cvref_t<VALUE>, width>(
             std::forward<VALUE>(value));
     }
 
@@ -61,11 +61,11 @@ struct SimdVecApplicativeImpl {
     template <class FUNCTION, class FIRST, class... REST>
     auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
                 const REST &...rest)
-        -> std::simd::vec<remove_cvref_t<std::invoke_result_t<
+        -> std::simd::vec<std::remove_cvref_t<std::invoke_result_t<
                               FUNCTION &, const typename FIRST::value_type &,
                               const typename REST::value_type &...>>,
                           width> {
-        using U = remove_cvref_t<
+        using U = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const typename FIRST::value_type &,
                                  const typename REST::value_type &...>>;
         return std::simd::vec<U, width>([&](auto lane) -> U {

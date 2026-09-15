@@ -4,14 +4,23 @@
 #
 # Generates the P3200 wording fragments from the marked-up headers.
 #
-# Each header is rendered on its own -- beman.specgen reads only the main
-# file's declaration/comment interleave -- so each contributes its own
-# synopsis subclause. `--root` names that synopsis, which is what keeps the
-# root fragments distinct in the shared output directory.
+# Two phases. Each header is PARSED on its own -- beman.specgen reads only the
+# main file's declaration/comment interleave -- and emits its document as IR;
+# then one `render` takes all eight IR documents together. `--root` names each
+# document's synopsis subclause, which is what keeps the root fragments
+# distinct in the shared output directory.
 #
-# `--split` never deletes files left by an earlier run, so each header's
-# ordered manifest is written beside the fragments and is the record the
-# paper's include order is reconciled against.
+# Rendering them together is what makes `--validate` see the paper rather than
+# a header. The unit that has to be internally consistent is the paper: the
+# applicative clause specifies `subsume` in terms of `grade_subsume`, which is
+# specified over in `grade.hpp`, and a validator scoped to one header calls
+# that a foreign name (steve-downey/specgen#109). Rendered together, each
+# document validates against the union of all their documented names.
+#
+# `--split` never deletes files left by an earlier run, so the ordered
+# manifest is written beside the fragments and is the record the paper's
+# include order is reconciled against. One render writes one manifest, for
+# the whole paper, in paper order.
 #
 # Usage: scripts/gen-wording.sh [output-directory]
 
@@ -25,6 +34,10 @@ readonly REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 SPECGEN="${SPECGEN:-specgen}"
 GCC_TOOLCHAIN="${GCC_TOOLCHAIN:-}"
 OUT_DIR="${1:-$REPO_ROOT/papers/wording}"
+
+# One render, one manifest. Each header had its own while each was rendered
+# on its own; the paper's include order is one order.
+readonly MANIFEST="transpose.manifest"
 
 # Headers to generate wording from, paired with the stable-name stem their
 # subclauses live under. Add a header here once it carries specgen markup and
@@ -59,26 +72,39 @@ fi
 
 mkdir -p "$OUT_DIR"
 
+# The IR is an intermediate, not an artifact: it exists only to carry each
+# header's document from its own parse into the one render that validates
+# them against each other.
+IR_DIR="$(mktemp -d)"
+trap 'rm -rf "$IR_DIR"' EXIT
+
+render_args=()
 for entry in "${HEADERS[@]}"; do
     header="${entry%%:*}"
     stem="${entry#*:}"
 
     echo "gen-wording: $header -> $stem.*"
-    # Run from the output directory with a relative `--split` so the manifest
-    # records `<stable name>.md` rather than a path particular to this machine.
-    (
-        cd "$OUT_DIR"
-        "$SPECGEN" generate "$REPO_ROOT/include/beman/transpose/$header" \
-            --backend mpark \
-            --validate \
-            --paper \
-            --root "$stem.syn" \
-            --split . \
-            --no-compile-commands \
-            -- "${CLANG_ARGS[@]}" \
-            > "$stem.manifest"
-    )
+    "$SPECGEN" generate "$REPO_ROOT/include/beman/transpose/$header" \
+        --emit-ir \
+        --no-compile-commands \
+        --output "$IR_DIR/$stem.ir.json" \
+        -- "${CLANG_ARGS[@]}"
+
+    render_args+=(--from-ir "$IR_DIR/$stem.ir.json" --root "$stem.syn")
 done
+
+echo "gen-wording: rendering ${#HEADERS[@]} documents as one paper"
+# Run from the output directory with a relative `--split` so the manifest
+# records `<stable name>.md` rather than a path particular to this machine.
+(
+    cd "$OUT_DIR"
+    "$SPECGEN" render "${render_args[@]}" \
+        --backend mpark \
+        --validate \
+        --paper \
+        --split . \
+        > "$MANIFEST"
+)
 
 # A stamp the paper build can depend on. The fragments themselves must not
 # become prerequisites of the paper: the vendored MPark.WG21 Makefile passes

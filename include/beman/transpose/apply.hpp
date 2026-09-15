@@ -342,14 +342,14 @@ struct OptionalApplicativeImpl {
     // \ref{transpose.applicative.optional}, applicative instance for optional
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
-        -> std::optional<remove_cvref_t<VALUE>>;
+        -> std::optional<std::remove_cvref_t<VALUE>>;
 
     template <class FUNCTION, class FIRST, class... REST>
         requires detail::is_optional_v<FIRST> &&
                  (detail::is_optional_v<REST> && ...)
     auto invoke(this auto &&, FUNCTION &&function, FIRST &&first,
                 REST &&...rest)
-        -> std::optional<remove_cvref_t<
+        -> std::optional<std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, detail::contained_ref_t<FIRST>,
                                  detail::contained_ref_t<REST>...>>>;
 };
@@ -400,7 +400,7 @@ auto Applicative<Impl>::invoke(this auto &&self, FUNCTION &&function,
         auto lifted_function = self.pure(
             detail::make_terminating_partial(std::forward<FUNCTION>(function)));
         static_assert(
-            applicative_impl<Impl, remove_cvref_t<FIRST_ARGUMENT>>,
+            applicative_impl<Impl, std::remove_cvref_t<FIRST_ARGUMENT>>,
             "Applicative Impl must provide pure and at least one basis: "
             "invoke(f, args_in_context...) or "
             "ap(f_in_context, arg_in_context).");
@@ -684,8 +684,9 @@ auto Applicative<Impl>::invoke_with(this auto &&, FUNCTION &&function,
 template <class VALUE_TYPE>
 template <class VALUE>
 auto OptionalApplicativeImpl<VALUE_TYPE>::pure(this auto &&, VALUE &&value)
-    -> std::optional<remove_cvref_t<VALUE>> {
-    return std::optional<remove_cvref_t<VALUE>>{std::forward<VALUE>(value)};
+    -> std::optional<std::remove_cvref_t<VALUE>> {
+    return std::optional<std::remove_cvref_t<VALUE>>{
+        std::forward<VALUE>(value)};
 }
 
 //! \returns If every operand is engaged, an engaged `optional` holding the
@@ -703,10 +704,10 @@ template <class FUNCTION, class FIRST, class... REST>
 auto OptionalApplicativeImpl<VALUE_TYPE>::invoke(this auto &&,
                                                  FUNCTION &&function,
                                                  FIRST &&first, REST &&...rest)
-    -> std::optional<remove_cvref_t<
+    -> std::optional<std::remove_cvref_t<
         std::invoke_result_t<FUNCTION &, detail::contained_ref_t<FIRST>,
                              detail::contained_ref_t<REST>...>>> {
-    using Result = remove_cvref_t<
+    using Result = std::remove_cvref_t<
         std::invoke_result_t<FUNCTION &, detail::contained_ref_t<FIRST>,
                              detail::contained_ref_t<REST>...>>;
     if (first.has_value() && (... && rest.has_value())) {

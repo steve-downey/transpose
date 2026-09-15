@@ -66,16 +66,17 @@ namespace beman::transpose {
 template <class VALUE_TYPE>
 struct BoxedApplicativeImpl {
     template <class VALUE>
-    auto pure(this auto &&, VALUE &&value) -> boxed<remove_cvref_t<VALUE>> {
-        return boxed<remove_cvref_t<VALUE>>{std::forward<VALUE>(value)};
+    auto pure(this auto &&, VALUE &&value)
+        -> boxed<std::remove_cvref_t<VALUE>> {
+        return boxed<std::remove_cvref_t<VALUE>>{std::forward<VALUE>(value)};
     }
 
     template <class FUNCTION, class FIRST, class... REST>
     auto invoke(this auto &&, FUNCTION &&function, const boxed<FIRST> &first,
                 const boxed<REST> &...rest)
-        -> boxed<remove_cvref_t<
+        -> boxed<std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
-        using Result = remove_cvref_t<
+        using Result = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
         return boxed<Result>{std::invoke(function, first.value, rest.value...)};
     }

@@ -122,9 +122,9 @@ struct OptionalFunctorImpl {
               const std::optional<VALUE_TYPE> &value) {
         using Result = std::invoke_result_t<F, const VALUE_TYPE &>;
         if (!value) {
-            return std::optional<remove_cvref_t<Result>>{};
+            return std::optional<std::remove_cvref_t<Result>>{};
         }
-        return std::optional<remove_cvref_t<Result>>{
+        return std::optional<std::remove_cvref_t<Result>>{
             std::invoke(std::forward<F>(function), *value)};
     }
 };
@@ -138,7 +138,7 @@ struct VectorFunctorImpl {
         // callable into a single std::invoke, this one invokes a captured
         // lvalue once per element.
         using Result = std::invoke_result_t<F &, const VALUE_TYPE &>;
-        std::vector<remove_cvref_t<Result>> output;
+        std::vector<std::remove_cvref_t<Result>> output;
         output.reserve(values.size());
 
         std::ranges::transform(values, std::back_inserter(output),

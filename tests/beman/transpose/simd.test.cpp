@@ -97,7 +97,7 @@ TEST_CASE("simd: ap does not exist here -- the invoke-interface proof") {
     // every nameable operand. This is the case that makes invoke the
     // user-facing interface -- ap remains a fine basis elsewhere, but an
     // ap-shaped interface would lock this domain out entirely.
-    using Map = bt::remove_cvref_t<decltype(bt::applicative_typeclass<vec4>)>;
+    using Map = std::remove_cvref_t<decltype(bt::applicative_typeclass<vec4>)>;
     STATIC_REQUIRE_FALSE(bt::test::has_apply_form<Map, vec4, vec4>);
     SUCCEED("std::simd::basic_vec participates through pure + invoke alone");
 }
