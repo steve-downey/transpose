@@ -108,7 +108,7 @@ constexpr auto forward_zip_list_value_at(LIST &&list, std::size_t index)
     if constexpr (std::is_lvalue_reference_v<LIST>) {
         return zip_list_value_at(list, index);
     } else {
-        using Value = typename remove_cvref_t<LIST>::value_type;
+        using Value = typename std::remove_cvref_t<LIST>::value_type;
         return list.is_repeating() ? Value(*list.repeated)
                                    : Value(std::move(list.data[index]));
     }
@@ -129,7 +129,8 @@ template <class U>
 struct is_zip_list<zip_list<U>> : std::true_type {};
 
 template <class T>
-inline constexpr bool is_zip_list_v = is_zip_list<remove_cvref_t<T>>::value;
+inline constexpr bool is_zip_list_v =
+    is_zip_list<std::remove_cvref_t<T>>::value;
 
 template <class FIRST, class... REST>
 auto zip_list_result_size(const FIRST &first, const REST &...rest)
@@ -159,7 +160,7 @@ struct ZipListApplicativeImpl {
     /** Lift a value into an infinite zip_list repeating that value. */
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value) {
-        using U = remove_cvref_t<VALUE>;
+        using U = std::remove_cvref_t<VALUE>;
         return zip_list<U>::repeat(U(std::forward<VALUE>(value)));
     }
 
@@ -183,11 +184,11 @@ struct ZipListApplicativeImpl {
         // over instead of copied; see forward_zip_list_value_at for why a
         // repeating operand is exempt.
         using Result =
-            std::invoke_result_t<remove_cvref_t<FUNCTION> &,
+            std::invoke_result_t<std::remove_cvref_t<FUNCTION> &,
                                  detail::zip_list_value_ref_t<FIRST>,
                                  detail::zip_list_value_ref_t<REST>...>;
 
-        using U = remove_cvref_t<Result>;
+        using U = std::remove_cvref_t<Result>;
         auto callable = std::forward<FUNCTION>(function);
         const auto count = detail::zip_list_result_size(first, rest...);
 

@@ -65,7 +65,7 @@ namespace beman::transpose {
 template <class T>
     requires transposable_structure<T>
 auto transpose(T &&value) {
-    const auto &map = traversable_typeclass<remove_cvref_t<T>>;
+    const auto &map = traversable_typeclass<std::remove_cvref_t<T>>;
     return map.transpose(std::forward<T>(value));
 }
 
