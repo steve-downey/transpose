@@ -28,6 +28,35 @@ template <class CONTEXT>
 concept applicative_context = applicative_object<
     std::remove_cvref_t<decltype(applicative_typeclass<CONTEXT>)>, CONTEXT>;
 
+//! \remarks This concept is satisfied when `OBJ` declares
+//! `consumes_rvalue_structure` to be `true`: a traversable object that, given
+//! a structure as an rvalue, presents each element to `function` as an
+//! rvalue. An object that does not declare it presents `const` lvalues
+//! whatever category it was handed, which is what an object written without
+//! the question in mind does.
+//!
+//! Consumption is declared rather than assumed because it is not a property
+//! every structure can have. An owning structure -- `std::vector` -- really
+//! does hand its elements over when it is handed over, and saves a copy per
+//! element by doing so. A structure that shares its parts does not: a
+//! persistent sequence or tree shares its interior with every earlier
+//! version of itself, so an rvalue conveys the handle and not exclusive
+//! ownership of the values inside, and the only way such a structure could
+//! present an rvalue element is by copying it into a temporary first -- a
+//! copy it then pays a move on top of, where presenting a `const` lvalue
+//! would have copied straight into the result. Requiring consumption of
+//! every traversable object would charge the structures that cannot benefit
+//! for the benefit the ones that can receive.
+//!
+//! The declaration is not merely advisory: `traversable_impl` and
+//! `traversable_object` probe an object that declares it with a witness
+//! accepting an element only as an rvalue, so an object that claims to
+//! consume and does not is reported.
+//! \expos
+template <class OBJ>
+concept consuming_traversable_object =
+    requires { requires bool(OBJ::consumes_rvalue_structure); };
+
 /// Traversable pattern invariants:
 /// - Instances are single lookup objects that provide traverse(F, T).
 /// - transpose is a derived object operation implemented from
@@ -65,6 +94,13 @@ struct Traversable : protected Impl {
     // from it. A transpose-primitive Impl would shadow transpose instead.
     using Impl::traverse;
     using element_type = typename Impl::element_type;
+
+    // Re-exported the way element_type is, and for the same reason: Impl is
+    // a protected base, so a declaration made on Impl is not visible on the
+    // object through it. An Impl that says nothing does not consume, which
+    // is what an Impl written without the question in mind does.
+    static constexpr bool consumes_rvalue_structure =
+        consuming_traversable_object<Impl>;
 
     // \ref{transpose.traversable.ops}, traversal operations
     template <class T, class F>
@@ -122,28 +158,24 @@ using structure_element_t = typename traversable_object_t<T>::element_type;
 
 //! \remarks This alias names the category in which a traversal of a
 //! structure of type `T` presents an element to `function`: as an rvalue
-//! when `T` is itself an rvalue, and as a `const` lvalue otherwise.
+//! when `T` is an rvalue *and* its traversable object declares
+//! `consuming_traversable_object`, and as a `const` lvalue otherwise. It is
+//! what lets the context be inferred before a traversable object has been
+//! selected, and the declaration is what lets it be inferred correctly for
+//! an object that does not consume.
 //!
-//! A traversable object shall pass elements on in the category in which it
-//! received the structure. This is a requirement on every traversable
-//! object, checked by `traversable_impl` and `traversable_object`, which
-//! probe `traverse` on an rvalue structure with a witness that accepts an
-//! element only as an rvalue. It is what lets the context be inferred here,
-//! before any traversable object has been selected. Without it a consuming
-//! traversal of a structure whose elements can be moved but not copied could
-//! not be spelled: the inferred context would be the one for a `const`
-//! lvalue element, and computing it would require the copy the traversal
-//! exists to avoid.
-//!
-//! A structure that shares its parts -- a persistent tree, say -- does not
-//! convey ownership of the values inside them when it is handed over as an
-//! rvalue, and meets this requirement by copying each element into a
-//! temporary. The requirement is on the category, not on the cost.
+//! Deducing the category from `T` alone would be inferring a context from a
+//! call the object will not make. The consequence is not a slower traversal
+//! but an unsatisfiable one: a callable accepting only an rvalue element
+//! would satisfy `traverse`'s constraint and then fail inside a body whose
+//! return type is deduced, which is a diagnostic rather than a constraint
+//! that does not match.
 //! \expos
 template <class T>
-using traverse_element_t = std::conditional_t<std::is_lvalue_reference_v<T>,
-                                              const structure_element_t<T> &,
-                                              structure_element_t<T> &&>;
+using traverse_element_t = std::conditional_t<
+    !std::is_lvalue_reference_v<T> &&
+        consuming_traversable_object<traversable_object_t<T>>,
+    structure_element_t<T> &&, const structure_element_t<T> &>;
 
 /// The applicative context `traverse(function, value)` would infer: the
 /// return type of `function` applied to one element of `value`'s traversable
@@ -222,30 +254,30 @@ concept transposing_object = requires { typename OBJ::element_type; } &&
 //! exactly one basis, so there is no disjunction here the way there is for
 //! `applicative_impl` and `foldable_impl`.
 //!
-//! `traverse` is probed twice, once in each category a structure can arrive
-//! in. The second probe is the requirement `traverse_element_t` states: a
-//! traversable object passes elements on in the category it received the
-//! structure in, so an rvalue structure is traversed with a witness that
-//! accepts an element only as an rvalue. An object that accepts an rvalue
-//! structure and then hands its elements on as `const` lvalues does not
-//! match that witness, and the context `traverse` infers for it would be
-//! the wrong one.
+//! An `IMPL` that declares `consuming_traversable_object` is probed a second
+//! time, on an rvalue structure and with a witness that accepts an element
+//! only as an rvalue. That is what makes the declaration a statement rather
+//! than a claim: `traverse_element_t` infers the applicative context from
+//! it, so an `IMPL` that says it consumes and then hands `const` lvalues on
+//! would have a context inferred for a call it never makes. An `IMPL` that
+//! does not declare it is not asked.
 template <class IMPL, class STRUCTURE>
-concept traversable_impl = requires(const IMPL &impl,
-                                    const STRUCTURE &structure) {
-    typename IMPL::element_type;
-    impl.traverse(
-        applicative_typeclass<std::optional<applicative_value_t<STRUCTURE>>>,
-        detail::probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{},
-        structure);
-} && requires(const IMPL &impl) {
-    impl.traverse(
-        applicative_typeclass<std::optional<applicative_value_t<STRUCTURE>>>,
-        detail::consuming_probe_witness<
-            applicative_value_t<STRUCTURE>,
-            std::optional<applicative_value_t<STRUCTURE>>>{},
-        std::declval<STRUCTURE>());
-};
+concept traversable_impl =
+    requires(const IMPL &impl, const STRUCTURE &structure) {
+        typename IMPL::element_type;
+        impl.traverse(applicative_typeclass<
+                          std::optional<applicative_value_t<STRUCTURE>>>,
+                      detail::probe_witness<
+                          std::optional<applicative_value_t<STRUCTURE>>>{},
+                      structure);
+    } && (!consuming_traversable_object<IMPL> || requires(const IMPL &impl) {
+        impl.traverse(applicative_typeclass<
+                          std::optional<applicative_value_t<STRUCTURE>>>,
+                      detail::consuming_probe_witness<
+                          applicative_value_t<STRUCTURE>,
+                          std::optional<applicative_value_t<STRUCTURE>>>{},
+                      std::declval<STRUCTURE>());
+    });
 
 //! \remarks This concept is satisfied when `OBJ` provides the full
 //! Traversable object surface over `STRUCTURE`: `traverse`, `for_each` and
@@ -259,11 +291,10 @@ concept traversable_impl = requires(const IMPL &impl,
 //! themselves an applicative context -- transposing such a structure is not
 //! a meaningful operation, not a missing one, so this concept treats
 //! `transpose`/`transpose_with` as conditional the same way
-//! `applicative_object` treats `ap` and `subsume`. `traverse` is probed
-//! twice, once in each category a structure can arrive in, for the reason
-//! `traversable_impl` records: passing elements on in the category the
-//! structure was received in is a requirement on every traversable object,
-//! and it is what lets `traverse` infer its context. The condition is
+//! `applicative_object` treats `ap` and `subsume`. An `OBJ` that declares
+//! `consuming_traversable_object` is probed a second time on an rvalue
+//! structure, for the reason `traversable_impl` records; one that does not
+//! declare it is not asked, and presents `const` lvalues. The condition is
 //! `transposing_object`, which is the one those two operations' own
 //! declarations carry, not a second spelling of it: a condition that merely
 //! asked whether `pure` were usable would be the weaker of the two, and
@@ -287,14 +318,15 @@ concept traversable_object =
                               std::optional<applicative_value_t<STRUCTURE>>>{},
                           structure);
     } &&
-    requires(const OBJ &obj) {
-        obj.traverse(applicative_typeclass<
-                         std::optional<applicative_value_t<STRUCTURE>>>,
-                     detail::consuming_probe_witness<
-                         applicative_value_t<STRUCTURE>,
-                         std::optional<applicative_value_t<STRUCTURE>>>{},
-                     std::declval<STRUCTURE>());
-    } &&
+    (!consuming_traversable_object<OBJ> ||
+     requires(const OBJ &obj) {
+         obj.traverse(applicative_typeclass<
+                          std::optional<applicative_value_t<STRUCTURE>>>,
+                      detail::consuming_probe_witness<
+                          applicative_value_t<STRUCTURE>,
+                          std::optional<applicative_value_t<STRUCTURE>>>{},
+                      std::declval<STRUCTURE>());
+     }) &&
     (!transposing_object<OBJ> ||
      requires(const OBJ &obj, const STRUCTURE &structure) {
          obj.transpose(structure);

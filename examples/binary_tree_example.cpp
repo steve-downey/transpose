@@ -9,24 +9,28 @@
 
 #include <beman/transpose/apply.hpp>
 #include <beman/transpose/fold.hpp>
+#include <beman/transpose/sequence.hpp>
 #include <beman/transpose/traverse.hpp>
 
 #include <iostream>
 #include <optional>
-#include <utility>
 
 namespace bt = beman::transpose;
 using example::BinaryTree;
 
-// The Traversable instance conforms, including the obligation to pass
-// elements on in the category the structure arrived in. A persistent tree
-// shares its subtrees, so its consuming overload copies each element into a
-// temporary rather than moving out of storage another tree may still own --
-// the obligation is on the category, not on the cost, and the
-// copy_constructible constraint is where a structure that shares its parts
-// pays for it.
+// The Traversable instance conforms, and declines to declare that it
+// consumes an rvalue tree. A persistent tree shares its subtrees, so being
+// handed one as an rvalue conveys no ownership of the values inside it; the
+// only consuming traversal it could offer would copy each element into a
+// temporary and then move that, which is a move per element worse than
+// copying straight into the result. Declining costs it nothing, and
+// traverse infers the `const` lvalue context that this object actually
+// presents.
 static_assert(bt::traversable_object<example::BinaryTreeTraversableMap<int>,
                                      BinaryTree<int>>);
+static_assert(
+    !bt::consuming_traversable_object<example::BinaryTreeTraversableMap<int>>);
+static_assert(bt::consuming_traversable_object<bt::VectorTraversableMap<int>>);
 
 int main() {
     // tree: node(2) with left=leaf(3), right=leaf(5)
@@ -65,14 +69,6 @@ int main() {
     std::cout << "  all positive: " << (all_positive ? "has value" : "empty")
               << '\n';
     std::cout << "  has negative: " << (has_negative ? "has value" : "empty")
-              << '\n';
-
-    // A consuming traversal: the tree is handed over, so each element
-    // reaches `function` as an rvalue.
-    auto consumed = bt::traverse(
-        [](int &&x) { return std::optional<int>{x * 10}; }, std::move(tree));
-
-    std::cout << "  consumed root: " << (consumed ? consumed->value() : -1)
               << '\n';
 
     return 0;
