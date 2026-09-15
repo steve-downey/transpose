@@ -376,7 +376,7 @@ struct half_context {
 
 struct HalfApplicativeObject {
     template <class VALUE>
-    auto pure(VALUE &&) const -> half_context {
+    [[maybe_unused]] auto pure(VALUE &&) const -> half_context {
         return half_context{0};
     }
 };
