@@ -80,11 +80,12 @@ struct carrier_value<std::expected<VALUE, ERROR>> {
 
 //! \expos
 template <class CARRIER>
-using carrier_value_t = typename carrier_value<remove_cvref_t<CARRIER>>::type;
+using carrier_value_t =
+    typename carrier_value<std::remove_cvref_t<CARRIER>>::type;
 
 //! \expos
 template <class F, class A>
-using bind_result_t = remove_cvref_t<std::invoke_result_t<F, const A &>>;
+using bind_result_t = std::remove_cvref_t<std::invoke_result_t<F, const A &>>;
 
 /** True when every operand is an expected declaring exactly ERROR_TYPE, which
  * is precisely the case the ungraded core already handles. The graded core
@@ -93,7 +94,8 @@ using bind_result_t = remove_cvref_t<std::invoke_result_t<F, const A &>>;
 //! \expos
 template <class ERROR_TYPE, class... CARRIERS>
 inline constexpr bool all_declare_v =
-    (is_expected_with_error_v<remove_cvref_t<CARRIERS>, ERROR_TYPE> && ...);
+    (is_expected_with_error_v<std::remove_cvref_t<CARRIERS>, ERROR_TYPE> &&
+     ...);
 
 /** True when every operand either declares exactly ERROR_TYPE or is truly
  * ungraded. This is not a mixing point: lazy join says ungraded values
@@ -103,8 +105,8 @@ inline constexpr bool all_declare_v =
 //! \expos
 template <class ERROR_TYPE, class CARRIER>
 inline constexpr bool declares_or_bare_v =
-    (!graded_context<remove_cvref_t<CARRIER>>) ||
-    is_expected_with_error_v<remove_cvref_t<CARRIER>, ERROR_TYPE>;
+    (!graded_context<std::remove_cvref_t<CARRIER>>) ||
+    is_expected_with_error_v<std::remove_cvref_t<CARRIER>, ERROR_TYPE>;
 
 //! \expos
 template <class ERROR_TYPE, class... CARRIERS>
@@ -114,7 +116,7 @@ inline constexpr bool all_declare_or_bare_v =
 /** The engaged value of an operand; a bare operand is already the value. */
 template <class CARRIER>
 constexpr auto operand_value(const CARRIER &operand) -> decltype(auto) {
-    if constexpr (is_expected_v<remove_cvref_t<CARRIER>>) {
+    if constexpr (is_expected_v<std::remove_cvref_t<CARRIER>>) {
         return *operand;
     } else {
         return (operand);
@@ -125,7 +127,7 @@ constexpr auto operand_value(const CARRIER &operand) -> decltype(auto) {
  * ∅ has no failure alternative to be in. */
 template <class CARRIER>
 constexpr auto operand_failed(const CARRIER &operand) -> bool {
-    if constexpr (is_expected_v<remove_cvref_t<CARRIER>>) {
+    if constexpr (is_expected_v<std::remove_cvref_t<CARRIER>>) {
         return !operand.has_value();
     } else {
         return false;
@@ -150,7 +152,7 @@ struct ExpectedApplicativeImpl {
     // \ref{transpose.expected.applicative}, applicative instance for expected
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
-        -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>;
+        -> std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE>;
 
     /** N-ary core: all operands share ERROR_TYPE; leftmost error wins.
      *
@@ -164,7 +166,7 @@ struct ExpectedApplicativeImpl {
         requires(sizeof...(CARRIERS) > 0) &&
                 detail::all_declare_v<ERROR_TYPE, CARRIERS...>
     auto invoke(this auto &&, FUNCTION &&function, CARRIERS &&...operands)
-        -> std::expected<remove_cvref_t<std::invoke_result_t<
+        -> std::expected<std::remove_cvref_t<std::invoke_result_t<
                              FUNCTION &, detail::contained_ref_t<CARRIERS>...>>,
                          ERROR_TYPE>;
 
@@ -174,12 +176,12 @@ struct ExpectedApplicativeImpl {
      */
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
-                (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+                (is_expected_v<std::remove_cvref_t<CARRIERS>> || ...) &&
                 (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>) &&
                 detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
     auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
         -> std::expected<
-            remove_cvref_t<std::invoke_result_t<
+            std::remove_cvref_t<std::invoke_result_t<
                 FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
             ERROR_TYPE>;
 
@@ -201,7 +203,7 @@ struct ExpectedApplicativeImpl {
      */
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
-                (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+                (is_expected_v<std::remove_cvref_t<CARRIERS>> || ...) &&
                 (!detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
                 (detail::mixes_with_model<
                      grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
@@ -211,7 +213,7 @@ struct ExpectedApplicativeImpl {
         -> detail::mixed_result_t<
             grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
             std::expected<
-                remove_cvref_t<std::invoke_result_t<
+                std::remove_cvref_t<std::invoke_result_t<
                     FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
                 ERROR_TYPE>,
             CARRIERS...>;
@@ -285,7 +287,7 @@ struct AccumulatingExpectedApplicativeImpl {
     // \ref{transpose.expected.accumulating}, accumulating instance
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
-        -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>;
+        -> std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE>;
 
     /** N-ary core: all operands share ERROR_TYPE. When ERROR_TYPE is itself
      * a witnessed subset (the traverse case: one function, one declared
@@ -300,7 +302,7 @@ struct AccumulatingExpectedApplicativeImpl {
         requires(sizeof...(CARRIERS) > 0) &&
                 detail::all_declare_v<ERROR_TYPE, CARRIERS...>
     auto invoke(this auto &&, FUNCTION &&function, CARRIERS &&...operands)
-        -> std::expected<remove_cvref_t<std::invoke_result_t<
+        -> std::expected<std::remove_cvref_t<std::invoke_result_t<
                              FUNCTION &, detail::contained_ref_t<CARRIERS>...>>,
                          ERROR_TYPE>;
 
@@ -310,12 +312,12 @@ struct AccumulatingExpectedApplicativeImpl {
      */
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
-                (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+                (is_expected_v<std::remove_cvref_t<CARRIERS>> || ...) &&
                 (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>) &&
                 detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
     auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
         -> std::expected<
-            remove_cvref_t<std::invoke_result_t<
+            std::remove_cvref_t<std::invoke_result_t<
                 FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
             ERROR_TYPE>;
 
@@ -325,7 +327,7 @@ struct AccumulatingExpectedApplicativeImpl {
      */
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
-                (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+                (is_expected_v<std::remove_cvref_t<CARRIERS>> || ...) &&
                 (!detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
                 (detail::mixes_with_model<
                      grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
@@ -335,7 +337,7 @@ struct AccumulatingExpectedApplicativeImpl {
         -> detail::mixed_result_t<
             grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
             std::expected<
-                remove_cvref_t<std::invoke_result_t<
+                std::remove_cvref_t<std::invoke_result_t<
                     FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
                 ERROR_TYPE>,
             CARRIERS...>;
@@ -391,14 +393,15 @@ struct ExpectedMonadImpl {
     //! \omit
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
-        -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>;
+        -> std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE>;
 
     //! \omit
     template <class A, class F>
     auto bind(this auto &&, const std::expected<A, ERROR_TYPE> &ma, F &&f)
-        -> remove_cvref_t<std::invoke_result_t<F, const A &>>
+        -> std::remove_cvref_t<std::invoke_result_t<F, const A &>>
         requires detail::is_expected_with_error_v<
-            remove_cvref_t<std::invoke_result_t<F, const A &>>, ERROR_TYPE>;
+            std::remove_cvref_t<std::invoke_result_t<F, const A &>>, ERROR_TYPE>
+    ;
 
     /** Graded bind: sequencing joins grades.
      *
@@ -446,8 +449,8 @@ template <class VALUE_TYPE, class ERROR_TYPE>
 template <class VALUE>
 auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure(this auto &&,
                                                            VALUE &&value)
-    -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE> {
-    return std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>{
+    -> std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE> {
+    return std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE>{
         std::forward<VALUE>(value)};
 }
 
@@ -465,10 +468,10 @@ template <class FUNCTION, class... CARRIERS>
             detail::all_declare_v<ERROR_TYPE, CARRIERS...>
 auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, CARRIERS &&...operands)
-    -> std::expected<remove_cvref_t<std::invoke_result_t<
+    -> std::expected<std::remove_cvref_t<std::invoke_result_t<
                          FUNCTION &, detail::contained_ref_t<CARRIERS>...>>,
                      ERROR_TYPE> {
-    using Result = remove_cvref_t<
+    using Result = std::remove_cvref_t<
         std::invoke_result_t<FUNCTION &, detail::contained_ref_t<CARRIERS>...>>;
     using Returned = std::expected<Result, ERROR_TYPE>;
 
@@ -498,22 +501,22 @@ auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
 template <class VALUE_TYPE, class ERROR_TYPE>
 template <class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
-            (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+            (is_expected_v<std::remove_cvref_t<CARRIERS>> || ...) &&
             (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>) &&
             detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
 auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, const CARRIERS &...operands)
     -> std::expected<
-        remove_cvref_t<std::invoke_result_t<
+        std::remove_cvref_t<std::invoke_result_t<
             FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
         ERROR_TYPE> {
-    using Result = remove_cvref_t<std::invoke_result_t<
+    using Result = std::remove_cvref_t<std::invoke_result_t<
         FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
     using Returned = std::expected<Result, ERROR_TYPE>;
 
     std::optional<ERROR_TYPE> failure;
     auto record_first_failure = [&failure](const auto &operand) {
-        if constexpr (is_expected_v<remove_cvref_t<decltype(operand)>>) {
+        if constexpr (is_expected_v<std::remove_cvref_t<decltype(operand)>>) {
             if (!failure.has_value() && !operand.has_value()) {
                 failure = operand.error();
             }
@@ -543,7 +546,7 @@ auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
 template <class VALUE_TYPE, class ERROR_TYPE>
 template <class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
-            (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+            (is_expected_v<std::remove_cvref_t<CARRIERS>> || ...) &&
             (!detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
             (detail::mixes_with_model<
                  grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
@@ -553,11 +556,11 @@ auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     -> detail::mixed_result_t<
         grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
         std::expected<
-            remove_cvref_t<std::invoke_result_t<
+            std::remove_cvref_t<std::invoke_result_t<
                 FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
             ERROR_TYPE>,
         CARRIERS...> {
-    using Result = remove_cvref_t<std::invoke_result_t<
+    using Result = std::remove_cvref_t<std::invoke_result_t<
         FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
     using Returned = detail::mixed_result_t<
         grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
@@ -567,7 +570,8 @@ auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     std::optional<Joined> failure;
     auto record_first_failure = [&failure](const auto &operand) {
         if (!failure.has_value() && detail::operand_failed(operand)) {
-            if constexpr (is_expected_v<remove_cvref_t<decltype(operand)>>) {
+            if constexpr (is_expected_v<
+                              std::remove_cvref_t<decltype(operand)>>) {
                 failure.emplace(Joined(operand.error()));
             }
         }
@@ -587,8 +591,8 @@ template <class VALUE_TYPE, class ERROR_TYPE>
 template <class VALUE>
 auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure(
     this auto &&, VALUE &&value)
-    -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE> {
-    return std::expected<remove_cvref_t<VALUE>, ERROR_TYPE>{
+    -> std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE> {
+    return std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE>{
         std::forward<VALUE>(value)};
 }
 
@@ -606,10 +610,10 @@ template <class FUNCTION, class... CARRIERS>
             detail::all_declare_v<ERROR_TYPE, CARRIERS...>
 auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, CARRIERS &&...operands)
-    -> std::expected<remove_cvref_t<std::invoke_result_t<
+    -> std::expected<std::remove_cvref_t<std::invoke_result_t<
                          FUNCTION &, detail::contained_ref_t<CARRIERS>...>>,
                      ERROR_TYPE> {
-    using Result = remove_cvref_t<
+    using Result = std::remove_cvref_t<
         std::invoke_result_t<FUNCTION &, detail::contained_ref_t<CARRIERS>...>>;
     using Returned = std::expected<Result, ERROR_TYPE>;
 
@@ -639,22 +643,22 @@ auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
 template <class VALUE_TYPE, class ERROR_TYPE>
 template <class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
-            (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+            (is_expected_v<std::remove_cvref_t<CARRIERS>> || ...) &&
             (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>) &&
             detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
 auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, const CARRIERS &...operands)
     -> std::expected<
-        remove_cvref_t<std::invoke_result_t<
+        std::remove_cvref_t<std::invoke_result_t<
             FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
         ERROR_TYPE> {
-    using Result = remove_cvref_t<std::invoke_result_t<
+    using Result = std::remove_cvref_t<std::invoke_result_t<
         FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
     using Returned = std::expected<Result, ERROR_TYPE>;
 
     auto extract_failure =
         [](const auto &operand) -> std::optional<ERROR_TYPE> {
-        if constexpr (is_expected_v<remove_cvref_t<decltype(operand)>>) {
+        if constexpr (is_expected_v<std::remove_cvref_t<decltype(operand)>>) {
             if (!operand.has_value()) {
                 return operand.error();
             }
@@ -680,7 +684,7 @@ auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
 template <class VALUE_TYPE, class ERROR_TYPE>
 template <class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
-            (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
+            (is_expected_v<std::remove_cvref_t<CARRIERS>> || ...) &&
             (!detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
             (detail::mixes_with_model<
                  grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
@@ -690,11 +694,11 @@ auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     -> detail::mixed_result_t<
         grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
         std::expected<
-            remove_cvref_t<std::invoke_result_t<
+            std::remove_cvref_t<std::invoke_result_t<
                 FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
             ERROR_TYPE>,
         CARRIERS...> {
-    using Result = remove_cvref_t<std::invoke_result_t<
+    using Result = std::remove_cvref_t<std::invoke_result_t<
         FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
     using Returned = detail::mixed_result_t<
         grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
@@ -702,7 +706,7 @@ auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     using Joined = typename Returned::error_type;
 
     auto extract_failure = [](const auto &operand) -> std::optional<Joined> {
-        if constexpr (is_expected_v<remove_cvref_t<decltype(operand)>>) {
+        if constexpr (is_expected_v<std::remove_cvref_t<decltype(operand)>>) {
             if (detail::operand_failed(operand)) {
                 return Joined(operand.error());
             }
@@ -723,7 +727,7 @@ template <class VALUE_TYPE, class ERROR_TYPE>
 template <class VALUE>
 auto ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::pure(this auto &&,
                                                      VALUE &&value)
-    -> std::expected<remove_cvref_t<VALUE>, ERROR_TYPE> {
+    -> std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE> {
     return applicative_typeclass<std::expected<VALUE_TYPE, ERROR_TYPE>>.pure(
         std::forward<VALUE>(value));
 }
@@ -733,11 +737,11 @@ template <class VALUE_TYPE, class ERROR_TYPE>
 template <class A, class F>
 auto ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::bind(
     this auto &&, const std::expected<A, ERROR_TYPE> &ma, F &&f)
-    -> remove_cvref_t<std::invoke_result_t<F, const A &>>
+    -> std::remove_cvref_t<std::invoke_result_t<F, const A &>>
     requires detail::is_expected_with_error_v<
-        remove_cvref_t<std::invoke_result_t<F, const A &>>, ERROR_TYPE>
+        std::remove_cvref_t<std::invoke_result_t<F, const A &>>, ERROR_TYPE>
 {
-    using Result = remove_cvref_t<std::invoke_result_t<F, const A &>>;
+    using Result = std::remove_cvref_t<std::invoke_result_t<F, const A &>>;
     if (!ma.has_value()) {
         return Result{std::unexpect, ma.error()};
     }

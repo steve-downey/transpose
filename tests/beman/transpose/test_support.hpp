@@ -8,6 +8,7 @@
 #include <beman/transpose/traverse.hpp>
 
 #include <algorithm>
+#include <concepts>
 #include <functional>
 #include <optional>
 #include <type_traits>
@@ -66,7 +67,8 @@ struct observe_directly {
 template <class CONTEXT, class OBSERVE = observe_directly>
 auto check_applicative_identity_law(const CONTEXT &value,
                                     const OBSERVE &observe = {}) -> bool {
-    const auto &applicative = applicative_typeclass<remove_cvref_t<CONTEXT>>;
+    const auto &applicative =
+        applicative_typeclass<std::remove_cvref_t<CONTEXT>>;
     auto result = applicative.map([](const auto &x) { return x; }, value);
     return observe(std::move(result)) == observe(auto(value));
 }
@@ -77,7 +79,8 @@ template <class CONTEXT, class OBSERVE = observe_directly, class FUNCTION,
           class... VALUES>
 auto check_applicative_homomorphism_law(const FUNCTION &function,
                                         const VALUES &...values) -> bool {
-    const auto &applicative = applicative_typeclass<remove_cvref_t<CONTEXT>>;
+    const auto &applicative =
+        applicative_typeclass<std::remove_cvref_t<CONTEXT>>;
     auto left = applicative.invoke(function, applicative.pure(values)...);
     auto right = applicative.pure(std::invoke(function, values...));
     return OBSERVE{}(std::move(left)) == OBSERVE{}(std::move(right));
@@ -94,7 +97,7 @@ auto check_applicative_interchange_law(const FUNCTIONS_IN_CONTEXT &functions,
                                        const VALUE &value,
                                        const OBSERVE &observe = {}) -> bool {
     const auto &applicative =
-        applicative_typeclass<remove_cvref_t<FUNCTIONS_IN_CONTEXT>>;
+        applicative_typeclass<std::remove_cvref_t<FUNCTIONS_IN_CONTEXT>>;
     auto call = [](const auto &f, const auto &x) { return std::invoke(f, x); };
     auto left = applicative.invoke(call, functions, applicative.pure(value));
     auto right = applicative.map(
@@ -108,7 +111,8 @@ template <class CONTEXT, class F, class G, class OBSERVE = observe_directly>
 auto check_functor_composition_law(const F &outer, const G &inner,
                                    const CONTEXT &value,
                                    const OBSERVE &observe = {}) -> bool {
-    const auto &applicative = applicative_typeclass<remove_cvref_t<CONTEXT>>;
+    const auto &applicative =
+        applicative_typeclass<std::remove_cvref_t<CONTEXT>>;
     auto left = applicative.map(
         [&](const auto &x) {
             return std::invoke(outer, std::invoke(inner, x));
@@ -223,6 +227,24 @@ struct rvalue_only_callable {
     }
 };
 
+/** Invocable only with an rvalue argument.
+ *
+ * The mirror image of `rvalue_only_callable`, which is about the category
+ * of the callable; this one is about the category of the element. A
+ * traversable object passes elements on in the category it received the
+ * structure in, so this callable is usable for a traversal of an rvalue
+ * structure and for no other. An object that accepts an rvalue structure
+ * and then hands its elements on as `const` lvalues does not match it,
+ * which is what makes the obligation checkable rather than promised.
+ */
+struct rvalue_argument_only_callable {
+    int bias;
+
+    auto operator()(int &&element) const -> std::optional<int> {
+        return std::optional<int>{element + bias};
+    }
+};
+
 /** Minimal single-element applicative context used in law tests. */
 template <class VALUE_TYPE>
 struct Identity {
@@ -255,7 +277,7 @@ template <class VALUE_TYPE>
 struct TestIdentityApplicativeImpl {
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value) {
-        return test::Identity<remove_cvref_t<VALUE>>{
+        return test::Identity<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
@@ -263,9 +285,9 @@ struct TestIdentityApplicativeImpl {
     auto invoke(this auto &&, FUNCTION &&function,
                 const test::Identity<FIRST> &first,
                 const test::Identity<REST> &...rest)
-        -> test::Identity<remove_cvref_t<
+        -> test::Identity<std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
-        using Result = remove_cvref_t<
+        using Result = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
         return test::Identity<Result>{
             std::invoke(function, first.value, rest.value...)};
@@ -290,8 +312,8 @@ struct TestSequenceFoldableImpl {
     template <class FUNCTION>
     auto fold_map(this auto &&, FUNCTION &&function,
                   const test::Sequence<VALUE_TYPE> &sequence) {
-        using Result =
-            remove_cvref_t<std::invoke_result_t<FUNCTION, const VALUE_TYPE &>>;
+        using Result = std::remove_cvref_t<
+            std::invoke_result_t<FUNCTION, const VALUE_TYPE &>>;
         return std::ranges::fold_left(
             sequence.values, monoid_identity<Result>(),
             [&](Result acc, const VALUE_TYPE &value) {
@@ -311,21 +333,43 @@ template <class VALUE_TYPE>
 inline constexpr auto foldable_typeclass<test::Sequence<VALUE_TYPE>> =
     TestSequenceFoldableMap<VALUE_TYPE>{};
 
-/** Traversable implementation for Identity<V>. */
+/** Traversable implementation for Identity<V>.
+ *
+ * Two overloads, because a traversable object passes elements on in the
+ * category it received the structure in. Identity owns its value outright,
+ * so the consuming overload really does hand it over. The constraints are
+ * what let an availability probe answer rather than diagnose: the return
+ * types are deduced, so a callable an overload cannot invoke would
+ * otherwise reach its body.
+ */
 template <class VALUE_TYPE>
 struct TestIdentityTraversableImpl {
     using element_type = VALUE_TYPE;
 
     template <class APPLICATIVE, class FUNCTION>
+        requires std::invocable<FUNCTION &, const VALUE_TYPE &>
     auto traverse(this auto &&, const APPLICATIVE &applicative,
                   FUNCTION &&function,
                   const test::Identity<VALUE_TYPE> &identity) {
         return applicative.invoke(
             [](auto &&value) {
-                using U = remove_cvref_t<decltype(value)>;
+                using U = std::remove_cvref_t<decltype(value)>;
                 return test::Identity<U>{std::forward<decltype(value)>(value)};
             },
             std::invoke(std::forward<FUNCTION>(function), identity.value));
+    }
+
+    template <class APPLICATIVE, class FUNCTION>
+        requires std::invocable<FUNCTION &, VALUE_TYPE &&>
+    auto traverse(this auto &&, const APPLICATIVE &applicative,
+                  FUNCTION &&function, test::Identity<VALUE_TYPE> &&identity) {
+        return applicative.invoke(
+            [](auto &&value) {
+                using U = std::remove_cvref_t<decltype(value)>;
+                return test::Identity<U>{std::forward<decltype(value)>(value)};
+            },
+            std::invoke(std::forward<FUNCTION>(function),
+                        std::move(identity.value)));
     }
 };
 

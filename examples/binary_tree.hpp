@@ -12,6 +12,7 @@
 #include <beman/transpose/traverse.hpp>
 
 #include <cassert>
+#include <concepts>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -116,10 +117,9 @@ template <class T>
 struct BinaryTreeFoldableImpl {
     template <class F>
     auto fold_map(this auto &&self, F &&function, const BinaryTree<T> &tree)
-        -> beman::transpose::remove_cvref_t<
-            decltype(std::invoke(function, tree.value()))> {
+        -> std::remove_cvref_t<decltype(std::invoke(function, tree.value()))> {
         auto value_result = std::invoke(function, tree.value());
-        using Result = beman::transpose::remove_cvref_t<decltype(value_result)>;
+        using Result = std::remove_cvref_t<decltype(value_result)>;
 
         Result acc = tree.has_left() ? beman::transpose::monoid_combine(
                                            self.fold_map(function, tree.left()),
@@ -169,7 +169,7 @@ struct BinaryTreeApplicativeImpl {
     /** Lift a plain value into a single-leaf tree. */
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value) {
-        using U = beman::transpose::remove_cvref_t<VALUE>;
+        using U = std::remove_cvref_t<VALUE>;
         return BinaryTree<U>::leaf(std::forward<VALUE>(value));
     }
 
@@ -256,17 +256,22 @@ template <class T>
 struct BinaryTreeTraversableImpl {
     using element_type = T;
 
+    // A traversable object passes elements on in the category it received
+    // the structure in, so there are two overloads. The constraints are what
+    // make an availability probe answer rather than diagnose: the return
+    // type is deduced, so a callable this overload cannot invoke would
+    // otherwise reach the body.
     template <class APPLICATIVE, class F>
+        requires std::invocable<F &, const T &>
     auto traverse(this auto &&self, const APPLICATIVE &applicative,
                   F &&function, const BinaryTree<T> &tree) {
         auto value_context =
             std::invoke(std::forward<F>(function), tree.value());
-        using Context =
-            beman::transpose::remove_cvref_t<decltype(value_context)>;
+        using Context = std::remove_cvref_t<decltype(value_context)>;
         using U = beman::transpose::applicative_value_t<Context>;
         using TreeContext = decltype(applicative.invoke(
             [](auto &&value) {
-                using V = beman::transpose::remove_cvref_t<decltype(value)>;
+                using V = std::remove_cvref_t<decltype(value)>;
                 return BinaryTree<V>::leaf(
                     std::forward<decltype(value)>(value));
             },
@@ -275,7 +280,7 @@ struct BinaryTreeTraversableImpl {
         if (!tree.has_left() && !tree.has_right()) {
             return applicative.invoke(
                 [](auto &&value) {
-                    using V = beman::transpose::remove_cvref_t<decltype(value)>;
+                    using V = std::remove_cvref_t<decltype(value)>;
                     return BinaryTree<V>::leaf(
                         std::forward<decltype(value)>(value));
                 },
@@ -297,8 +302,7 @@ struct BinaryTreeTraversableImpl {
         auto to_child_ptr = [&](const auto &child_tree_context) {
             return applicative.invoke(
                 [](auto &&subtree) {
-                    using SubTree =
-                        beman::transpose::remove_cvref_t<decltype(subtree)>;
+                    using SubTree = std::remove_cvref_t<decltype(subtree)>;
                     return std::make_shared<SubTree>(
                         std::forward<decltype(subtree)>(subtree));
                 },
@@ -329,13 +333,38 @@ struct BinaryTreeTraversableImpl {
 
         return applicative.invoke(
             [](auto &&value, auto &&left, auto &&right) {
-                using V = beman::transpose::remove_cvref_t<decltype(value)>;
+                using V = std::remove_cvref_t<decltype(value)>;
                 return BinaryTree<V>::from_children_ptrs(
                     std::forward<decltype(value)>(value),
                     std::forward<decltype(left)>(left),
                     std::forward<decltype(right)>(right));
             },
             value_context, left_context, right_context);
+    }
+
+    /** Consuming traversal: each element is presented to `function` as an
+     * rvalue, because the structure arrived as one.
+     *
+     * BinaryTree is persistent and its subtrees are shared, so an rvalue
+     * tree does not convey ownership of the values inside it -- another
+     * tree may still hold the same nodes. Each element is therefore copied
+     * into a temporary and handed on as an rvalue. The obligation
+     * `traverse_element_t` states is on the category, which this meets; the
+     * copy that an owning structure like `std::vector` avoids in this
+     * overload is not available to a structure that shares its parts, and
+     * the `copy_constructible` constraint is where that shows. An element
+     * type that can be moved but not copied has no consuming traversal of
+     * this structure, and the concepts report so rather than diagnose.
+     */
+    template <class APPLICATIVE, class F>
+        requires std::copy_constructible<T> && std::invocable<F &, T &&>
+    auto traverse(this auto &&self, const APPLICATIVE &applicative,
+                  F &&function, BinaryTree<T> &&tree) {
+        auto consuming = [&function](const T &element) {
+            return std::invoke(function, T(element));
+        };
+        return self.traverse(applicative, consuming,
+                             static_cast<const BinaryTree<T> &>(tree));
     }
 };
 

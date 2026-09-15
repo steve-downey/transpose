@@ -16,17 +16,21 @@
 
 #include <beman/transpose/apply.hpp>
 #include <beman/transpose/array.hpp>
+#include <beman/transpose/expected.hpp>
 #include <beman/transpose/simd_lanes.hpp>
 #include <beman/transpose/transpose.hpp>
 #include <beman/transpose/traverse.hpp>
+#include <beman/transpose/zip_list.hpp>
 
 #include "test_support.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
+#include <expected>
 #include <memory>
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -40,11 +44,11 @@ namespace {
 
 template <class CONTEXT>
 using object_for =
-    bt::remove_cvref_t<decltype(bt::applicative_typeclass<CONTEXT>)>;
+    std::remove_cvref_t<decltype(bt::applicative_typeclass<CONTEXT>)>;
 
 template <class STRUCTURE>
 using traversable_for =
-    bt::remove_cvref_t<decltype(bt::traversable_typeclass<STRUCTURE>)>;
+    std::remove_cvref_t<decltype(bt::traversable_typeclass<STRUCTURE>)>;
 
 // A named concept, not a bare requires-expression at block scope: the latter
 // hard-errors on an invalid expression instead of yielding false
@@ -275,4 +279,141 @@ TEST_CASE("type requirements: traverse consumes a move-only structure") {
     REQUIRE(traversed->size() == 2);
     REQUIRE(*(*traversed)[0] == 4);
     REQUIRE(*(*traversed)[1] == 5);
+}
+
+// --- An lvalue operand is composed as a `const` lvalue ---------------------
+//
+// Carrying the caller's value category into a composition is what lets an
+// rvalue operand's value be handed over rather than copied. Forwarding the
+// operand outright carries something else along with it: it also strips
+// `const` from a non-`const` lvalue operand, and then `function` is selected
+// and invoked on a mutable reference into the caller's own operand. No
+// composition is specified to do more than invoke `function` on the values
+// its operands hold, so every registered object composes an lvalue operand's
+// value as a `const` lvalue -- including the lanewise ones, which index
+// their operands rather than dereferencing them.
+
+namespace {
+
+// Overloaded on the category of its operands, so which overload ran is
+// observable from the result alone. The mutating overload is the one an
+// operand forwarded outright selects.
+struct records_operand_category {
+    auto operator()(const int &left, const int &right) const -> int {
+        return left + right;
+    }
+
+    auto operator()(int &left, int &right) const -> int {
+        left = -1;
+        right = -1;
+        return 0;
+    }
+};
+
+} // namespace
+
+TEST_CASE("type requirements: optional composes lvalue operands as const") {
+    const auto &app = bt::applicative_typeclass<std::optional<int>>;
+
+    std::optional<int> left{1};
+    std::optional<int> right{2};
+
+    auto combined = app.invoke(records_operand_category{}, left, right);
+
+    REQUIRE(combined == std::optional<int>{3});
+    REQUIRE(left == std::optional<int>{1});
+    REQUIRE(right == std::optional<int>{2});
+}
+
+TEST_CASE("type requirements: expected composes lvalue operands as const") {
+    using carrier = std::expected<int, std::string>;
+    const auto &app = bt::applicative_typeclass<carrier>;
+
+    carrier left{1};
+    carrier right{2};
+
+    auto combined = app.invoke(records_operand_category{}, left, right);
+
+    REQUIRE(combined == carrier{3});
+    REQUIRE(left == carrier{1});
+    REQUIRE(right == carrier{2});
+}
+
+TEST_CASE("type requirements: array composes lvalue operands as const") {
+    const auto &app = bt::applicative_typeclass<std::array<int, 2>>;
+
+    std::array<int, 2> left{1, 2};
+    std::array<int, 2> right{10, 20};
+
+    auto combined = app.invoke(records_operand_category{}, left, right);
+
+    REQUIRE(combined == std::array<int, 2>{11, 22});
+    REQUIRE(left == std::array<int, 2>{1, 2});
+    REQUIRE(right == std::array<int, 2>{10, 20});
+}
+
+TEST_CASE("type requirements: simd_lanes composes lvalue operands as const") {
+    const auto &app = bt::applicative_typeclass<bt::simd_lanes<int, 2>>;
+
+    bt::simd_lanes<int, 2> left{{1, 2}};
+    bt::simd_lanes<int, 2> right{{10, 20}};
+
+    auto combined = app.invoke(records_operand_category{}, left, right);
+
+    REQUIRE(combined == bt::simd_lanes<int, 2>{{11, 22}});
+    REQUIRE(left == bt::simd_lanes<int, 2>{{1, 2}});
+    REQUIRE(right == bt::simd_lanes<int, 2>{{10, 20}});
+}
+
+TEST_CASE("type requirements: zip_list composes lvalue operands as const") {
+    const auto &app = bt::applicative_typeclass<bt::zip_list<int>>;
+
+    bt::zip_list<int> left{{1, 2}};
+    bt::zip_list<int> right{{10, 20}};
+
+    auto combined = app.invoke(records_operand_category{}, left, right);
+
+    REQUIRE(combined == bt::zip_list<int>{{11, 22}});
+    REQUIRE(left == bt::zip_list<int>{{1, 2}});
+    REQUIRE(right == bt::zip_list<int>{{10, 20}});
+}
+
+// --- Elements arrive in the category the structure did --------------------
+//
+// traverse infers its applicative context from the element category before
+// any traversable object has been selected, which it can only do if every
+// traversable object presents elements in the category it received the
+// structure in. That obligation is what the vector instance's two overloads
+// keep, and what traversable_impl and traversable_object now probe: an
+// object handed an rvalue structure is asked to invoke a callable that
+// accepts an element only as an rvalue.
+
+using beman::transpose::test::rvalue_argument_only_callable;
+
+static_assert(traversable_with<rvalue_argument_only_callable, std::vector<int>>,
+              "an rvalue structure reaches the consuming overload");
+static_assert(
+    !traversable_with<rvalue_argument_only_callable, std::vector<int> &>,
+    "a const lvalue structure never presents an rvalue element, and must "
+    "fail to match rather than fail mid-instantiation");
+
+static_assert(traversable_with<rvalue_argument_only_callable,
+                               beman::transpose::test::Identity<int>>);
+static_assert(!traversable_with<rvalue_argument_only_callable,
+                                beman::transpose::test::Identity<int> &>);
+
+static_assert(
+    bt::traversable_impl<bt::VectorTraversableImpl<int>, std::vector<int>>);
+static_assert(bt::traversable_object<
+              traversable_for<beman::transpose::test::Identity<int>>,
+              beman::transpose::test::Identity<int>>);
+
+TEST_CASE("type requirements: a consuming traversal presents rvalues") {
+    std::vector<int> values{1, 2, 3};
+
+    auto traversed =
+        bt::traverse(rvalue_argument_only_callable{10}, std::move(values));
+
+    REQUIRE(traversed.has_value());
+    REQUIRE(*traversed == std::vector<int>{11, 12, 13});
 }

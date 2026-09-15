@@ -93,15 +93,15 @@ namespace {
 struct PerInstantiationJoinImpl {
     template <class VALUE>
     [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
-        -> std::optional<bt::remove_cvref_t<VALUE>> {
-        return std::optional<bt::remove_cvref_t<VALUE>>{
+        -> std::optional<std::remove_cvref_t<VALUE>> {
+        return std::optional<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
     template <class A, class F>
     auto bind(this auto &&, const std::optional<A> &ma, F &&f)
-        -> bt::remove_cvref_t<std::invoke_result_t<F, const A &>> {
-        using Result = bt::remove_cvref_t<std::invoke_result_t<F, const A &>>;
+        -> std::remove_cvref_t<std::invoke_result_t<F, const A &>> {
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const A &>>;
         if (!ma)
             return Result{};
         return Result{std::invoke(std::forward<F>(f), *ma)};
@@ -120,15 +120,15 @@ struct PerInstantiationJoinMap : bt::Monad<PerInstantiationJoinImpl> {};
 struct MarkedApImpl {
     template <class VALUE>
     [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
-        -> std::optional<bt::remove_cvref_t<VALUE>> {
-        return std::optional<bt::remove_cvref_t<VALUE>>{
+        -> std::optional<std::remove_cvref_t<VALUE>> {
+        return std::optional<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
     template <class A, class F>
     [[maybe_unused]] auto bind(this auto &&, const std::optional<A> &ma, F &&f)
-        -> bt::remove_cvref_t<std::invoke_result_t<F, const A &>> {
-        using Result = bt::remove_cvref_t<std::invoke_result_t<F, const A &>>;
+        -> std::remove_cvref_t<std::invoke_result_t<F, const A &>> {
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const A &>>;
         if (!ma)
             return Result{};
         return Result{std::invoke(std::forward<F>(f), *ma)};
@@ -242,15 +242,15 @@ namespace {
 struct NativeReplaceMonadImpl {
     template <class VALUE>
     [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
-        -> std::optional<bt::remove_cvref_t<VALUE>> {
-        return std::optional<bt::remove_cvref_t<VALUE>>{
+        -> std::optional<std::remove_cvref_t<VALUE>> {
+        return std::optional<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
     template <class A, class F>
     [[maybe_unused]] auto bind(this auto &&, const std::optional<A> &ma, F &&f)
-        -> bt::remove_cvref_t<std::invoke_result_t<F, const A &>> {
-        using Result = bt::remove_cvref_t<std::invoke_result_t<F, const A &>>;
+        -> std::remove_cvref_t<std::invoke_result_t<F, const A &>> {
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const A &>>;
         if (!ma)
             return Result{};
         return Result{std::invoke(std::forward<F>(f), *ma)};

@@ -41,7 +41,7 @@ struct PerInstantiationToVectorImpl {
     auto fold_map(this auto &&, FUNCTION &&function,
                   const std::vector<V> &values) {
         using Result =
-            bt::remove_cvref_t<std::invoke_result_t<FUNCTION, const V &>>;
+            std::remove_cvref_t<std::invoke_result_t<FUNCTION, const V &>>;
         auto accumulated = bt::monoid_identity<Result>();
         for (const auto &value : values) {
             accumulated = bt::monoid_combine(std::move(accumulated),

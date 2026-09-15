@@ -50,8 +50,8 @@ namespace {
 struct ApOnlyImpl {
     template <class VALUE>
     [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
-        -> std::optional<bt::remove_cvref_t<VALUE>> {
-        return std::optional<bt::remove_cvref_t<VALUE>>{
+        -> std::optional<std::remove_cvref_t<VALUE>> {
+        return std::optional<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
@@ -59,9 +59,9 @@ struct ApOnlyImpl {
     [[maybe_unused]] auto ap(this auto &&,
                              const std::optional<FUNCTION> &function,
                              const std::optional<ARGUMENT> &argument)
-        -> std::optional<bt::remove_cvref_t<
+        -> std::optional<std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const ARGUMENT &>>> {
-        using Result = bt::remove_cvref_t<
+        using Result = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const ARGUMENT &>>;
         if (function.has_value() && argument.has_value()) {
             return std::optional<Result>{std::invoke(*function, *argument)};
@@ -83,8 +83,8 @@ struct ApOnlyMap : bt::Applicative<ApOnlyImpl> {};
 struct PureOnlyApplicativeObject {
     template <class VALUE>
     [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
-        -> std::optional<bt::remove_cvref_t<VALUE>> {
-        return std::optional<bt::remove_cvref_t<VALUE>>{
+        -> std::optional<std::remove_cvref_t<VALUE>> {
+        return std::optional<std::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 };
@@ -130,23 +130,23 @@ static_assert(bt::functor_object<bt::VectorFunctorMap<int>, std::vector<int>>);
 static_assert(bt::applicative_object<bt::OptionalApplicativeMap<int>,
                                      std::optional<int>>);
 static_assert(bt::applicative_object<
-              bt::remove_cvref_t<
+              std::remove_cvref_t<
                   decltype(bt::applicative_typeclass<bt::zip_list<int>>)>,
               bt::zip_list<int>>);
 static_assert(bt::applicative_object<bt::ArrayApplicativeMap<int, 3>,
                                      std::array<int, 3>>);
 static_assert(bt::applicative_object<
-              bt::remove_cvref_t<
+              std::remove_cvref_t<
                   decltype(bt::applicative_typeclass<bt::sender<int>>)>,
               bt::sender<int>>);
 static_assert(bt::applicative_object<
-              bt::remove_cvref_t<decltype(bt::applicative_typeclass<
-                                          std::expected<int, std::string>>)>,
+              std::remove_cvref_t<decltype(bt::applicative_typeclass<
+                                           std::expected<int, std::string>>)>,
               std::expected<int, std::string>>);
 static_assert(
     bt::applicative_object<
-        bt::remove_cvref_t<decltype(bt::accumulating_applicative_typeclass<
-                                    std::expected<int, std::string>>)>,
+        std::remove_cvref_t<decltype(bt::accumulating_applicative_typeclass<
+                                     std::expected<int, std::string>>)>,
         std::expected<int, std::string>>);
 
 static_assert(bt::monad_object<bt::OptionalMonadMap<int>, std::optional<int>>);
@@ -213,7 +213,7 @@ static_assert(bt::functor_object<bt::Functor<bt::OptionalMonadMap<int>>,
 // -- as_functor() names the same wrapping --
 static_assert(
     bt::functor_object<
-        bt::remove_cvref_t<
+        std::remove_cvref_t<
             decltype(bt::monad_typeclass<std::optional<int>>.as_functor())>,
         std::optional<int>>);
 
@@ -302,3 +302,106 @@ static_assert(!bt::applicative_impl<NoBasisImpl, std::optional<int>>);
 static_assert(!bt::monad_impl<NoBasisImpl, std::optional<int>>);
 static_assert(!bt::foldable_impl<NoBasisImpl, std::vector<int>>);
 static_assert(!bt::traversable_impl<NoBasisImpl, std::vector<int>>);
+
+// -- An object asked about a foreign context answers, rather than diagnosing
+// --
+//
+// Each registered applicative object deduces its operands through forwarding
+// references, so that a caller's value category reaches the composition, and
+// each therefore has to say for itself which operand shape it composes.
+// Without that the operand reaches a body whose return type is deduced, and
+// the concept diagnoses from inside it instead of evaluating to false --
+// which is the one thing a detection concept may not do. These are the
+// negative cases: every object, asked about a context that is not its own.
+static_assert(!bt::applicative_object<bt::OptionalApplicativeMap<int>,
+                                      std::array<int, 3>>);
+static_assert(!bt::applicative_object<bt::ArrayApplicativeMap<int, 3>,
+                                      std::optional<int>>);
+static_assert(!bt::applicative_object<bt::SimdLanesApplicativeMap<int, 4>,
+                                      std::optional<int>>);
+static_assert(!bt::applicative_object<
+              std::remove_cvref_t<
+                  decltype(bt::applicative_typeclass<bt::zip_list<int>>)>,
+              std::optional<int>>);
+
+// -- A fixed-extent object composes only operands of that extent --
+//
+// Application is positional across all N lanes, so the extent is part of the
+// operand shape rather than a refinement of it: an operand array or lane
+// vector of some other length has every lane past its end read out of
+// bounds, and no diagnostic says so. The constraint is what turns that into
+// an overload that does not match.
+
+namespace {
+
+template <class OBJECT, class FIRST, class SECOND>
+concept composes_pairwise =
+    requires(const OBJECT &object, FIRST &&first, SECOND &&second) {
+        object.invoke(bt::detail::probe_witness2<int>{},
+                      std::forward<FIRST>(first), std::forward<SECOND>(second));
+    };
+
+} // namespace
+
+static_assert(composes_pairwise<bt::ArrayApplicativeMap<int, 4>,
+                                std::array<int, 4>, std::array<int, 4>>);
+static_assert(!composes_pairwise<bt::ArrayApplicativeMap<int, 4>,
+                                 std::array<int, 4>, std::array<int, 2>>);
+
+static_assert(
+    composes_pairwise<bt::SimdLanesApplicativeMap<int, 4>,
+                      bt::simd_lanes<int, 4>, bt::simd_lanes<int, 4>>);
+static_assert(
+    !composes_pairwise<bt::SimdLanesApplicativeMap<int, 4>,
+                       bt::simd_lanes<int, 4>, bt::simd_lanes<int, 2>>);
+
+// -- transpose is conditional on the condition transpose itself carries --
+//
+// Traversable::transpose and Traversable::transpose_with are declared with
+// an applicative_context constraint on the element type, and
+// traversable_object makes them conditional on that same condition. Asking
+// instead whether the element type's registered object has a usable `pure`
+// is the weaker question: an element type that answers yes to it and no to
+// applicative_context would have transpose demanded of an object whose
+// transpose is constrained out, and the concept would report a defect where
+// there is none.
+
+namespace {
+
+// A context whose registered object has a usable `pure` and nothing else.
+struct half_context {
+    using value_type = int;
+    int held;
+};
+
+struct HalfApplicativeObject {
+    template <class VALUE>
+    [[maybe_unused]] auto pure(VALUE &&) const -> half_context {
+        return half_context{0};
+    }
+};
+
+} // namespace
+
+template <>
+inline constexpr auto bt::applicative_typeclass<half_context> =
+    HalfApplicativeObject{};
+
+static_assert(!bt::applicative_context<half_context>);
+static_assert(!bt::transposing_object<bt::VectorTraversableMap<half_context>>);
+
+// The weaker question answers yes for this element type, which is what
+// pins the two spellings apart rather than merely restating one of them.
+static_assert(requires {
+    bt::applicative_typeclass<half_context>.pure(std::declval<half_context>());
+});
+
+static_assert(bt::traversable_object<bt::VectorTraversableMap<half_context>,
+                                     std::vector<half_context>>);
+
+// And the positive case is still required to provide transpose.
+static_assert(
+    bt::transposing_object<bt::VectorTraversableMap<std::optional<int>>>);
+static_assert(
+    bt::traversable_object<bt::VectorTraversableMap<std::optional<int>>,
+                           std::vector<std::optional<int>>>);
