@@ -37,11 +37,18 @@ namespace beman::transpose {
 //! \omit
 template <class VALUE_TYPE>
 struct VectorFoldableImpl {
+    // The trailing return type is the Impl-keeps-its-basis-SFINAE-friendly
+    // invariant apply.hpp records, applied to the fold basis: computed only
+    // in the body, the result type would be established by instantiating
+    // that body, and an availability probe would diagnose from inside it
+    // rather than fail to match.
     //! \omit
     template <class FUNCTION>
     auto fold_map(this auto &&, FUNCTION &&function,
-                  const std::vector<VALUE_TYPE> &values) {
-        using Result = remove_cvref_t<
+                  const std::vector<VALUE_TYPE> &values)
+        -> std::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>> {
+        using Result = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
         auto accumulated = monoid_identity<Result>();
         for (const auto &value : values) {
@@ -152,8 +159,8 @@ template <class APPLICATIVE, class FUNCTION>
 auto VectorTraversableImpl<VALUE_TYPE>::traverse(
     this auto &&, const APPLICATIVE &applicative, FUNCTION &&function,
     const std::vector<VALUE_TYPE> &values) {
-    using Effect =
-        remove_cvref_t<std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
+    using Effect = std::remove_cvref_t<
+        std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
     using Element = applicative_value_t<Effect>;
 
     std::vector<Element> collected;
@@ -182,7 +189,7 @@ auto VectorTraversableImpl<VALUE_TYPE>::traverse(
     this auto &&, const APPLICATIVE &applicative, FUNCTION &&function,
     std::vector<VALUE_TYPE> &&values) {
     using Effect =
-        remove_cvref_t<std::invoke_result_t<FUNCTION &, VALUE_TYPE &&>>;
+        std::remove_cvref_t<std::invoke_result_t<FUNCTION &, VALUE_TYPE &&>>;
     using Element = applicative_value_t<Effect>;
 
     std::vector<Element> collected;
