@@ -76,7 +76,7 @@ template <class T>
 struct SenderApplicativeImpl {
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value) {
-        using U = remove_cvref_t<VALUE>;
+        using U = std::remove_cvref_t<VALUE>;
         return sender<U>::ready(U(std::forward<VALUE>(value)));
     }
 
@@ -84,37 +84,44 @@ struct SenderApplicativeImpl {
      *
      * The operands must be captured, since the point is to defer running
      * them, but a caller who is finished with an operand can hand it over:
-     * they are deduced through forwarding references and moved into the
-     * capture. A traversal's accumulator is an rvalue at every step, so this
-     * is one copy per element saved rather than a micro-optimization.
+     * they are taken by value and moved into the capture, so an rvalue
+     * operand is moved into the parameter and moved again into the capture
+     * rather than copied. A traversal's accumulator is an rvalue at every
+     * step, so this is one copy per element saved rather than a
+     * micro-optimization.
+     *
+     * Spelling the parameters as `sender<FIRST>` rather than deducing them
+     * through forwarding references is also what states the operand shape
+     * this object composes, which the other registered objects state with
+     * an explicit constraint.
      */
     template <class FUNCTION, class FIRST, class... REST>
     auto invoke(this auto &&, FUNCTION &&function, sender<FIRST> first,
                 sender<REST>... rest)
-        -> sender<remove_cvref_t<std::invoke_result_t<
-            const remove_cvref_t<FUNCTION> &, FIRST, REST...>>> {
-        using U = remove_cvref_t<std::invoke_result_t<
-            const remove_cvref_t<FUNCTION> &, FIRST, REST...>>;
-        return sender<U>{
-            [function =
-                 remove_cvref_t<FUNCTION>(std::forward<FUNCTION>(function)),
-             first = std::move(first), ... rest = std::move(rest)]() -> U {
-                // Running the operands as arguments to std::invoke would leave
-                // their relative order unspecified -- the calls are
-                // indeterminately sequenced, and GCC 16 runs them in reverse.
-                // That cannot implement the composition order the traversal
-                // promises. The initializer-clauses of a braced-init-list are
-                // sequenced left to right ([dcl.init.list]/4), so running the
-                // operands into a tuple first pins the order, and std::apply
-                // then applies the plain function to the results.
-                std::tuple<FIRST, REST...> values{first.get(), rest.get()...};
-                return std::apply(
-                    [&function](auto &&...value) -> U {
-                        return std::invoke(
-                            function, std::forward<decltype(value)>(value)...);
-                    },
-                    std::move(values));
-            }};
+        -> sender<std::remove_cvref_t<std::invoke_result_t<
+            const std::remove_cvref_t<FUNCTION> &, FIRST, REST...>>> {
+        using U = std::remove_cvref_t<std::invoke_result_t<
+            const std::remove_cvref_t<FUNCTION> &, FIRST, REST...>>;
+        return sender<U>{[function = std::remove_cvref_t<FUNCTION>(
+                              std::forward<FUNCTION>(function)),
+                          first = std::move(first),
+                          ... rest = std::move(rest)]() -> U {
+            // Running the operands as arguments to std::invoke would leave
+            // their relative order unspecified -- the calls are
+            // indeterminately sequenced, and GCC 16 runs them in reverse.
+            // That cannot implement the composition order the traversal
+            // promises. The initializer-clauses of a braced-init-list are
+            // sequenced left to right ([dcl.init.list]/4), so running the
+            // operands into a tuple first pins the order, and std::apply
+            // then applies the plain function to the results.
+            std::tuple<FIRST, REST...> values{first.get(), rest.get()...};
+            return std::apply(
+                [&function](auto &&...value) -> U {
+                    return std::invoke(function,
+                                       std::forward<decltype(value)>(value)...);
+                },
+                std::move(values));
+        }};
     }
 };
 

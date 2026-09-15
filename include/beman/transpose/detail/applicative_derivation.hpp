@@ -48,12 +48,13 @@ struct terminating_partial {
             return std::invoke(function, std::get<IDX>(bound_args)...,
                                std::forward<NEXT_ARG>(next_arg));
         } else {
-            using NEXT_PARTIAL = terminating_partial<FUNCTION, BOUND_ARGS...,
-                                                     remove_cvref_t<NEXT_ARG>>;
+            using NEXT_PARTIAL =
+                terminating_partial<FUNCTION, BOUND_ARGS...,
+                                    std::remove_cvref_t<NEXT_ARG>>;
             return NEXT_PARTIAL{
                 function,
                 std::tuple_cat(std::move(bound_args),
-                               std::tuple<remove_cvref_t<NEXT_ARG>>{
+                               std::tuple<std::remove_cvref_t<NEXT_ARG>>{
                                    std::forward<NEXT_ARG>(next_arg)})};
         }
     }
@@ -66,12 +67,13 @@ struct terminating_partial {
             return std::invoke(function, std::get<IDX>(bound_args)...,
                                std::forward<NEXT_ARG>(next_arg));
         } else {
-            using NEXT_PARTIAL = terminating_partial<FUNCTION, BOUND_ARGS...,
-                                                     remove_cvref_t<NEXT_ARG>>;
+            using NEXT_PARTIAL =
+                terminating_partial<FUNCTION, BOUND_ARGS...,
+                                    std::remove_cvref_t<NEXT_ARG>>;
             return NEXT_PARTIAL{
                 function,
                 std::tuple_cat(bound_args,
-                               std::tuple<remove_cvref_t<NEXT_ARG>>{
+                               std::tuple<std::remove_cvref_t<NEXT_ARG>>{
                                    std::forward<NEXT_ARG>(next_arg)})};
         }
     }
@@ -79,7 +81,7 @@ struct terminating_partial {
 
 template <class FUNCTION>
 auto make_terminating_partial(FUNCTION &&function) {
-    using STORED_FUNCTION = remove_cvref_t<FUNCTION>;
+    using STORED_FUNCTION = std::remove_cvref_t<FUNCTION>;
     return terminating_partial<STORED_FUNCTION>{
         std::forward<FUNCTION>(function), std::tuple<>{}};
 }

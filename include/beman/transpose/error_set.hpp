@@ -273,7 +273,7 @@ struct error_set_from_list<type_list<ERRORS...>> {
  */
 template <class ERROR, class INJECTED>
 constexpr auto witness_slot(INJECTED &&error) -> std::optional<ERROR> {
-    if constexpr (std::is_same_v<ERROR, remove_cvref_t<INJECTED>>) {
+    if constexpr (std::is_same_v<ERROR, std::remove_cvref_t<INJECTED>>) {
         return std::optional<ERROR>(std::forward<INJECTED>(error));
     } else {
         return std::optional<ERROR>{};
@@ -350,7 +350,7 @@ class error_set_of {
 
     // \ref{transpose.errset.cons}, constructors
     template <class ERROR>
-        requires(error_set_has_v<remove_cvref_t<ERROR>, ERRORS...>)
+        requires(error_set_has_v<std::remove_cvref_t<ERROR>, ERRORS...>)
     constexpr error_set_of(ERROR &&error); /// NOLINT(*-explicit-constructor)
 
     template <class... NARROWER>
@@ -443,7 +443,7 @@ class error_set_of {
 //! it.
 template <class... ERRORS>
 template <class ERROR>
-    requires(error_set_has_v<remove_cvref_t<ERROR>, ERRORS...>)
+    requires(error_set_has_v<std::remove_cvref_t<ERROR>, ERRORS...>)
 constexpr error_set_of<ERRORS...>::error_set_of(ERROR &&error)
     : d_witnesses(detail::witness_slot<ERRORS>(std::forward<ERROR>(error))...) {
 }
@@ -743,7 +743,8 @@ template <class HANDLER, class VALUE, class H>
 struct handler_result_of {
     // `HANDLER &`: apply_handler takes the handler by lvalue reference and
     // invokes it in that category.
-    using type = remove_cvref_t<std::invoke_result_t<HANDLER &, const H &>>;
+    using type =
+        std::remove_cvref_t<std::invoke_result_t<HANDLER &, const H &>>;
 };
 
 /** The final grade `recover<HANDLED...>` produces: `(GRADE \ HANDLED) ∪
@@ -813,7 +814,8 @@ constexpr void apply_handler(HANDLER &handler, std::optional<VALUE> &recovered,
                              const SOURCE &error) {
     if (error.template holds<H>()) {
         auto result = std::invoke(handler, *error.template witness<H>());
-        if constexpr (std::is_same_v<remove_cvref_t<decltype(result)>, VALUE>) {
+        if constexpr (std::is_same_v<std::remove_cvref_t<decltype(result)>,
+                                     VALUE>) {
             if (!recovered.has_value()) {
                 recovered = std::move(result);
             }

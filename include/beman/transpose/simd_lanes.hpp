@@ -44,11 +44,32 @@ struct simd_lanes {
         -> bool = default;
 };
 
+namespace detail {
+
+/** Whether `T`, ignoring cv-qualification and reference, is a `simd_lanes`
+ * of exactly width `N` -- the operand shape this applicative composes. Lets
+ * `invoke` deduce its operands through forwarding references, which is what
+ * carries the caller's value category into the operation, without accepting
+ * operands of some other shape. The counterpart of
+ * `is_std_array_of_extent` for the lanewise objects' fixed-width member;
+ * the width is part of the shape for the reason recorded there. */
+template <class T, int N>
+struct is_simd_lanes_of_width : std::false_type {};
+
+template <class U, int N>
+struct is_simd_lanes_of_width<simd_lanes<U, N>, N> : std::true_type {};
+
+template <class T, int N>
+inline constexpr bool is_simd_lanes_of_width_v =
+    is_simd_lanes_of_width<std::remove_cvref_t<T>, N>::value;
+
+} // namespace detail
+
 template <class T, int N>
 struct SimdLanesApplicativeImpl {
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value) {
-        using U = remove_cvref_t<VALUE>;
+        using U = std::remove_cvref_t<VALUE>;
         return simd_lanes<U, N>::repeat(U(std::forward<VALUE>(value)));
     }
 
@@ -57,14 +78,20 @@ struct SimdLanesApplicativeImpl {
     // is read exactly once, so that is safe. It matters because the
     // accumulator of a traversal into this context is an rvalue at every
     // step: copying it would rebuild the whole accumulated result per lane.
+    // The operands are constrained on their shape for the same reason the
+    // other registered objects constrain theirs: the return type is deduced,
+    // so an operand of some other shape would reach the body and diagnose
+    // there rather than leave this overload unmatched.
     template <class FUNCTION, class FIRST, class... REST>
+        requires detail::is_simd_lanes_of_width_v<FIRST, N> &&
+                 (detail::is_simd_lanes_of_width_v<REST, N> && ...)
     auto invoke(this auto &&, FUNCTION &&function, FIRST &&first,
                 REST &&...rest) {
         using Result = std::invoke_result_t<
             FUNCTION &,
             detail::element_ref_t<decltype(std::forward<FIRST>(first).data)>,
             detail::element_ref_t<decltype(std::forward<REST>(rest).data)>...>;
-        using U = remove_cvref_t<Result>;
+        using U = std::remove_cvref_t<Result>;
 
         // Lanes are constructed, not default-constructed and assigned, so U
         // need not be default-constructible or assignable.

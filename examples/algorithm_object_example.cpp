@@ -26,13 +26,14 @@ namespace detail {
 // validate_impl: inherits the Traversable typeclass for T.
 // The typeclass operations (traverse, for_each) are available as unqualified
 // member calls through `this->`.
-template <class T, const auto &TC = beman::transpose::traversable_typeclass<
-                       beman::transpose::remove_cvref_t<T>>>
-struct validate_impl : beman::transpose::remove_cvref_t<decltype(TC)> {
+template <class T,
+          const auto &TC =
+              beman::transpose::traversable_typeclass<std::remove_cvref_t<T>>>
+struct validate_impl : std::remove_cvref_t<decltype(TC)> {
     template <class Pred>
     auto call(Pred &&pred, const T &value) const {
-        using element_type = typename beman::transpose::remove_cvref_t<
-            decltype(TC)>::element_type;
+        using element_type =
+            typename std::remove_cvref_t<decltype(TC)>::element_type;
         return this->for_each(
             value,
             [&](const element_type &elem) -> std::optional<element_type> {
@@ -47,15 +48,14 @@ struct validate_impl : beman::transpose::remove_cvref_t<decltype(TC)> {
 // Demonstrates multi-typeclass composition — Foldable gives length,
 // Traversable gives for_each. Both base classes are empty.
 template <class T,
-          const auto &FC = beman::transpose::foldable_typeclass<
-              beman::transpose::remove_cvref_t<T>>,
-          const auto &TC = beman::transpose::traversable_typeclass<
-              beman::transpose::remove_cvref_t<T>>>
-struct transform_if_large_impl
-    : beman::transpose::remove_cvref_t<decltype(FC)>,
-      beman::transpose::remove_cvref_t<decltype(TC)> {
-    using foldable_base = beman::transpose::remove_cvref_t<decltype(FC)>;
-    using traversable_base = beman::transpose::remove_cvref_t<decltype(TC)>;
+          const auto &FC =
+              beman::transpose::foldable_typeclass<std::remove_cvref_t<T>>,
+          const auto &TC =
+              beman::transpose::traversable_typeclass<std::remove_cvref_t<T>>>
+struct transform_if_large_impl : std::remove_cvref_t<decltype(FC)>,
+                                 std::remove_cvref_t<decltype(TC)> {
+    using foldable_base = std::remove_cvref_t<decltype(FC)>;
+    using traversable_base = std::remove_cvref_t<decltype(TC)>;
     using element_type = typename traversable_base::element_type;
 
     template <class F>
@@ -78,8 +78,8 @@ struct transform_if_large_impl
 struct validate_fn {
     template <class Pred, class T>
     auto operator()(Pred &&pred, T &&value) const {
-        return detail::validate_impl<beman::transpose::remove_cvref_t<T>>{}
-            .call(std::forward<Pred>(pred), std::forward<T>(value));
+        return detail::validate_impl<std::remove_cvref_t<T>>{}.call(
+            std::forward<Pred>(pred), std::forward<T>(value));
     }
 };
 inline constexpr validate_fn validate{};
@@ -90,9 +90,8 @@ inline constexpr validate_fn validate{};
 struct transform_if_large_fn {
     template <class F, class T>
     auto operator()(std::size_t min_size, F &&f, T &&value) const {
-        return detail::transform_if_large_impl<
-                   beman::transpose::remove_cvref_t<T>>{}
-            .call(min_size, std::forward<F>(f), std::forward<T>(value));
+        return detail::transform_if_large_impl<std::remove_cvref_t<T>>{}.call(
+            min_size, std::forward<F>(f), std::forward<T>(value));
     }
 };
 inline constexpr transform_if_large_fn transform_if_large{};
