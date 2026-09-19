@@ -332,18 +332,28 @@ TEST_CASE("p2300: a move-only payload survives registration and the basis") {
     REQUIRE(std::get<0>(*ex::sync_wait(std::move(composed))) == 42);
 }
 
-// -- 4b. The policy concept is a NARROWER gate, and it bites. -------------
+// -- 4b. What pure returns, and what the policy concept does about it. ----
 //
-// applicative_object (above) does not constrain what pure RETURNS.
-// traverse's policy concept does: applicative_object_for strengthens it with
-// `pure(element) -> std::same_as<CONTEXT>`, because composing element
-// results into anything but CONTEXT would not preserve traverse's
-// shape-in-context contract.
+// applicative_object (above) does not constrain what pure RETURNS. traverse's
+// policy concept, applicative_object_for, is where that question is asked.
 //
-// For senders that requirement is satisfiable only by accident. pure(x) is
-// always just(x), so the policy concept holds exactly when CONTEXT happens
-// to BE decltype(just(x)) -- and fails for every adapted sender, which is
-// what a caller actually has. Measured, not reasoned:
+// THE MEASUREMENT THIS SECTION EXISTS FOR IS UNCHANGED. pure(x) is always
+// just(x), so "pure returns exactly CONTEXT" is satisfiable only by accident:
+// it holds when CONTEXT happens to BE decltype(just(x)) and fails for every
+// adapted sender, which is what a caller actually has. That is finding (b) --
+// one object for all sender types, pure free to return a type of its own
+// choosing -- showing up as a consequence rather than a virtue, and it is
+// still true. Recorded at docs/review/execution-sender-registration.md
+// section 4.
+//
+// WHAT CHANGED IS THE CONSEQUENCE, NOT THE FACT. Steve's ruling of 2026-09-19
+// (docs/decisions.md#collect-hook part 2) disjoined applicative_object_for on
+// `collect`: a policy that composes the whole structure in one operation is
+// not bound by what pure returns, because the pairwise composition that
+// constraint describes is one it will not perform. So all three shapes now
+// satisfy the policy concept -- by the second alternative, not the first.
+// Both halves are pinned, so a later reading can tell which one is carrying
+// each row.
 
 namespace {
 template <class S>
@@ -352,25 +362,32 @@ using object_for_ = std::remove_const_t<decltype(bt::applicative_typeclass<S>)>;
 using whenall_then = decltype(ex::when_all(ex::just(1), ex::just(2)) |
                               ex::then([](int a, int b) { return a + b; }));
 
+// The refinement's FIRST alternative, spelled here so that the fact and the
+// consequence can be asserted apart from each other.
+template <class OBJ, class CONTEXT>
+concept pure_returns_context = requires(const OBJ &object) {
+    {
+        object.pure(std::declval<bt::applicative_value_t<CONTEXT>>())
+    } -> std::same_as<CONTEXT>;
+};
+
 // The deep object concept holds for every registered sender shape.
 static_assert(bt::applicative_object<object_for_<just_int>, just_int>);
 static_assert(bt::applicative_object<object_for_<then_adapted>, then_adapted>);
 static_assert(bt::applicative_object<object_for_<whenall_then>, whenall_then>);
 
-// The POLICY concept holds for exactly one of them.
+// The first alternative holds for exactly one of them -- the fact, unchanged.
+static_assert(pure_returns_context<object_for_<just_int>, just_int>);
+static_assert(!pure_returns_context<object_for_<then_adapted>, then_adapted>);
+static_assert(!pure_returns_context<object_for_<whenall_then>, whenall_then>);
+
+// The policy concept holds for all three, the other two by way of `collect`.
 static_assert(bt::applicative_object_for<object_for_<just_int>, just_int>);
 static_assert(
-    !bt::applicative_object_for<object_for_<then_adapted>, then_adapted>);
+    bt::applicative_object_for<object_for_<then_adapted>, then_adapted>);
 static_assert(
-    !bt::applicative_object_for<object_for_<whenall_then>, whenall_then>);
+    bt::applicative_object_for<object_for_<whenall_then>, whenall_then>);
 } // namespace
-//
-// This is finding (b) -- one object for all sender types, pure returns a type
-// of its own choosing -- showing up as a consequence rather than a virtue.
-// It is stage collect-hook's first obstacle, not this stage's to solve: the
-// collect hook has to be reachable without satisfying the exact-return
-// refinement, or that refinement has to relax for objects supplying collect.
-// Recorded at docs/review/execution-sender-registration.md section 4.
 
 // -- 5. What this stage deliberately did NOT make work. -------------------
 //
