@@ -132,28 +132,6 @@ struct vector_append_t {
 template <class ELEMENT>
 inline constexpr vector_append_t<ELEMENT> vector_append{};
 
-/// Whether `APPLICATIVE` offers a native composition for a runtime-sized
-/// collection of `EFFECT` operands.
-///
-/// The Traversable-side instance of
-/// `docs/decisions.md#derived-op-native-preference`: prefer a native
-/// operation where the object supplies one, derive otherwise. The probe
-/// names the same expression the preferring branch evaluates -- same
-/// receiver, same spelling, a `vector<EFFECT>` rvalue -- so an object whose
-/// `collect` does not accept this traversal's operands takes the fold rather
-/// than failing.
-///
-/// DELIBERATE CONSTRAINT: this names no context, no carrier and no concept
-/// beyond the member itself. Whether anything answers it is the applicative
-/// object's business; the Traversable's business is to ask. See
-/// `docs/decisions.md#runtime-arity-composition`, whose Sentinel this
-/// spelling exists to keep.
-//! \omit
-template <class APPLICATIVE, class EFFECT>
-concept collecting_applicative = requires(const APPLICATIVE &applicative) {
-    applicative.collect(std::declval<std::vector<EFFECT>>());
-};
-
 } // namespace detail
 
 // \rSec3[transpose.range.traverse]{Traversable instance for vector}

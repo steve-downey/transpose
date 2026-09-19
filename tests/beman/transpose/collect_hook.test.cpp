@@ -105,6 +105,68 @@ struct CollectingApplicativeMap : bt::Applicative<CollectingApplicativeImpl> {
     using CollectingApplicativeImpl::pure;
 };
 
+// -- a context whose object's `pure` cannot return it ---------------------
+
+/// A context that its own object's `pure` does not produce. `pure` returns a
+/// `boxed`; composition returns a `labelled`. That is the shape the P2300
+/// applicative object has and the reason
+/// docs/decisions.md#collect-hook part 2 exists -- one object serves every
+/// context, so `pure` returns a type of its own choosing.
+///
+/// Spelled here, generically, rather than only over senders: the concept it
+/// exercises lives in `include/` and the sender tests are behind an
+/// off-by-default option, so without this the ruling would be checked by
+/// nothing an ordinary build runs.
+template <class T>
+struct labelled {
+    using value_type = T;
+    T held;
+
+    friend auto operator==(const labelled &, const labelled &)
+        -> bool = default;
+};
+
+struct WideningApplicativeImpl {
+    template <class VALUE>
+    auto pure(this auto &&, VALUE &&value) {
+        return boxed<std::remove_cvref_t<VALUE>>{std::forward<VALUE>(value)};
+    }
+
+    template <class FUNCTION, class... CONTEXTS>
+    auto invoke(this auto &&, FUNCTION &&function, CONTEXTS &&...contexts) {
+        return labelled<std::remove_cvref_t<std::invoke_result_t<
+            FUNCTION &,
+            typename std::remove_cvref_t<CONTEXTS>::value_type...>>>{
+            function(std::forward<CONTEXTS>(contexts).held...)};
+    }
+};
+
+struct CollectingWideningApplicativeImpl : WideningApplicativeImpl {
+    template <class T>
+    auto collect(this auto &&, std::vector<labelled<T>> contexts) {
+        std::vector<T> values;
+        values.reserve(contexts.size());
+        for (auto &context : contexts) {
+            values.push_back(std::move(context.held));
+        }
+        return labelled<std::vector<T>>{std::move(values)};
+    }
+};
+
+/// The same basis without `collect`: what the policy concept says about a
+/// widening object that offers the traversal no way through.
+struct WideningApplicativeMap : bt::Applicative<WideningApplicativeImpl> {
+    using WideningApplicativeImpl::invoke;
+    using WideningApplicativeImpl::pure;
+};
+
+struct CollectingWideningApplicativeMap
+    : bt::Applicative<CollectingWideningApplicativeImpl> {
+    using CollectingWideningApplicativeImpl::collect;
+    using CollectingWideningApplicativeImpl::invoke;
+    using CollectingWideningApplicativeImpl::pure;
+};
+
 } // namespace
 
 // -- deliverable 3: `collect` is optional in `applicative_object` ---------
@@ -210,4 +272,43 @@ TEST_CASE("collect hook: registered instances are unchanged by it") {
 
     std::vector<std::optional<int>> with_gap{1, std::nullopt, 3};
     REQUIRE_FALSE(bt::transpose(with_gap).has_value());
+}
+
+// -- docs/decisions.md#collect-hook part 2, ruled 2026-09-19 --------------
+//
+// `applicative_object_for`, the policy concept the free `traverse` carries,
+// asks for whichever composition the traversal will perform: `pure` returning
+// exactly `CONTEXT`, which is what the pairwise fold needs, OR `collect`,
+// which is not bound by what `pure` returns because it does not use it. The
+// three rows below are the whole content of that ruling.
+
+// A widening object -- `pure` produces a `boxed`, composition a `labelled` --
+// is a conforming applicative object either way. The deep concept has never
+// constrained what `pure` returns.
+static_assert(bt::applicative_object<WideningApplicativeMap, labelled<int>>);
+static_assert(
+    bt::applicative_object<CollectingWideningApplicativeMap, labelled<int>>);
+
+// Without `collect` it is not a usable policy: neither alternative holds, and
+// the fold the concept describes is the one it would have to perform.
+static_assert(
+    !bt::applicative_object_for<WideningApplicativeMap, labelled<int>>);
+
+// With `collect` it is, by the second alternative. Nothing about its `pure`
+// changed.
+static_assert(bt::applicative_object_for<CollectingWideningApplicativeMap,
+                                         labelled<int>>);
+
+// The type-stable object still qualifies by the first alternative, which is
+// what says the relaxation added a route rather than replaced one.
+static_assert(bt::applicative_object_for<FoldingApplicativeMap, boxed<int>>);
+
+TEST_CASE("collect hook: a widening object is a usable traverse policy") {
+    // The end of the ruling: `traverse` with an explicit policy whose `pure`
+    // cannot return the context, reaching the structure through `collect`.
+    auto result = bt::traverse([](int x) { return labelled<int>{x + 1}; },
+                               std::vector<int>{1, 2, 3},
+                               CollectingWideningApplicativeMap{});
+
+    REQUIRE(result == labelled<std::vector<int>>{{2, 3, 4}});
 }

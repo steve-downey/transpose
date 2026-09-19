@@ -1677,6 +1677,15 @@ mode a single witness cannot see.
   (this step's two new concepts), alongside the five pre-existing drifted
   fragments left untouched. Suite stayed at 154: the additions are
   `static_assert`s in the existing `objects` translation unit.
+- 2026-09-19 — `applicative_object_for`'s refinement is now a DISJUNCTION,
+  by Steve's ruling under [collect-hook](#collect-hook) part 2. The depth
+  principle this entry states is untouched: the policy concept still checks
+  the full object surface, and the added alternative is at the same depth as
+  the one it sits beside. What changed is that the refinement no longer
+  assumes the traversal will perform the pairwise composition it describes —
+  an object supplying `collect` performs a different one, and is asked for
+  that instead. Read as this entry's own rule, the refinement was checking a
+  basis operation's return type for a derivation the object does not use.
 
 ---
 
@@ -2543,12 +2552,12 @@ same children, which is the property the paper wants to state: `all_of`
 
 **Question:** Is `collect` optional for `applicative_object`, and what must
 the policy concept do about an object whose `pure` cannot return the context?
-**Status:** Part 1 DECIDED 2026-09-19. Part 2 OPEN — measured, proposed, not
-ruled.
+**Status:** Both parts DECIDED 2026-09-19.
 **Decided by:** Part 1 default-as-drafted at stage
 [collect-hook](transpose-execution-plan.md#collect-hook), per
 transpose-execution-plan.md §3 deliverable 3, which states the answer and
-asks for it to be logged. Part 2 is Steve's.
+asks for it to be logged. **Part 2 ruled by Steve Downey, 2026-09-19**, on the
+measurements below: option 1, disjoin the refinement on `collect`.
 
 **Decision, part 1 — `collect` is OPTIONAL.** `applicative_object` does not
 require it and must not. The four registered instances (`optional`,
@@ -2568,14 +2577,35 @@ write would be a slower spelling of it. Optionality is also what
 by "prefer a native operation": the derivation is the contract and the
 native operation is an optimisation over it, not a second contract.
 
-**Decision, part 2 — NOT TAKEN. The measurement, and the proposal.** The
-front door and the free algorithm disagree about which senders they reach,
-and the disagreement is a concept, not a defect in either:
+**Decision, part 2 — the policy concept asks for whichever composition the
+traversal will perform.** `applicative_object_for<POLICY, CONTEXT>` is
+`applicative_object<POLICY, CONTEXT>` and *either* `pure(element) ->
+same_as<CONTEXT>` *or* `collect(vector<CONTEXT>)`. An object that supplies
+`collect` is not required to also satisfy a requirement of the composition it
+will not perform.
 
-| entry point | constraint it carries | `just(1)` | `just(1) \| then(f)` |
-|---|---|---|---|
-| `transpose(vector<S>)` | `applicative_context<S>`, i.e. `applicative_object` | yes | **yes** |
-| `traverse(f, vector<T>)` | `applicative_object_for<POLICY, S>` | yes | **no** |
+**Why:** the refinement describes the pairwise fold — it assigns each partial
+result back into a variable of one type, starting from `pure`, so `pure` must
+produce that type. A policy offering `collect` composes the whole structure in
+one operation and never performs that assignment, so the requirement is not
+weaker for it; it is *inapplicable* to it. Two other resolutions were on the
+table: dropping the exact-return requirement outright, which would have given
+up the shape-preservation argument that is load-bearing for the fold path, and
+leaving the two entry points permanently unlike each other. The disjunction is
+the only one of the three that states the reason. It also restores the
+property a caller would assume: `traverse` with an explicit function now
+reaches exactly the sender shapes `transpose` does.
+
+**The measurement the ruling was made on**, before it, and still true of the
+first alternative alone:
+
+| | `just(1)` | `just(1) \| then(f)` |
+|---|---|---|
+| `applicative_object` (what `transpose` asks) | yes | **yes** |
+| `pure(element) -> same_as<CONTEXT>` (first alternative) | yes | **no** |
+| `collect(vector<CONTEXT>)` (second alternative) | yes | yes |
+| `applicative_object_for` **before** the ruling | yes | **no** |
+| `applicative_object_for` **after** it | yes | yes |
 
 `applicative_object_for` adds `pure(element) -> same_as<CONTEXT>` to the deep
 object concept, per [typeclass-conformance-depth](#typeclass-conformance-depth).
@@ -2588,38 +2618,21 @@ Both rows are pinned in `transpose_senders.test.cpp`, and the three
 object-concept rows behind them in `p2300.test.cpp`, so a later reading of
 this entry is reading measurements.
 
-Stage [collect-hook](transpose-execution-plan.md#collect-hook) did **not**
-act on this. Its deliverable 2 is met for `transpose` over every sender shape
-and for `traverse` over one, and the gap is left where it is, because
-`applicative_object_for` is a published concept in a header the plan is
-forbidden to widen on its own initiative and the fix is a design change
-rather than a chore.
+The underlying fact is unchanged by the ruling and is the thing to watch: one
+object serves every sender type, so `pure` returns a type of its own choosing
+and the first alternative is satisfiable only by coincidence. What the ruling
+changed is the consequence, not the fact. Both are pinned apart — in
+`p2300.test.cpp` for the three sender shapes, and generically in
+`collect_hook.test.cpp` with an object whose `pure` returns one carrier and
+whose composition returns another. The generic rows matter because the concept
+lives in `include/` and the sender tests are behind an off-by-default option:
+without them the ruling would be checked by nothing an ordinary build runs.
 
-**The proposal, for Steve, not adopted here.** Relax the refinement to what
-`traverse` actually needs. What it needs is that the object can produce
-*some* context holding the collected structure — not that `pure` reproduces
-`CONTEXT`. Three shapes, in increasing order of how much they change:
-
-1. **Disjoin on `collect`.** `applicative_object_for<POLICY, CONTEXT>`
-   becomes the existing refinement OR "offers `collect(vector<CONTEXT>)`".
-   Smallest change; says exactly what the traversal does; costs a concept
-   that now names two paths.
-2. **Ask the weaker question everywhere.** Drop the exact-return-type
-   requirement and constrain on `applicative_object` alone, which is what
-   `transpose` already does. Simplest to state; gives up the
-   shape-preservation argument the refinement's Remarks make, and that
-   argument is load-bearing for the fold path.
-3. **Leave it.** `transpose` is the front door the paper's second domain
-   shows; `traverse` with an explicit function over senders stays reachable
-   only for `just`. Costs nothing today and makes the two entry points
-   permanently unlike each other, which is the kind of difference that is
-   discovered rather than read.
-
-The stage's own reading, offered as a recommendation and no more: (1), because
-it is the only one of the three that states the reason. The traversal prefers
-`collect` precisely when the fold cannot be spelled, and the refinement exists
-to describe the fold. A concept that names both paths is longer than one that
-names one, but it is not more complicated than the operation it constrains.
+**One spelling of the probe, in one place.** `detail::collecting_applicative`
+is defined in `traverse.hpp`, beside the concept, and `sequence.hpp`'s
+traversals use it. Two spellings of the same question are two things that can
+disagree, and here the disagreement would show up as an operation that is
+constrained in and then does not compile.
 
 **Sentinel:** if this is ever resolved by giving the sender object a `pure`
 that returns its argument's own type, [sender-instance-keying](#sender-instance-keying)
@@ -2639,22 +2652,36 @@ has been reversed and that entry is what needs revisiting, not this one.
   (`collect_hook.test.cpp`) as well as by the goldens themselves.
   Suites: 246 → 251 with the option OFF, 266 → 279 with it ON, green on
   gcc-debug and llvm-debug.
-- 2026-09-19 — Part 2 raised, with the table above, and left OPEN. Stage 1
-  predicted this and stage 2's review called it "the only thing between here
-  and a working front door"; the measurement says that reading was half
-  right. `transpose` needed nothing: it carries the weaker constraint
-  already. Only the free `traverse` is blocked, and only for sender shapes
-  other than `just`'s own.
-- 2026-09-19 — **Wording drift, recorded rather than fixed.**
-  `sequence.hpp`'s `//!` prose for both `traverse` overloads now states the
-  `collect` path, so `papers/wording/transpose.range.traverse.md` is older
-  than the header it is generated from. It was not regenerated: `make
-  wording` does not currently succeed (docs/wording-pipeline.md, tracked at
-  steve-downey/specgen#109) and `specgen` is not installed in this
-  environment, and hand-editing a generated fragment would make the
-  checked-in file agree with the header by a route the pipeline cannot
-  reproduce. This adds one file to the five fragments already recorded as
-  drifted.
+- 2026-09-19 — Part 2 raised with the table above. Stage 1 predicted this and
+  stage 2's review called it "the only thing between here and a working front
+  door"; the measurement says that reading was half right. `transpose` needed
+  nothing — it carries the weaker constraint already, and began working the
+  moment the hook existed. Only the free `traverse` was blocked, and only for
+  sender shapes other than `just`'s own.
+- 2026-09-19 — **Part 2 RULED by Steve: option 1.** `applicative_object_for`
+  disjoined on `collect`. `detail::collecting_applicative` moved from
+  `sequence.hpp` to `traverse.hpp` so the concept and the traversals ask the
+  one question in the one spelling. `traverse(f, vector<T>)` now reaches every
+  sender shape `transpose` does, and the two entry points return the same
+  type for the same elements, asserted. Three rows in `p2300.test.cpp` were
+  inverted by the ruling and are now stated as two facts rather than one: the
+  first alternative still fails for every adapted sender, and the concept
+  holds anyway. Suites 251 → 252 option OFF, 279 → 281 option ON.
+- 2026-09-19 — **Wording drift, recorded rather than fixed.** Two fragments
+  are now older than the headers they are generated from:
+  `papers/wording/transpose.range.traverse.md`, because `sequence.hpp`'s
+  `//!` prose for both `traverse` overloads states the `collect` path (the
+  Complexity clause in particular — the native path is one composition
+  operation, not `values.size()` of them), and
+  `papers/wording/transpose.traversable.syn.md`, because
+  `applicative_object_for`'s definition and Remarks changed with the ruling.
+  Neither was regenerated: `make wording` does not currently succeed
+  (docs/wording-pipeline.md, tracked at steve-downey/specgen#109) and
+  `specgen` is not installed in this environment, and hand-editing a
+  generated fragment would make the checked-in file agree with its header by
+  a route the pipeline cannot reproduce. This adds two files to the five
+  already recorded as drifted, and they are the first whose drift this
+  project's own work caused.
 
 ---
 
