@@ -2020,6 +2020,21 @@ promising it does.
   [runtime-arity-composition](#runtime-arity-composition) and
   [erasure-boundary](#erasure-boundary) are no longer contested; this
   paragraph is.
+- 2026-09-19 — **The paragraph above is now answered too, and the whole
+  Consequences finding is spent.** Stage
+  [collect-hook](transpose-execution-plan.md#collect-hook) taught the vector
+  Traversable to prefer a native `collect`, and `transpose(std::vector<S>)`
+  over a real P2300 sender works: it returns `all_of_sender<S>`, for a plain
+  `just` sender and for an adapted one alike, and a vector of those transposes
+  again. Nothing execution-dependent entered `include/`; the one header that
+  changed, `sequence.hpp`, names no sender. So the front door reaches real
+  senders, by preference rather than by erasure, and neither half of this
+  entry's "needs a type-erased sender" consequence survives. What the entry
+  got right, and what this does not touch, is everything about WHERE the
+  dependency may live: that part of it is untouched and still binding.
+  One thing is not fixed and is logged rather than buried: the free
+  `traverse`'s policy concept still admits exactly one sender shape. See
+  [collect-hook](#collect-hook) part 2, OPEN.
 
 ---
 
@@ -2324,6 +2339,17 @@ could offer it for performance (a single-pass `expected` collect avoids
   remains stage [collect-hook](transpose-execution-plan.md#collect-hook)'s.
   The Sentinel still holds: nothing in `sequence.hpp` names a sender, and
   nothing execution-dependent has entered `include/`.
+- 2026-09-19 — **The Traversable side is built; this entry is fully
+  implemented.** `VectorTraversableImpl::traverse` prefers
+  `applicative.collect(...)` in both overloads and takes the existing
+  `pure`/`invoke` fold otherwise, so the n-ary knowledge stays in the
+  applicative object and the Traversable stays generic — this entry's
+  Decision, end to end. The Sentinel survives the implementation that was
+  most likely to break it: `sequence.hpp` gained no execution include, no
+  sender name, no mention of `all_of`, and no `if constexpr` on "is a
+  sender". What it gained is a probe for a member, `collect_hook`'s part 1.
+  Whether `collect` is optional in `applicative_object` — this entry said it
+  is — is now decided and logged at [collect-hook](#collect-hook).
 - 2026-09-13 — Location and division of labour fixed by Steve's ruling.
   `all_of` lands as **`examples/all_of.hpp`** under
   `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`. The Stage 3 `collect` hook in
@@ -2510,6 +2536,125 @@ same children, which is the property the paper wants to state: `all_of`
   Result order is input order, checked against sixteen children completing on
   their own threads in deliberately reversed order, TSan clean. `n == 0`
   completes immediately with an empty vector; `n == 1` is not special-cased.
+
+---
+
+## collect-hook
+
+**Question:** Is `collect` optional for `applicative_object`, and what must
+the policy concept do about an object whose `pure` cannot return the context?
+**Status:** Part 1 DECIDED 2026-09-19. Part 2 OPEN — measured, proposed, not
+ruled.
+**Decided by:** Part 1 default-as-drafted at stage
+[collect-hook](transpose-execution-plan.md#collect-hook), per
+transpose-execution-plan.md §3 deliverable 3, which states the answer and
+asks for it to be logged. Part 2 is Steve's.
+
+**Decision, part 1 — `collect` is OPTIONAL.** `applicative_object` does not
+require it and must not. The four registered instances (`optional`,
+`expected`, `zip_list`, the demonstration `sender<T>`) supply no `collect`
+and conform exactly as before; the vector traversal asks for it and derives
+against `pure`/`invoke` when the answer is no. The probe is spelled as the
+expression the preferring branch evaluates —
+`applicative.collect(<a vector<Effect> rvalue>)` — and names no context, no
+carrier and no concept beyond the member itself, which is what keeps
+[runtime-arity-composition](#runtime-arity-composition)'s Sentinel.
+
+**Why:** Requiring `collect` would make every existing instance
+non-conforming to buy nothing: their composition is type-stable, so the fold
+is already the right shape for them, and a `collect` they were obliged to
+write would be a slower spelling of it. Optionality is also what
+[derived-op-native-preference](#derived-op-native-preference) already means
+by "prefer a native operation": the derivation is the contract and the
+native operation is an optimisation over it, not a second contract.
+
+**Decision, part 2 — NOT TAKEN. The measurement, and the proposal.** The
+front door and the free algorithm disagree about which senders they reach,
+and the disagreement is a concept, not a defect in either:
+
+| entry point | constraint it carries | `just(1)` | `just(1) \| then(f)` |
+|---|---|---|---|
+| `transpose(vector<S>)` | `applicative_context<S>`, i.e. `applicative_object` | yes | **yes** |
+| `traverse(f, vector<T>)` | `applicative_object_for<POLICY, S>` | yes | **no** |
+
+`applicative_object_for` adds `pure(element) -> same_as<CONTEXT>` to the deep
+object concept, per [typeclass-conformance-depth](#typeclass-conformance-depth).
+The sender object's `pure` is always `just`, by
+[sender-instance-keying](#sender-instance-keying)'s "one object for all
+sender types" — which is the decision that makes `pure` free to return a type
+of its own choosing. So the refinement holds exactly where the caller's
+sender happens to BE `just`'s own type, and fails for every adapted sender.
+Both rows are pinned in `transpose_senders.test.cpp`, and the three
+object-concept rows behind them in `p2300.test.cpp`, so a later reading of
+this entry is reading measurements.
+
+Stage [collect-hook](transpose-execution-plan.md#collect-hook) did **not**
+act on this. Its deliverable 2 is met for `transpose` over every sender shape
+and for `traverse` over one, and the gap is left where it is, because
+`applicative_object_for` is a published concept in a header the plan is
+forbidden to widen on its own initiative and the fix is a design change
+rather than a chore.
+
+**The proposal, for Steve, not adopted here.** Relax the refinement to what
+`traverse` actually needs. What it needs is that the object can produce
+*some* context holding the collected structure — not that `pure` reproduces
+`CONTEXT`. Three shapes, in increasing order of how much they change:
+
+1. **Disjoin on `collect`.** `applicative_object_for<POLICY, CONTEXT>`
+   becomes the existing refinement OR "offers `collect(vector<CONTEXT>)`".
+   Smallest change; says exactly what the traversal does; costs a concept
+   that now names two paths.
+2. **Ask the weaker question everywhere.** Drop the exact-return-type
+   requirement and constrain on `applicative_object` alone, which is what
+   `transpose` already does. Simplest to state; gives up the
+   shape-preservation argument the refinement's Remarks make, and that
+   argument is load-bearing for the fold path.
+3. **Leave it.** `transpose` is the front door the paper's second domain
+   shows; `traverse` with an explicit function over senders stays reachable
+   only for `just`. Costs nothing today and makes the two entry points
+   permanently unlike each other, which is the kind of difference that is
+   discovered rather than read.
+
+The stage's own reading, offered as a recommendation and no more: (1), because
+it is the only one of the three that states the reason. The traversal prefers
+`collect` precisely when the fold cannot be spelled, and the refinement exists
+to describe the fold. A concept that names both paths is longer than one that
+names one, but it is not more complicated than the operation it constrains.
+
+**Sentinel:** if this is ever resolved by giving the sender object a `pure`
+that returns its argument's own type, [sender-instance-keying](#sender-instance-keying)
+has been reversed and that entry is what needs revisiting, not this one.
+
+**Log:**
+- 2026-09-19 — Part 1 decided and implemented. `VectorTraversableImpl::traverse`
+  probes `applicative.collect(...)` in both overloads and takes the fold
+  otherwise. `sequence.hpp` is the only `include/` change, as the
+  2026-09-13 ruling requires, and it names no sender, no execution header
+  and no `all_of`. `transpose(vector<S>)` over a real P2300 sender returns
+  `all_of_sender<S>` — plain and adapted alike — and
+  `transpose` of a vector of `all_of_sender<S>` composes again, which is
+  what makes `collect` an applicative operation rather than a terminal one.
+  Goldens byte-for-byte unchanged and the fold still taken for every
+  registered instance, asserted with a counting object that has no `collect`
+  (`collect_hook.test.cpp`) as well as by the goldens themselves.
+  Suites: 246 → 251 with the option OFF, 266 → 279 with it ON, green on
+  gcc-debug and llvm-debug.
+- 2026-09-19 — Part 2 raised, with the table above, and left OPEN. Stage 1
+  predicted this and stage 2's review called it "the only thing between here
+  and a working front door"; the measurement says that reading was half
+  right. `transpose` needed nothing: it carries the weaker constraint
+  already. Only the free `traverse` is blocked, and only for sender shapes
+  other than `just`'s own.
+- 2026-09-19 — **Wording drift, recorded rather than fixed.**
+  `sequence.hpp`'s `//!` prose for both `traverse` overloads now states the
+  `collect` path, so `papers/wording/transpose.range.traverse.md` is older
+  than the header it is generated from. It was not regenerated: `make
+  wording` does not currently succeed (docs/wording-pipeline.md, tracked at
+  steve-downey/specgen#109) and `specgen` is not installed in this
+  environment, and hand-editing a generated fragment would make the
+  checked-in file agree with the header by a route the pipeline cannot
+  reproduce. This adds one file to the five fragments already recorded as
+  drifted.
 
 ---
 
