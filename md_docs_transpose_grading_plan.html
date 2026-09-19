@@ -107,7 +107,7 @@ $(document).ready(function(){initNavTree('md_docs_transpose_grading_plan.html','
 <li>This document is not self-updating. When a divergence is resolved, the resolution updates the decision log (and this plan where it repeats the substance), by Steve or with approval; then work resumes.</li>
 </ol>
 <h1><a class="anchor" id="context"></a>
-1. Context: what this library is and what grading is doing in it</h1>
+1. Context: what is being claimed and why it is not yet true</h1>
 <p><code>beman.transpose</code> (P3200 "Transpose") provides shape-preserving traverse: distribute a context (expected/optional-like) out of a structure without changing the structure's shape. Typeclass instances are non-intrusive, registered via CRTP-produced typeclass objects pinned as NTTPs; operations deduce their return types. Duck typing at use sites is a feature to preserve: a gadget participates because it has the right members, not because it declared allegiance.</p>
 <p><b>Grading</b> adds a compile-time index ("grade") to effectful computations: here, the set of error types a computation may raise. <code>expected&lt;T, error_set&lt;A,B&gt;&gt;</code> is the carrier at grade {A,B}. Grade arithmetic:</p>
 <ul>
@@ -118,7 +118,7 @@ $(document).ready(function(){initNavTree('md_docs_transpose_grading_plan.html','
 <p><b>Why a semilattice and only a semilattice</b> — the full argument lives at <a href="decisions.md#grade-generality">grade-generality</a>; the short form every stage should keep in view: <em>commutative</em> ⇒ grade arithmetic is order-free; <em>idempotent</em> ⇒ fold grades are shape-independent, so recursive data types stay ungraded while effects are graded; <em>order-from-join</em> ⇒ subsumption coercions are canonical, hence coherently implicit. Non-idempotent grades (fuel, cost) are excluded on purpose and travel a perpendicular axis.</p>
 <p><b>WG21 posture.</b> Graded-monad language belongs in design rationale, never in wording. The user-visible normative claim: error types are deduced, compose by set union, and subsumption is implicit and coherent.</p>
 <h1><a class="anchor" id="standing-decisions"></a>
-2. Standing decisions</h1>
+2. Standing decisions the agent must know cold</h1>
 <p>The one-way doors, catalogued with full Decision/Why/Log in <a class="el" href="md_docs_decisions.html">decisions.md</a>. Cheap to revisit only while Steve is the sole client. The agent should know their one-line forms cold:</p>
 <ul>
 <li><a href="decisions.md#empty-grade-spelling">empty-grade-spelling</a> — the ∅ grade is bare <code>T</code>; the uniform degenerate-expected form is explicit-only.</li>
@@ -137,7 +137,7 @@ $(document).ready(function(){initNavTree('md_docs_transpose_grading_plan.html','
 <li><a href="decisions.md#grade-operation-spelling">grade-operation-spelling</a> — the grade algebra is spelled <code>grade_join</code> / <code>grade_bottom</code> / <code>grade_subsumes</code>, with carrier coercion spelled <code>grade_subsume</code>; unqualified <code>join</code> remains the monadic join.</li>
 </ul>
 <h1><a class="anchor" id="work-plan"></a>
-3. Work plan — beman.transpose</h1>
+3. Work plan</h1>
 <h2><a class="anchor" id="baseline-capture"></a>
 Stage 0 — @ref baseline-capture "baseline-capture"</h2>
 <p>Do this before touching anything. Deliverables:</p><ul>
