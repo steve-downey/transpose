@@ -10,11 +10,14 @@
 // `collect` and knows nothing about what supplies one -- is in
 // collect_hook.test.cpp and needs no dependency at all.
 //
-// WHAT THIS FILE PINS THAT IS NOT A SUCCESS. The free `traverse` reaches
-// exactly one sender shape, because its policy concept demands `pure` return
-// the context type and `pure` is always `just`. Both rows are asserted below
-// so that docs/decisions.md#collect-hook is decided against measurements
-// rather than against recollection.
+// BOTH ENTRY POINTS REACH EVERY SHAPE, and they do so by different routes.
+// `transpose` carries `applicative_object`, which says nothing about what
+// `pure` returns. The free `traverse` carries `applicative_object_for`,
+// which asks for the pairwise composition's requirement OR for `collect` --
+// disjoined by Steve's ruling of 2026-09-19, docs/decisions.md#collect-hook
+// part 2. The underlying fact that ruling was made against is unchanged and
+// still pinned, here and in p2300.test.cpp: `pure` is always `just`, so the
+// first alternative holds for one sender shape only.
 
 #include "p2300_adapter.hpp"
 
@@ -167,7 +170,8 @@ struct failing_sender {
 };
 
 /// Whether the free `traverse` accepts a function returning this shape of
-/// sender. Spelled as a concept so both the yes and the no are assertions.
+/// sender. Spelled as a concept so that the answer is an assertion whichever
+/// way it goes -- it used to be no for one of the two rows below.
 template <class F>
 concept traversable_with = requires(std::vector<int> values, F function) {
     bt::traverse(function, std::move(values));
@@ -182,15 +186,13 @@ inline constexpr auto to_adapted = [](int value) {
 
 // -- deliverable 2: the front door returns the un-erased sender ----------
 
-static_assert(
-    std::is_same_v<decltype(bt::transpose(
-                       std::declval<std::vector<just_sender>>())),
-                   all_of_sender<just_sender>>);
+static_assert(std::is_same_v<
+              decltype(bt::transpose(std::declval<std::vector<just_sender>>())),
+              all_of_sender<just_sender>>);
 
-static_assert(
-    std::is_same_v<decltype(bt::transpose(
-                       std::declval<std::vector<adapted_sender>>())),
-                   all_of_sender<adapted_sender>>);
+static_assert(std::is_same_v<decltype(bt::transpose(
+                                 std::declval<std::vector<adapted_sender>>())),
+                             all_of_sender<adapted_sender>>);
 
 // Nothing about the result type is erased: it is spelled from the element
 // sender, which is docs/decisions.md#erasure-boundary's own test applied at
@@ -321,9 +323,8 @@ TEST_CASE("transpose: a transposed structure composes again") {
         rows.push_back(bt::transpose(std::move(cells)));
     }
 
-    static_assert(
-        std::is_same_v<decltype(bt::transpose(std::move(rows))),
-                       all_of_sender<all_of_sender<just_sender>>>);
+    static_assert(std::is_same_v<decltype(bt::transpose(std::move(rows))),
+                                 all_of_sender<all_of_sender<just_sender>>>);
 
     auto result = ex::sync_wait(bt::transpose(std::move(rows)));
 
@@ -335,36 +336,60 @@ TEST_CASE("transpose: a transposed structure composes again") {
     CHECK(values[2] == std::vector<int>{20, 21});
 }
 
-// -- the free `traverse`, and the one shape it reaches -------------------
+// -- the free `traverse` reaches the same shapes the front door does -----
 //
-// docs/decisions.md#collect-hook. `applicative_object_for`, the policy
-// concept `traverse` carries, adds `pure(element) -> same_as<CONTEXT>` to
-// the deep object concept. One object serves every sender type and its
-// `pure` is always `just`, so the refinement holds exactly where the
-// caller's sender happens to BE `just`'s own type. Both rows are pinned:
-// the front door `transpose` does not carry the refinement and reaches
-// every shape, which is why the two disagree.
-
-static_assert(bt::applicative_object<bt::examples::P2300ApplicativeMap,
-                                     adapted_sender>);
-static_assert(!bt::applicative_object_for<bt::examples::P2300ApplicativeMap,
-                                          adapted_sender>);
-static_assert(bt::applicative_object_for<bt::examples::P2300ApplicativeMap,
-                                         just_sender>);
-
-static_assert(traversable_with<decltype(to_just)>);
-static_assert(!traversable_with<decltype(to_adapted)>);
+// docs/decisions.md#collect-hook part 2, ruled by Steve on 2026-09-19.
+// `applicative_object_for`, the policy concept `traverse` carries, asks for
+// whichever composition the traversal will actually perform: `pure(element)
+// -> same_as<CONTEXT>` for the pairwise fold, OR `collect` for the one-shot
+// composition that is preferred over it. One object serves every sender type
+// and its `pure` is always `just`, so the first alternative holds only where
+// the caller's sender happens to BE `just`'s own type -- and the second is
+// what carries every other shape. Pinned apart, so that a regression in
+// either alternative is legible as itself.
 
 static_assert(
-    std::is_same_v<decltype(bt::traverse(to_just,
-                                         std::declval<std::vector<int>>())),
-                   all_of_sender<just_sender>>);
+    bt::applicative_object<bt::examples::P2300ApplicativeMap, adapted_sender>);
+static_assert(bt::applicative_object_for<bt::examples::P2300ApplicativeMap,
+                                         adapted_sender>);
+static_assert(
+    bt::applicative_object_for<bt::examples::P2300ApplicativeMap, just_sender>);
 
-TEST_CASE("traverse: the one sender shape the policy concept admits") {
+static_assert(traversable_with<decltype(to_just)>);
+static_assert(traversable_with<decltype(to_adapted)>);
+
+static_assert(std::is_same_v<
+              decltype(bt::traverse(to_just, std::declval<std::vector<int>>())),
+              all_of_sender<just_sender>>);
+
+static_assert(std::is_same_v<decltype(bt::traverse(
+                                 to_adapted, std::declval<std::vector<int>>())),
+                             all_of_sender<adapted_sender>>);
+
+// The two entry points now agree, which is the point of the ruling: a caller
+// who reaches for `traverse` with a function does not find a narrower door
+// than the one `transpose` opens.
+static_assert(
+    std::is_same_v<
+        decltype(bt::traverse(to_adapted, std::declval<std::vector<int>>())),
+        decltype(bt::transpose(std::declval<std::vector<adapted_sender>>()))>);
+
+TEST_CASE("traverse: a function returning a plain sender") {
     auto result =
         ex::sync_wait(bt::traverse(to_just, std::vector<int>{1, 2, 3}));
 
     REQUIRE(result.has_value());
     const auto &[values] = *result;
     REQUIRE(values == std::vector<int>{1, 2, 3});
+}
+
+TEST_CASE("traverse: a function returning an adapted sender") {
+    // The row the policy concept used to constrain out. `to_adapted` scales
+    // by ten, so the values also say the function really ran.
+    auto result =
+        ex::sync_wait(bt::traverse(to_adapted, std::vector<int>{1, 2, 3}));
+
+    REQUIRE(result.has_value());
+    const auto &[values] = *result;
+    REQUIRE(values == std::vector<int>{10, 20, 30});
 }

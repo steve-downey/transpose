@@ -7,8 +7,11 @@ by slug [collect-hook](../transpose-execution-plan.md#collect-hook).
 Executed 2026-09-19 on `claude/transpose-patch-plan-5cwbdy`, restarted from
 `main` at `9a61123` after Stages 0–2 merged as PR #54.
 
-New decision entry: [collect-hook](../decisions.md#collect-hook), part 1
-DECIDED, **part 2 OPEN and waiting on Steve**.
+New decision entry: [collect-hook](../decisions.md#collect-hook). Part 1
+decided as the plan directs; **part 2 raised with measurements and ruled by
+Steve the same day** — option 1, which is why the free `traverse` reaches
+real senders in the final state of this branch and did not when the question
+was put.
 
 ---
 
@@ -23,25 +26,26 @@ preference rather than by erasure: the vector Traversable asks the applicative
 object whether it has a native range composition, and the object that does is
 the one under `examples/`.
 
-The whole `include/` change is one file. `sequence.hpp` gained a probe:
+The mechanism is one probe:
 
 ```cpp
-template <class APPLICATIVE, class EFFECT>
+template <class APPLICATIVE, class CONTEXT>
 concept collecting_applicative = requires(const APPLICATIVE &applicative) {
-    applicative.collect(std::declval<std::vector<EFFECT>>());
+    applicative.collect(std::declval<std::vector<CONTEXT>>());
 };
 ```
 
-and an `if constexpr` on it in each of `traverse`'s two overloads. It names no
-sender, no execution header and no `all_of`, and there is no `if constexpr` on
-"is a sender" anywhere — the Sentinel
+and an `if constexpr` on it in each of `sequence.hpp`'s two `traverse`
+overloads. It names no sender, no execution header and no `all_of`, and there
+is no `if constexpr` on "is a sender" anywhere — the Sentinel
 [runtime-arity-composition](../decisions.md#runtime-arity-composition) carries,
 surviving the one implementation most likely to break it.
 
-**The 2026-09-13 ruling holds as a number.** `git diff` against the base
-touches exactly one file under `include/`, and the option-OFF suite grew only
-by the five generic cases this stage added — the sender half of the work is
-under the option, where it was told to be.
+Two `include/` files changed, not one: `sequence.hpp` for the preference, and
+`traverse.hpp` for the probe's definition and for the policy concept the part 2
+ruling disjoined on it. The plan anticipated one, before that ruling existed.
+Both are generic; neither names a sender; the sender half of the work is
+entirely under the option, where it was told to be.
 
 ---
 
@@ -69,19 +73,55 @@ return type. So the front door was never blocked, and `transpose(vector<S>)`
 began working the moment the hook existed, for plain and adapted senders
 alike.
 
-What *is* blocked is the free `traverse(f, value)`, whose trailing policy
-parameter does carry the refinement:
+What *was* blocked is the free `traverse(f, value)`, whose trailing policy
+parameter does carry the refinement. That was raised as
+[collect-hook](../decisions.md#collect-hook) part 2 with three proposed
+resolutions and **ruled by Steve the same day: option 1**, disjoin the
+refinement on `collect`.
 
-| entry point | constraint | `just(1)` | `just(1) \| then(f)` |
-|---|---|---|---|
-| `transpose(vector<S>)` | `applicative_object` | yes | **yes** |
-| `traverse(f, vector<T>)` | `applicative_object_for` | yes | **no** |
+```cpp
+template <class POLICY, class CONTEXT>
+concept applicative_object_for =
+    applicative_object<POLICY, CONTEXT> &&
+    (requires(const POLICY &policy) {
+         { policy.pure(std::declval<applicative_value_t<CONTEXT>>()) }
+             -> std::same_as<CONTEXT>;
+     } || detail::collecting_applicative<POLICY, CONTEXT>);
+```
 
-Both rows are pinned as `static_assert`s in `transpose_senders.test.cpp`. The
-stage did not act on this: the proposal and its three options are written up
-at [collect-hook](../decisions.md#collect-hook) part 2, and the entry says
-which one this stage would pick and why. **It is Steve's to rule, and nothing
-in this stage assumes an answer.**
+The reason it is a disjunction rather than a weakening: the refinement
+*describes the pairwise fold*, which assigns each partial result back into a
+variable of one type starting from `pure`. A policy offering `collect` never
+performs that assignment, so the requirement is not weaker for it — it is
+inapplicable to it. The concept now asks for whichever composition the
+traversal will actually perform.
+
+| | `just(1)` | `just(1) \| then(f)` |
+|---|---|---|
+| `applicative_object` (what `transpose` asks) | yes | **yes** |
+| `pure(element) -> same_as<CONTEXT>` | yes | **no** |
+| `collect(vector<CONTEXT>)` | yes | yes |
+| `applicative_object_for` before the ruling | yes | **no** |
+| `applicative_object_for` after it | yes | yes |
+
+**The fact the ruling was made on is unchanged, and is still pinned.** `pure`
+is always `just`, so the first alternative remains satisfiable only by
+coincidence — three rows in `p2300.test.cpp` say so, now stated as two facts
+(the alternative fails; the concept holds anyway) where they used to state
+one. Stage 1's finding is not retired by the ruling; its consequence is.
+
+**Where the probe lives matters.** `detail::collecting_applicative` moved from
+`sequence.hpp` to `traverse.hpp`, beside the concept, and the traversals use
+it from there. Two spellings of the same question are two things that can
+disagree, and the disagreement would present as an operation that is
+constrained in and then does not compile.
+
+**The ruling is checked generically, not only over senders.** The concept is
+in `include/`; the sender tests are behind an off-by-default option that no
+CI job sets. `collect_hook.test.cpp` therefore carries an object whose `pure`
+returns one carrier and whose composition returns another — the sender
+object's shape, without the dependency — and asserts all three rows plus a
+`traverse` that reaches its structure through `collect` alone.
 
 ---
 
@@ -110,17 +150,18 @@ closure and the test's own `then(<lambda>)` names another, so `push_back`
 stops compiling a long way from the cause. The test uses a named callable,
 the same fix `detail::vector_append_t` exists for in `sequence.hpp`.
 
-**The wording fragment is now drifted and was not regenerated.** Both
-`traverse` overloads' `//!` prose states the `collect` path — the complexity
-clause in particular, since the native path is one composition operation
-rather than `values.size()` of them — so
-`papers/wording/transpose.range.traverse.md` is older than the header. `make
-wording` does not currently succeed (steve-downey/specgen#109) and `specgen`
-is not installed here; hand-editing a generated file would make it agree with
-the header by a route the pipeline cannot reproduce. Recorded under
-[collect-hook](../decisions.md#collect-hook) rather than fixed. **This is the
-first of the drifted fragments whose drift this project's own work caused**,
-and it is a direct, concrete instance of the thing Steve named as the real
+**Two wording fragments are now drifted and were not regenerated.**
+`transpose.range.traverse.md`, because both `traverse` overloads' `//!` prose
+states the `collect` path — the Complexity clause in particular, since the
+native path is one composition operation rather than `values.size()` of them —
+and `transpose.traversable.syn.md`, because `applicative_object_for`'s
+definition and Remarks changed with the ruling. `make wording` does not
+currently succeed (steve-downey/specgen#109) and `specgen` is not installed
+here; hand-editing a generated file would make it agree with its header by a
+route the pipeline cannot reproduce. Recorded under
+[collect-hook](../decisions.md#collect-hook) rather than fixed. **These are
+the first drifted fragments whose drift this project's own work caused**, and
+they are a direct, concrete instance of the thing Steve named as the real
 blocker: a published specgen.
 
 ---
@@ -131,14 +172,14 @@ blocker: a published specgen.
 |---|---|
 | 1 — `traverse` prefers `collect`, else the fold, unchanged | Done, both overloads |
 | 2 — `transpose(vector<S>)` → `all_of_sender<S>` | Done, plain and adapted |
-| 2 — `traverse(f, vector<int>)` → `all_of_sender<S>` | **Partial** — holds for `S = decltype(just(1))`, constrained out otherwise; raised as [collect-hook](../decisions.md#collect-hook) part 2 |
+| 2 — `traverse(f, vector<int>)` → `all_of_sender<S>` | Done, every shape, after the part 2 ruling |
 | 3 — decide and log whether `collect` is optional | Done: it is. [collect-hook](../decisions.md#collect-hook) part 1 |
-| 4 — tests, goldens unchanged, fold path still taken | Done, 13 cases |
+| 4 — tests, goldens unchanged, fold path still taken | Done, 16 cases |
 
 | Preset | Option OFF | Option ON |
 |---|---|---|
-| gcc-debug | 251 | 279 |
-| llvm-debug | 251 | 279 |
+| gcc-debug | 252 | 281 |
+| llvm-debug | 252 | 281 |
 
 Before this stage: 246 / 266. All green. `pre-commit run -a` clean.
 
@@ -163,13 +204,12 @@ backtrace. It became a success.
 
 ## 5. What Stage 4's agent needs
 
-**Read [collect-hook](../decisions.md#collect-hook) part 2 before writing
-anything about the front door.** If Steve has ruled, the ruling is there. If
-he has not, `transpose` over senders is the story and the free `traverse` over
-senders is not — do not write prose that implies otherwise, and do not relax
-`applicative_object_for` to make an example read better. That concept is in
-`include/`, and widening it on a blog post's initiative is exactly the move
-the whole plan is arranged to prevent.
+**Both entry points reach every sender shape, and they do it by different
+routes.** `transpose` never carried the refinement; `traverse` satisfies it
+through `collect`. Prose that says "the front door works but the algorithm
+does not" describes this stage's first half hour and nothing since. Read
+[collect-hook](../decisions.md#collect-hook) part 2 for the ruling and for the
+fact it did not change: `pure` is still always `just`.
 
 **Stage 4 deliverable 1 is now mostly written for it.**
 `transpose_senders.test.cpp` already contains the out-of-order-completion
