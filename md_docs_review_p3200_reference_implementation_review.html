@@ -95,7 +95,7 @@ $(document).ready(function(){initNavTree('md_docs_review_p3200_reference_impleme
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><p>Date: 2026-09-11 Reviewed commit: <code>9359461</code> (<code>main</code>)</p>
-<h1><a class="anchor" id="autotoc_md99"></a>
+<h1><a class="anchor" id="autotoc_md142"></a>
 Executive summary</h1>
 <p>The implementation demonstrates a coherent central abstraction and has an unusually extensive test suite. The same <code>traverse</code> and <code>transpose</code> front door works for the project's optional, deferred, and lanewise examples, and the typeclass-object implementation is exercised by both behavioral and law-based tests.</p>
 <p>It is not yet suitable as a publication-ready reference implementation, however. Three defects directly contradict proposed normative properties:</p>
@@ -106,7 +106,7 @@ Executive summary</h1>
 </ol>
 <p>Several additional issues impose undocumented construction, copyability, and callability requirements. The accompanying paper is also still explicitly an outline skeleton, and the sender-shaped demonstration does not validate interoperation with P2300 senders.</p>
 <p>I recommend resolving the three high-severity findings, adding the focused regression tests described below, and reconciling the specification's short-circuit language before presenting the implementation as conformance evidence.</p>
-<h1><a class="anchor" id="autotoc_md100"></a>
+<h1><a class="anchor" id="autotoc_md143"></a>
 Scope and method</h1>
 <p>This review covered:</p>
 <ul>
@@ -118,9 +118,9 @@ Scope and method</h1>
 <li>the build, behavioral tests, examples, and focused compile-time/runtime probes.</li>
 </ul>
 <p>The review treats header comments as specification sources because <code>papers/D3200R0.md</code> states that normative wording is generated from the headers.</p>
-<h1><a class="anchor" id="autotoc_md101"></a>
+<h1><a class="anchor" id="autotoc_md144"></a>
 Findings</h1>
-<h2><a class="anchor" id="autotoc_md102"></a>
+<h2><a class="anchor" id="autotoc_md145"></a>
 High: vector traversal violates the linear complexity guarantee</h2>
 <p><code>VectorTraversableImpl::traverse</code> initializes an in-context empty vector, then combines every element with the accumulated vector:</p>
 <div class="fragment"><div class="line"><span class="keyword">auto</span> accumulated = applicative.pure(std::vector&lt;Element&gt;{});</div>
@@ -148,7 +148,7 @@ elements" complexity guarantee.</p>
 <li>Reconsider whether the generic front door can promise linear complexity for every user-provided Traversable instance.</li>
 <li>Add a copy-counting regression test that distinguishes linear from quadratic construction.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md103"></a>
+<h2><a class="anchor" id="autotoc_md146"></a>
 High: sender effects do not obey left-to-right order</h2>
 <p>The deferred sender implementation runs its operands as arguments to <code>std::invoke</code>:</p>
 <div class="fragment"><div class="line"><span class="keywordflow">return</span> std::invoke(function, first.get(), rest.get()...);</div>
@@ -163,7 +163,7 @@ High: sender effects do not obey left-to-right order</h2>
 <li>Evaluate each sender into explicitly sequenced storage before invoking the callable, for example by building a result tuple through a left-to-right construction and then using <code>std::apply</code>.</li>
 <li>Add tests that record operand execution order for direct <code>invoke</code> and for <code>transpose(vector&lt;sender&lt;T&gt;&gt;)</code>. Counting executions alone does not detect this defect.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md104"></a>
+<h2><a class="anchor" id="autotoc_md147"></a>
 High: &lt;tt&gt;transpose&lt;/tt&gt; does not implement its stated constraint</h2>
 <p>The generated wording says that <code>transpose</code> is constrained on registered Traversable and Applicative objects, but its declaration is unconstrained:</p>
 <div class="fragment"><div class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> T&gt;</div>
@@ -183,7 +183,7 @@ High: &lt;tt&gt;transpose&lt;/tt&gt; does not implement its stated constraint</h
 <li>Encode the stated requirement as an associated constraint and ensure its expressions do not instantiate an unconstrained deduced-return-type body.</li>
 <li>Add positive and negative detection tests around the public front door.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md105"></a>
+<h2><a class="anchor" id="autotoc_md148"></a>
 Medium: Applicative probes require default-constructible result values</h2>
 <p>The representative concept witnesses return <code>RESULT{}</code>:</p>
 <div class="fragment"><div class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> RESULT&gt;</div>
@@ -205,7 +205,7 @@ Medium: Applicative probes require default-constructible result values</h2>
 <li>Make the witness establish only a result type, without constructing a <code>RESULT</code>.</li>
 <li>Add concept tests using a copyable, non-default-constructible value.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md106"></a>
+<h2><a class="anchor" id="autotoc_md149"></a>
 Medium: forwarding-reference front doors do not provide consuming traversal</h2>
 <p>The public algorithms accept and forward <code>T&amp;&amp;</code>, but the vector Traversable primitive accepts only <code>const std::vector&lt;VALUE_TYPE&gt;&amp;</code>. Optional and expected Applicative primitives likewise accept operands through <code>const&amp;</code>.</p>
 <p>As a result, even this consuming-looking call is ill-formed:</p>
@@ -224,7 +224,7 @@ Medium: forwarding-reference front doors do not provide consuming traversal</h2>
 <li>Add consuming/rvalue paths through Traversable and the applicable contexts, or change the public signatures and wording to expose the actual copy-only contract.</li>
 <li>State all copyability requirements explicitly if move-only values are out of scope.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md107"></a>
+<h2><a class="anchor" id="autotoc_md150"></a>
 Medium: callable detection and invocation use different value categories</h2>
 <p><code>traverse_context_t</code> and several instance implementations use <code>std::invoke_result_t&lt;F, ...&gt;</code>. When a temporary callable is passed, this tests invocation on an rvalue. The implementation later invokes the named <code>function</code> variable as an lvalue.</p>
 <p>A temporary mutable function object with only <code>operator() &amp;</code> is rejected even though the loop would invoke it in precisely that supported state. Conversely, an <code>&amp;&amp;</code>-only callable may appear viable in type computation and then fail in the body.</p>
@@ -241,7 +241,7 @@ Medium: callable detection and invocation use different value categories</h2>
 <li>Model the category actually used by the implementation, normally <code>F&amp;</code> for a callable stored or repeatedly invoked as a named object.</li>
 <li>Add ref-qualified callable tests.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md108"></a>
+<h2><a class="anchor" id="autotoc_md151"></a>
 Medium: array operations impose unnecessary construction requirements</h2>
 <p>Both <code>ArrayApplicativeImpl::pure</code> and <code>invoke</code> default-construct the output array and then assign its elements. Consequently, they require result elements to be default-constructible and assignable.</p>
 <p>The documented operations only require copying the input value or constructing each invocation result. A copy-constructible but non-default-constructible and non-assignable type therefore fails despite satisfying the apparent semantic requirements.</p>
@@ -257,7 +257,7 @@ Medium: array operations impose unnecessary construction requirements</h2>
 <li>Construct result arrays directly with an index sequence instead of default-constructing and assigning.</li>
 <li>Add non-default-constructible and non-assignable result tests.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md109"></a>
+<h2><a class="anchor" id="autotoc_md152"></a>
 Medium: the short-circuit specification is internally inconsistent</h2>
 <p>The <code>traverse</code> wording makes both of these claims:</p>
 <ul>
@@ -277,7 +277,7 @@ Medium: the short-circuit specification is internally inconsistent</h2>
   failing element" with wording such as "retains the first failure" and make the before/after example's observable differences clear.</li>
 <li>If actual short-circuiting is intended, the generic Applicative interface needs a way to avoid producing subsequent effects; the current interface cannot express that generically.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md110"></a>
+<h2><a class="anchor" id="autotoc_md153"></a>
 Evidence gap: the sender example is not a P2300 sender</h2>
 <p>The demonstration <code>sender&lt;T&gt;</code> is a <code>std::function&lt;T()&gt;</code> wrapper. It proves that the front door can preserve laziness for a copyable, single-value deferred computation. It does not exercise the defining constraints of P2300 senders:</p>
 <ul>
@@ -298,7 +298,7 @@ Evidence gap: the sender example is not a P2300 sender</h2>
 <li>Add an adapter for an actual P2300 implementation, even if it remains non-normative, and specify how error/stopped completions compose.</li>
 <li>Narrow the paper's evidence claim until that experiment exists.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md111"></a>
+<h2><a class="anchor" id="autotoc_md154"></a>
 Documentation readiness</h2>
 <p>The paper describes itself as an outline skeleton and still contains literal placeholder text in its Motivation and customization-mechanism sections. It also defers the standard spellings and whether explicit object parameters appear in the specification.</p>
 <p>The README's opening example has a malformed code fence: the build section is inserted between the introduction and <code>structure&lt;context&lt;T&gt;&gt;</code>, leaving an extra closing fence. It also says <code>std::optional</code> is the only registered standard context even though the current implementation registers <code>std::expected</code> and <code>std::array</code>.</p>
@@ -311,7 +311,7 @@ Documentation readiness</h2>
 <li><code>README.md:55</code></li>
 </ul>
 <p>These do not affect library execution, but they prevent the repository from serving as a self-contained review package for the proposal.</p>
-<h1><a class="anchor" id="autotoc_md112"></a>
+<h1><a class="anchor" id="autotoc_md155"></a>
 Test and tooling assessment</h1>
 <p>The existing suite is broad and valuable. It covers baseline type deductions, Applicative and Monad laws, grade algebra, accumulation, cross-translation-unit type identity, the three motivating front-door examples, and the customization object machinery.</p>
 <p>Verification performed for this review:</p>
@@ -332,7 +332,7 @@ Test and tooling assessment</h1>
 <li>traversal tests do not cover consuming move-only contexts; and</li>
 <li>callable tests do not use ref-qualified function objects.</li>
 </ul>
-<h1><a class="anchor" id="autotoc_md113"></a>
+<h1><a class="anchor" id="autotoc_md156"></a>
 Recommended order of work</h1>
 <ol type="1">
 <li>Repair sender sequencing and add an observable-order regression test.</li>
@@ -344,7 +344,7 @@ Recommended order of work</h1>
 <li>Add real P2300 integration evidence or narrow the sender claim.</li>
 <li>Complete the paper's placeholder sections and repair README drift.</li>
 </ol>
-<h1><a class="anchor" id="autotoc_md114"></a>
+<h1><a class="anchor" id="autotoc_md157"></a>
 Conclusion</h1>
 <p>The implementation is a strong experimental vehicle: its central decomposition of structure traversal from contextual composition is visible in the code, and the law and grading work is substantially more rigorous than a typical early prototype. The remaining blockers are concentrated in operational properties that matter directly to a standard facility: complexity, sequencing, constraints, and generic type requirements.</p>
 <p>Addressing those blockers would materially strengthen both the implementation and the proposal's evidence. Until then, the repository should be described as an exploratory implementation rather than a conforming reference implementation. </p>
