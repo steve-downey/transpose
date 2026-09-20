@@ -30,6 +30,7 @@
 #include <chrono>
 #include <cstddef>
 #include <exception>
+#include <functional>
 #include <iostream>
 #include <mutex>
 #include <optional>
@@ -49,13 +50,13 @@ namespace {
 /// A child that computes on its own thread after a delay, appending its own
 /// index to a shared completion log as it finishes.
 ///
-/// WHY NOT A POOL. The plan for this example said `schedule(pool) | then(work)`.
-/// `get_parallel_scheduler()`'s backend symbol is not among what the pinned
-/// `beman.execution` exports to a consumer here, so the pool is unavailable;
-/// a thread per child is the substitute, and it is the stronger demonstration
-/// anyway. The delays are staggered so the LAST child finishes FIRST, which
-/// makes "completion order is not result order" a fact of this run rather
-/// than a hope about scheduling.
+/// WHY NOT A POOL. The plan for this example said `schedule(pool) |
+/// then(work)`. `get_parallel_scheduler()`'s backend symbol is not among what
+/// the pinned `beman.execution` exports to a consumer here, so the pool is
+/// unavailable; a thread per child is the substitute, and it is the stronger
+/// demonstration anyway. The delays are staggered so the LAST child finishes
+/// FIRST, which makes "completion order is not result order" a fact of this run
+/// rather than a hope about scheduling.
 struct parallel_child {
     using sender_concept = ex::sender_tag;
     using signatures = ex::completion_signatures<ex::set_value_t(int)>;
@@ -97,8 +98,8 @@ struct parallel_child {
 
     template <class RECEIVER>
     auto connect(RECEIVER receiver) const -> operation<RECEIVER> {
-        return operation<RECEIVER>{index,     delay, log,
-                                   log_mutex, std::move(receiver)};
+        return operation<RECEIVER>{index, delay, log, log_mutex,
+                                   std::move(receiver)};
     }
 };
 
@@ -251,10 +252,9 @@ int main() {
         std::vector<parallel_child> children;
         children.reserve(static_cast<std::size_t>(count));
         for (int index = 0; index != count; ++index) {
-            children.push_back(
-                parallel_child{index,
-                               std::chrono::milliseconds{(count - index) * 20},
-                               &completion_log, &log_mutex});
+            children.push_back(parallel_child{
+                index, std::chrono::milliseconds{(count - index) * 20},
+                &completion_log, &log_mutex});
         }
 
         // One sender of a vector, not a vector of senders. Its type is
@@ -294,8 +294,8 @@ int main() {
         std::cout << "  after transpose: " << started.load()
                   << " children started, " << queue.size() << " queued\n";
 
-        auto operation = ex::connect(std::move(composed),
-                                     collecting_receiver{&result});
+        auto operation =
+            ex::connect(std::move(composed), collecting_receiver{&result});
         ex::start(operation);
 
         std::cout << "  after start:     " << started.load()
