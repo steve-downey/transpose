@@ -9,6 +9,7 @@ set(transpose_tests
     error_set
     crtp_absorption
     accumulating_object
+    collect_hook
     functor
     apply
     expected
@@ -113,6 +114,25 @@ if(BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE)
         PRIVATE beman::transpose beman::execution Catch2::Catch2WithMain
     )
     catch_discover_tests(beman.transpose.tests.p2300)
+
+    # The front door over real senders: the `collect` hook's sender half.
+    # Its generic half is collect_hook.test.cpp, which needs no dependency
+    # and is built unconditionally. See
+    # docs/transpose-execution-plan.md#collect-hook.
+    add_executable(beman.transpose.tests.transpose_senders)
+    target_sources(
+        beman.transpose.tests.transpose_senders
+        PRIVATE transpose_senders.test.cpp
+    )
+    target_include_directories(
+        beman.transpose.tests.transpose_senders
+        PRIVATE ${PROJECT_SOURCE_DIR}/examples
+    )
+    target_link_libraries(
+        beman.transpose.tests.transpose_senders
+        PRIVATE beman::transpose beman::execution Catch2::Catch2WithMain
+    )
+    catch_discover_tests(beman.transpose.tests.transpose_senders)
 endif()
 
 # The probe harness carries a second translation unit: whether two TUs that

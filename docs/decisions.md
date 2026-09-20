@@ -1677,6 +1677,15 @@ mode a single witness cannot see.
   (this step's two new concepts), alongside the five pre-existing drifted
   fragments left untouched. Suite stayed at 154: the additions are
   `static_assert`s in the existing `objects` translation unit.
+- 2026-09-19 — `applicative_object_for`'s refinement is now a DISJUNCTION,
+  by Steve's ruling under [collect-hook](#collect-hook) part 2. The depth
+  principle this entry states is untouched: the policy concept still checks
+  the full object surface, and the added alternative is at the same depth as
+  the one it sits beside. What changed is that the refinement no longer
+  assumes the traversal will perform the pairwise composition it describes —
+  an object supplying `collect` performs a different one, and is asked for
+  that instead. Read as this entry's own rule, the refinement was checking a
+  basis operation's return type for a derivation the object does not use.
 
 ---
 
@@ -2020,6 +2029,21 @@ promising it does.
   [runtime-arity-composition](#runtime-arity-composition) and
   [erasure-boundary](#erasure-boundary) are no longer contested; this
   paragraph is.
+- 2026-09-19 — **The paragraph above is now answered too, and the whole
+  Consequences finding is spent.** Stage
+  [collect-hook](transpose-execution-plan.md#collect-hook) taught the vector
+  Traversable to prefer a native `collect`, and `transpose(std::vector<S>)`
+  over a real P2300 sender works: it returns `all_of_sender<S>`, for a plain
+  `just` sender and for an adapted one alike, and a vector of those transposes
+  again. Nothing execution-dependent entered `include/`; the one header that
+  changed, `sequence.hpp`, names no sender. So the front door reaches real
+  senders, by preference rather than by erasure, and neither half of this
+  entry's "needs a type-erased sender" consequence survives. What the entry
+  got right, and what this does not touch, is everything about WHERE the
+  dependency may live: that part of it is untouched and still binding.
+  One thing is not fixed and is logged rather than buried: the free
+  `traverse`'s policy concept still admits exactly one sender shape. See
+  [collect-hook](#collect-hook) part 2, OPEN.
 
 ---
 
@@ -2324,6 +2348,17 @@ could offer it for performance (a single-pass `expected` collect avoids
   remains stage [collect-hook](transpose-execution-plan.md#collect-hook)'s.
   The Sentinel still holds: nothing in `sequence.hpp` names a sender, and
   nothing execution-dependent has entered `include/`.
+- 2026-09-19 — **The Traversable side is built; this entry is fully
+  implemented.** `VectorTraversableImpl::traverse` prefers
+  `applicative.collect(...)` in both overloads and takes the existing
+  `pure`/`invoke` fold otherwise, so the n-ary knowledge stays in the
+  applicative object and the Traversable stays generic — this entry's
+  Decision, end to end. The Sentinel survives the implementation that was
+  most likely to break it: `sequence.hpp` gained no execution include, no
+  sender name, no mention of `all_of`, and no `if constexpr` on "is a
+  sender". What it gained is a probe for a member, `collect_hook`'s part 1.
+  Whether `collect` is optional in `applicative_object` — this entry said it
+  is — is now decided and logged at [collect-hook](#collect-hook).
 - 2026-09-13 — Location and division of labour fixed by Steve's ruling.
   `all_of` lands as **`examples/all_of.hpp`** under
   `BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE`. The Stage 3 `collect` hook in
@@ -2513,6 +2548,143 @@ same children, which is the property the paper wants to state: `all_of`
 
 ---
 
+## collect-hook
+
+**Question:** Is `collect` optional for `applicative_object`, and what must
+the policy concept do about an object whose `pure` cannot return the context?
+**Status:** Both parts DECIDED 2026-09-19.
+**Decided by:** Part 1 default-as-drafted at stage
+[collect-hook](transpose-execution-plan.md#collect-hook), per
+transpose-execution-plan.md §3 deliverable 3, which states the answer and
+asks for it to be logged. **Part 2 ruled by Steve Downey, 2026-09-19**, on the
+measurements below: option 1, disjoin the refinement on `collect`.
+
+**Decision, part 1 — `collect` is OPTIONAL.** `applicative_object` does not
+require it and must not. The four registered instances (`optional`,
+`expected`, `zip_list`, the demonstration `sender<T>`) supply no `collect`
+and conform exactly as before; the vector traversal asks for it and derives
+against `pure`/`invoke` when the answer is no. The probe is spelled as the
+expression the preferring branch evaluates —
+`applicative.collect(<a vector<Effect> rvalue>)` — and names no context, no
+carrier and no concept beyond the member itself, which is what keeps
+[runtime-arity-composition](#runtime-arity-composition)'s Sentinel.
+
+**Why:** Requiring `collect` would make every existing instance
+non-conforming to buy nothing: their composition is type-stable, so the fold
+is already the right shape for them, and a `collect` they were obliged to
+write would be a slower spelling of it. Optionality is also what
+[derived-op-native-preference](#derived-op-native-preference) already means
+by "prefer a native operation": the derivation is the contract and the
+native operation is an optimisation over it, not a second contract.
+
+**Decision, part 2 — the policy concept asks for whichever composition the
+traversal will perform.** `applicative_object_for<POLICY, CONTEXT>` is
+`applicative_object<POLICY, CONTEXT>` and *either* `pure(element) ->
+same_as<CONTEXT>` *or* `collect(vector<CONTEXT>)`. An object that supplies
+`collect` is not required to also satisfy a requirement of the composition it
+will not perform.
+
+**Why:** the refinement describes the pairwise fold — it assigns each partial
+result back into a variable of one type, starting from `pure`, so `pure` must
+produce that type. A policy offering `collect` composes the whole structure in
+one operation and never performs that assignment, so the requirement is not
+weaker for it; it is *inapplicable* to it. Two other resolutions were on the
+table: dropping the exact-return requirement outright, which would have given
+up the shape-preservation argument that is load-bearing for the fold path, and
+leaving the two entry points permanently unlike each other. The disjunction is
+the only one of the three that states the reason. It also restores the
+property a caller would assume: `traverse` with an explicit function now
+reaches exactly the sender shapes `transpose` does.
+
+**The measurement the ruling was made on**, before it, and still true of the
+first alternative alone:
+
+| | `just(1)` | `just(1) \| then(f)` |
+|---|---|---|
+| `applicative_object` (what `transpose` asks) | yes | **yes** |
+| `pure(element) -> same_as<CONTEXT>` (first alternative) | yes | **no** |
+| `collect(vector<CONTEXT>)` (second alternative) | yes | yes |
+| `applicative_object_for` **before** the ruling | yes | **no** |
+| `applicative_object_for` **after** it | yes | yes |
+
+`applicative_object_for` adds `pure(element) -> same_as<CONTEXT>` to the deep
+object concept, per [typeclass-conformance-depth](#typeclass-conformance-depth).
+The sender object's `pure` is always `just`, by
+[sender-instance-keying](#sender-instance-keying)'s "one object for all
+sender types" — which is the decision that makes `pure` free to return a type
+of its own choosing. So the refinement holds exactly where the caller's
+sender happens to BE `just`'s own type, and fails for every adapted sender.
+Both rows are pinned in `transpose_senders.test.cpp`, and the three
+object-concept rows behind them in `p2300.test.cpp`, so a later reading of
+this entry is reading measurements.
+
+The underlying fact is unchanged by the ruling and is the thing to watch: one
+object serves every sender type, so `pure` returns a type of its own choosing
+and the first alternative is satisfiable only by coincidence. What the ruling
+changed is the consequence, not the fact. Both are pinned apart — in
+`p2300.test.cpp` for the three sender shapes, and generically in
+`collect_hook.test.cpp` with an object whose `pure` returns one carrier and
+whose composition returns another. The generic rows matter because the concept
+lives in `include/` and the sender tests are behind an off-by-default option:
+without them the ruling would be checked by nothing an ordinary build runs.
+
+**One spelling of the probe, in one place.** `detail::collecting_applicative`
+is defined in `traverse.hpp`, beside the concept, and `sequence.hpp`'s
+traversals use it. Two spellings of the same question are two things that can
+disagree, and here the disagreement would show up as an operation that is
+constrained in and then does not compile.
+
+**Sentinel:** if this is ever resolved by giving the sender object a `pure`
+that returns its argument's own type, [sender-instance-keying](#sender-instance-keying)
+has been reversed and that entry is what needs revisiting, not this one.
+
+**Log:**
+- 2026-09-19 — Part 1 decided and implemented. `VectorTraversableImpl::traverse`
+  probes `applicative.collect(...)` in both overloads and takes the fold
+  otherwise. `sequence.hpp` is the only `include/` change, as the
+  2026-09-13 ruling requires, and it names no sender, no execution header
+  and no `all_of`. `transpose(vector<S>)` over a real P2300 sender returns
+  `all_of_sender<S>` — plain and adapted alike — and
+  `transpose` of a vector of `all_of_sender<S>` composes again, which is
+  what makes `collect` an applicative operation rather than a terminal one.
+  Goldens byte-for-byte unchanged and the fold still taken for every
+  registered instance, asserted with a counting object that has no `collect`
+  (`collect_hook.test.cpp`) as well as by the goldens themselves.
+  Suites: 246 → 251 with the option OFF, 266 → 279 with it ON, green on
+  gcc-debug and llvm-debug.
+- 2026-09-19 — Part 2 raised with the table above. Stage 1 predicted this and
+  stage 2's review called it "the only thing between here and a working front
+  door"; the measurement says that reading was half right. `transpose` needed
+  nothing — it carries the weaker constraint already, and began working the
+  moment the hook existed. Only the free `traverse` was blocked, and only for
+  sender shapes other than `just`'s own.
+- 2026-09-19 — **Part 2 RULED by Steve: option 1.** `applicative_object_for`
+  disjoined on `collect`. `detail::collecting_applicative` moved from
+  `sequence.hpp` to `traverse.hpp` so the concept and the traversals ask the
+  one question in the one spelling. `traverse(f, vector<T>)` now reaches every
+  sender shape `transpose` does, and the two entry points return the same
+  type for the same elements, asserted. Three rows in `p2300.test.cpp` were
+  inverted by the ruling and are now stated as two facts rather than one: the
+  first alternative still fails for every adapted sender, and the concept
+  holds anyway. Suites 251 → 252 option OFF, 279 → 281 option ON.
+- 2026-09-19 — **Wording drift, recorded rather than fixed.** Two fragments
+  are now older than the headers they are generated from:
+  `papers/wording/transpose.range.traverse.md`, because `sequence.hpp`'s
+  `//!` prose for both `traverse` overloads states the `collect` path (the
+  Complexity clause in particular — the native path is one composition
+  operation, not `values.size()` of them), and
+  `papers/wording/transpose.traversable.syn.md`, because
+  `applicative_object_for`'s definition and Remarks changed with the ruling.
+  Neither was regenerated: `make wording` does not currently succeed
+  (docs/wording-pipeline.md, tracked at steve-downey/specgen#109) and
+  `specgen` is not installed in this environment, and hand-editing a
+  generated fragment would make the checked-in file agree with its header by
+  a route the pipeline cannot reproduce. This adds two files to the five
+  already recorded as drifted, and they are the first whose drift this
+  project's own work caused.
+
+---
+
 ## demo-sender-fate
 
 **Question:** Does the `std::function` demonstration `sender<T>` stay?
@@ -2547,6 +2719,72 @@ that keeps it true rather than merely intended.
   configuration, so they are deliberately not repeated there.
 - 2026-09-13 — WITHDRAWN by Steve's ruling: already ruled, nothing left to
   decide. The golden stays.
+
+---
+
+## execution-runloop-signatures
+
+**Question:** Why does the receipts example not use the schedulers the plan
+named?
+**Status:** RECORDED 2026-09-20 — an upstream defect, not a decision of ours.
+**Decided by:** Measurement at stage
+[transpose-receipts](transpose-execution-plan.md#transpose-receipts). Nothing
+here is a choice about this library's design; it is a note so the next agent
+does not spend the afternoon rediscovering it.
+
+**The finding.** Neither scheduler
+[transpose-receipts](transpose-execution-plan.md#transpose-receipts)
+deliverable 1 names is usable against the pinned `beman.execution`
+(`d24898d`), for two unrelated reasons:
+
+1. **`get_parallel_scheduler()` does not link.** Its backend symbol
+   (`parallel_scheduler_replacement::query_parallel_scheduler_backend`) is not
+   among what the dependency exports to a consumer here. Found at stage
+   [all-of-algorithm](transpose-execution-plan.md#all-of-algorithm) and
+   recorded in that stage's review; unchanged.
+2. **`run_loop::sender` cannot report its completion signatures for the
+   zero-environment case.** `run_loop::sender::get_completion_signatures` is
+   `template <typename, typename... Env>` and its body evaluates
+   `get_stop_token(std::declval<Env>()...)`. For an empty `Env` pack that is
+   `get_stop_token()` with no arguments, which is ill-formed — and ill-formed
+   in the return-type deduction of a `consteval` function, so it is a hard
+   error rather than a constraint failure.
+
+**This is not something `transpose` or `all_of` does.** Measured directly:
+`ex::when_all(schedule(sch) | then(f), schedule(sch) | then(g))` over two
+`run_loop` senders fails with the same four diagnostics, with no part of this
+library in the translation unit. A `run_loop` sender used *on its own* is
+fine — `sync_wait(schedule(sch) | then(f))` runs, and
+`single_value_sender<decltype(schedule(sch) | then(f))>` is `true` — so the
+defect is reached only by an algorithm that asks a child for its signatures
+with no environment, which is what both `when_all` and `all_of` do.
+
+**Why it is recorded rather than worked around.** The workaround would be for
+`all_of` to invent an environment to ask under, which would make this
+library's algorithm differ from the standard one it is modelled on in order to
+paper over a bug in a pinned dependency. `all_of` follows `when_all`; where
+`when_all` cannot, neither can it, and that agreement is worth more than the
+scene.
+
+**What the example does instead.** A deferred queue, written in the example
+itself: children that enqueue their completion when started, drained on the
+main thread. It serves the deliverable's Why exactly — the single-threaded,
+still-lazy case, with laziness observable at three points rather than one —
+and it needs no scheduler at all. **This is an adaptation of a What, not of a
+Why, and Steve has not ruled on it.** If he would rather the scene wait for a
+dependency bump, the example's scene 2 is self-contained and comes out
+cleanly.
+
+**Log:**
+- 2026-09-20 — Found and measured at stage transpose-receipts. Worth
+  reporting upstream: the fix is one `if constexpr` on `sizeof...(Env) == 0`,
+  or a defaulted environment, in `run_loop::sender`. Not filed from here.
+- 2026-09-20 — Consequence for
+  [execution-toolchain-floor](#execution-toolchain-floor), which is still
+  OPEN: whatever floor is set, it is now known that the pinned revision
+  cannot compose `run_loop` senders under *any* compiler, because the defect
+  is in the dependency's own header rather than in a compiler's treatment of
+  it.
 
 ---
 

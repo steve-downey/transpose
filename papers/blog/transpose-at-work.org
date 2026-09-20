@@ -28,7 +28,7 @@ The code is transcluded from a compiled example in the [[https://github.com/bema
 
 {{{TEASER_END}}}
 
-*Prev:* [[file:graded-gadgets.org][Graded Gadgets]] --- *Next:* [[file:traverse-does-all-the-work.org][Traverse Does All the Work]] --- *Up:* [[file:index.org][Contents]]
+*Prev:* [[file:graded-gadgets.org][Graded Gadgets]] --- *Next:* [[file:transpose-over-real-senders.org][Transpose Over Real Senders]] --- *Up:* [[file:index.org][Contents]]
 
 * The loop, gone
 
@@ -45,6 +45,13 @@ No reserve, no early exit, no accumulate.
 The declaration ~std::optional<std::vector<int>>~ on the left is doing the documentation too.
 
 * Deferral survives the composition
+
+#+begin_quote
+*Note, added later.*
+The ~sender~ in this section is the library's demonstration type, not a ~std::execution~ sender.
+It is a ~std::function<T()>~ thunk, and being type-erased already is exactly what made it easy to transpose --- so it shows that laziness survives the composition, and shows nothing about what the composition costs.
+[[file:transpose-over-real-senders.org][Transpose Over Real Senders]] runs the same front door over genuine P2300 senders, where the fold this post relied on turns out not to be spellable at all.
+#+end_quote
 
 A ~sender~ here is the library's minimal stand-in for a P2300 sender: a lazy value that runs when you call ~get()~.
 The interesting property is what ~transpose~ must /not/ do: composing a vector of senders into one sender of a vector had better not run anything.
