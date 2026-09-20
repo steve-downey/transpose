@@ -9,7 +9,7 @@ The code is transcluded from a compiled example in the <a href="https://github.c
 
 </div>
 
-**Prev:** [Graded Gadgets](graded-gadgets.md) &#x2014; **Next:** [Traverse Does All the Work](traverse-does-all-the-work.md) &#x2014; **Up:** [Contents](index.md)
+**Prev:** [Graded Gadgets](graded-gadgets.md) &#x2014; **Next:** [Transpose Over Real Senders](transpose-over-real-senders.md) &#x2014; **Up:** [Contents](index.md)
 
 
 # The loop, gone

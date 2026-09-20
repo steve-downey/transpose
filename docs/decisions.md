@@ -2722,6 +2722,72 @@ that keeps it true rather than merely intended.
 
 ---
 
+## execution-runloop-signatures
+
+**Question:** Why does the receipts example not use the schedulers the plan
+named?
+**Status:** RECORDED 2026-09-20 — an upstream defect, not a decision of ours.
+**Decided by:** Measurement at stage
+[transpose-receipts](transpose-execution-plan.md#transpose-receipts). Nothing
+here is a choice about this library's design; it is a note so the next agent
+does not spend the afternoon rediscovering it.
+
+**The finding.** Neither scheduler
+[transpose-receipts](transpose-execution-plan.md#transpose-receipts)
+deliverable 1 names is usable against the pinned `beman.execution`
+(`d24898d`), for two unrelated reasons:
+
+1. **`get_parallel_scheduler()` does not link.** Its backend symbol
+   (`parallel_scheduler_replacement::query_parallel_scheduler_backend`) is not
+   among what the dependency exports to a consumer here. Found at stage
+   [all-of-algorithm](transpose-execution-plan.md#all-of-algorithm) and
+   recorded in that stage's review; unchanged.
+2. **`run_loop::sender` cannot report its completion signatures for the
+   zero-environment case.** `run_loop::sender::get_completion_signatures` is
+   `template <typename, typename... Env>` and its body evaluates
+   `get_stop_token(std::declval<Env>()...)`. For an empty `Env` pack that is
+   `get_stop_token()` with no arguments, which is ill-formed — and ill-formed
+   in the return-type deduction of a `consteval` function, so it is a hard
+   error rather than a constraint failure.
+
+**This is not something `transpose` or `all_of` does.** Measured directly:
+`ex::when_all(schedule(sch) | then(f), schedule(sch) | then(g))` over two
+`run_loop` senders fails with the same four diagnostics, with no part of this
+library in the translation unit. A `run_loop` sender used *on its own* is
+fine — `sync_wait(schedule(sch) | then(f))` runs, and
+`single_value_sender<decltype(schedule(sch) | then(f))>` is `true` — so the
+defect is reached only by an algorithm that asks a child for its signatures
+with no environment, which is what both `when_all` and `all_of` do.
+
+**Why it is recorded rather than worked around.** The workaround would be for
+`all_of` to invent an environment to ask under, which would make this
+library's algorithm differ from the standard one it is modelled on in order to
+paper over a bug in a pinned dependency. `all_of` follows `when_all`; where
+`when_all` cannot, neither can it, and that agreement is worth more than the
+scene.
+
+**What the example does instead.** A deferred queue, written in the example
+itself: children that enqueue their completion when started, drained on the
+main thread. It serves the deliverable's Why exactly — the single-threaded,
+still-lazy case, with laziness observable at three points rather than one —
+and it needs no scheduler at all. **This is an adaptation of a What, not of a
+Why, and Steve has not ruled on it.** If he would rather the scene wait for a
+dependency bump, the example's scene 2 is self-contained and comes out
+cleanly.
+
+**Log:**
+- 2026-09-20 — Found and measured at stage transpose-receipts. Worth
+  reporting upstream: the fix is one `if constexpr` on `sizeof...(Env) == 0`,
+  or a defaulted environment, in `run_loop::sender`. Not filed from here.
+- 2026-09-20 — Consequence for
+  [execution-toolchain-floor](#execution-toolchain-floor), which is still
+  OPEN: whatever floor is set, it is now known that the pinned revision
+  cannot compose `run_loop` senders under *any* compiler, because the defect
+  is in the dependency's own header rather than in a compiler's treatment of
+  it.
+
+---
+
 ## execution-toolchain-floor
 
 **Question:** Which compilers must the execution-dependent build work under,
