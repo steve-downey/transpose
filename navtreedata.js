@@ -124,53 +124,67 @@ var NAVTREE =
       [ "4. What the next stage's agent needs that the plan does not say", "md_docs_review_execution_baseline.html#autotoc_md121", null ],
       [ "5. Deliverable-by-deliverable", "md_docs_review_execution_baseline.html#autotoc_md123", null ]
     ] ],
+    [ "Stage review — collect-hook", "md_docs_review_execution_collect_hook.html", [
+      [ "1. The result", "md_docs_review_execution_collect_hook.html#autotoc_md126", null ],
+      [ "2. What the plan got right, and the one thing it got half wrong", "md_docs_review_execution_collect_hook.html#autotoc_md128", null ],
+      [ "3. What a later stage should expect", "md_docs_review_execution_collect_hook.html#autotoc_md130", null ],
+      [ "4. Acceptance", "md_docs_review_execution_collect_hook.html#autotoc_md132", null ],
+      [ "5. What Stage 4's agent needs", "md_docs_review_execution_collect_hook.html#autotoc_md134", null ]
+    ] ],
     [ "Stage review — sender-registration", "md_docs_review_execution_sender_registration.html", [
-      [ "1. What changed", "md_docs_review_execution_sender_registration.html#autotoc_md126", null ],
-      [ "2. Findings", "md_docs_review_execution_sender_registration.html#autotoc_md128", null ],
-      [ "3. Acceptance", "md_docs_review_execution_sender_registration.html#autotoc_md130", null ],
-      [ "4. What Stage 3's agent needs that the plan does not say", "md_docs_review_execution_sender_registration.html#autotoc_md132", null ]
+      [ "1. What changed", "md_docs_review_execution_sender_registration.html#autotoc_md137", null ],
+      [ "2. Findings", "md_docs_review_execution_sender_registration.html#autotoc_md139", null ],
+      [ "3. Acceptance", "md_docs_review_execution_sender_registration.html#autotoc_md141", null ],
+      [ "4. What Stage 3's agent needs that the plan does not say", "md_docs_review_execution_sender_registration.html#autotoc_md143", null ]
     ] ],
     [ "execution-stage-prompt", "md_docs_review_execution_stage_prompt.html", null ],
+    [ "Stage review — transpose-receipts", "md_docs_review_execution_transpose_receipts.html", [
+      [ "1. The result", "md_docs_review_execution_transpose_receipts.html#autotoc_md146", null ],
+      [ "2. The divergence, and it is not a small one", "md_docs_review_execution_transpose_receipts.html#autotoc_md148", null ],
+      [ "3. The post, and what a build container cannot finish", "md_docs_review_execution_transpose_receipts.html#autotoc_md150", null ],
+      [ "4. Acceptance", "md_docs_review_execution_transpose_receipts.html#autotoc_md152", null ],
+      [ "5. What Stage 5's agent needs", "md_docs_review_execution_transpose_receipts.html#autotoc_md154", null ]
+    ] ],
     [ "Design-Fidelity Review — Grading Branch (interim, pre-delivery)", "md_docs_review_grading_fidelity_review.html", [
-      [ "Boot check", "md_docs_review_grading_fidelity_review.html#autotoc_md134", null ],
-      [ "Direction 1 — decision → embodiment → sensor", "md_docs_review_grading_fidelity_review.html#autotoc_md135", null ],
-      [ "Class A — violations", "md_docs_review_grading_fidelity_review.html#autotoc_md136", null ],
-      [ "Class B — undocumented decisions", "md_docs_review_grading_fidelity_review.html#autotoc_md137", null ],
-      [ "Class C — sensor gaps", "md_docs_review_grading_fidelity_review.html#autotoc_md138", null ],
-      [ "Class D — log drift", "md_docs_review_grading_fidelity_review.html#autotoc_md139", null ],
-      [ "Verdict on the documents", "md_docs_review_grading_fidelity_review.html#autotoc_md140", null ]
+      [ "Boot check", "md_docs_review_grading_fidelity_review.html#autotoc_md156", null ],
+      [ "Direction 1 — decision → embodiment → sensor", "md_docs_review_grading_fidelity_review.html#autotoc_md157", null ],
+      [ "Class A — violations", "md_docs_review_grading_fidelity_review.html#autotoc_md158", null ],
+      [ "Class B — undocumented decisions", "md_docs_review_grading_fidelity_review.html#autotoc_md159", null ],
+      [ "Class C — sensor gaps", "md_docs_review_grading_fidelity_review.html#autotoc_md160", null ],
+      [ "Class D — log drift", "md_docs_review_grading_fidelity_review.html#autotoc_md161", null ],
+      [ "Verdict on the documents", "md_docs_review_grading_fidelity_review.html#autotoc_md162", null ]
     ] ],
     [ "Review of the P3200 Reference Implementation", "md_docs_review_p3200_reference_implementation_review.html", [
-      [ "Executive summary", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md142", null ],
-      [ "Scope and method", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md143", null ],
-      [ "Findings", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md144", [
-        [ "High: vector traversal violates the linear complexity guarantee", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md145", null ],
-        [ "High: sender effects do not obey left-to-right order", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md146", null ],
-        [ "High: <tt>transpose</tt> does not implement its stated constraint", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md147", null ],
-        [ "Medium: Applicative probes require default-constructible result values", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md148", null ],
-        [ "Medium: forwarding-reference front doors do not provide consuming traversal", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md149", null ],
-        [ "Medium: callable detection and invocation use different value categories", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md150", null ],
-        [ "Medium: array operations impose unnecessary construction requirements", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md151", null ],
-        [ "Medium: the short-circuit specification is internally inconsistent", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md152", null ],
-        [ "Evidence gap: the sender example is not a P2300 sender", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md153", null ],
-        [ "Documentation readiness", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md154", null ]
+      [ "Executive summary", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md164", null ],
+      [ "Scope and method", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md165", null ],
+      [ "Findings", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md166", [
+        [ "High: vector traversal violates the linear complexity guarantee", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md167", null ],
+        [ "High: sender effects do not obey left-to-right order", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md168", null ],
+        [ "High: <tt>transpose</tt> does not implement its stated constraint", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md169", null ],
+        [ "Medium: Applicative probes require default-constructible result values", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md170", null ],
+        [ "Medium: forwarding-reference front doors do not provide consuming traversal", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md171", null ],
+        [ "Medium: callable detection and invocation use different value categories", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md172", null ],
+        [ "Medium: array operations impose unnecessary construction requirements", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md173", null ],
+        [ "Medium: the short-circuit specification is internally inconsistent", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md174", null ],
+        [ "Evidence gap: the sender example is not a P2300 sender", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md175", null ],
+        [ "Documentation readiness", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md176", null ]
       ] ],
-      [ "Test and tooling assessment", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md155", null ],
-      [ "Recommended order of work", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md156", null ],
-      [ "Conclusion", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md157", null ]
+      [ "Test and tooling assessment", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md177", null ],
+      [ "Recommended order of work", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md178", null ],
+      [ "Conclusion", "md_docs_review_p3200_reference_implementation_review.html#autotoc_md179", null ]
     ] ],
     [ "Prior art: joining a runtime-sized range of senders", "md_docs_review_prior_art_when_all_range.html", [
-      [ "1. The headline: exactly one prior implementation, and it is not in a standard", "md_docs_review_prior_art_when_all_range.html#autotoc_md160", null ],
-      [ "2. libunifex <tt>when_all_range</tt> — the one real precedent", "md_docs_review_prior_art_when_all_range.html#autotoc_md162", [
-        [ "Surface", "md_docs_review_prior_art_when_all_range.html#autotoc_md163", null ],
-        [ "Allocation", "md_docs_review_prior_art_when_all_range.html#autotoc_md164", null ],
-        [ "Failure semantics — and where they differ from ours", "md_docs_review_prior_art_when_all_range.html#autotoc_md165", null ]
+      [ "1. The headline: exactly one prior implementation, and it is not in a standard", "md_docs_review_prior_art_when_all_range.html#autotoc_md182", null ],
+      [ "2. libunifex <tt>when_all_range</tt> — the one real precedent", "md_docs_review_prior_art_when_all_range.html#autotoc_md184", [
+        [ "Surface", "md_docs_review_prior_art_when_all_range.html#autotoc_md185", null ],
+        [ "Allocation", "md_docs_review_prior_art_when_all_range.html#autotoc_md186", null ],
+        [ "Failure semantics — and where they differ from ours", "md_docs_review_prior_art_when_all_range.html#autotoc_md187", null ]
       ] ],
-      [ "3. The standard's variadic <tt>when_all</tt>, which is what we chose to match", "md_docs_review_prior_art_when_all_range.html#autotoc_md167", null ],
-      [ "4. Live WG21 work that touches the semantics we are matching", "md_docs_review_prior_art_when_all_range.html#autotoc_md169", null ],
-      [ "5. Where prior art contradicts the plan — read before Stage 2", "md_docs_review_prior_art_when_all_range.html#autotoc_md171", null ],
-      [ "6. Design-shape comparison (non-sender, recorded for contrast only)", "md_docs_review_prior_art_when_all_range.html#autotoc_md173", null ],
-      [ "Sources", "md_docs_review_prior_art_when_all_range.html#autotoc_md175", null ]
+      [ "3. The standard's variadic <tt>when_all</tt>, which is what we chose to match", "md_docs_review_prior_art_when_all_range.html#autotoc_md189", null ],
+      [ "4. Live WG21 work that touches the semantics we are matching", "md_docs_review_prior_art_when_all_range.html#autotoc_md191", null ],
+      [ "5. Where prior art contradicts the plan — read before Stage 2", "md_docs_review_prior_art_when_all_range.html#autotoc_md193", null ],
+      [ "6. Design-shape comparison (non-sender, recorded for contrast only)", "md_docs_review_prior_art_when_all_range.html#autotoc_md195", null ],
+      [ "Sources", "md_docs_review_prior_art_when_all_range.html#autotoc_md197", null ]
     ] ],
     [ "Transpose over real senders — Contextful Evolution Plan", "md_docs_transpose_execution_plan.html", [
       [ "1. Context: what is being claimed and why it is not yet true", "md_docs_transpose_execution_plan.html#context", null ],
@@ -204,32 +218,32 @@ var NAVTREE =
       [ "6. Open questions", "md_docs_transpose_grading_plan.html#open-questions", null ]
     ] ],
     [ "typeclass-object-pattern", "md_docs_typeclass_object_pattern.html", [
-      [ "Typeclass Object Pattern in This Repository", "md_docs_typeclass_object_pattern.html#autotoc_md178", [
-        [ "Why this exists", "md_docs_typeclass_object_pattern.html#autotoc_md179", null ],
-        [ "The surface in this repo", "md_docs_typeclass_object_pattern.html#autotoc_md180", null ],
-        [ "Lookup modes (important)", "md_docs_typeclass_object_pattern.html#autotoc_md181", null ],
-        [ "Core mechanics", "md_docs_typeclass_object_pattern.html#autotoc_md182", [
-          [ "Concept side", "md_docs_typeclass_object_pattern.html#autotoc_md183", null ],
-          [ "Type side", "md_docs_typeclass_object_pattern.html#autotoc_md184", null ],
-          [ "Call side", "md_docs_typeclass_object_pattern.html#autotoc_md185", null ]
+      [ "Typeclass Object Pattern in This Repository", "md_docs_typeclass_object_pattern.html#autotoc_md200", [
+        [ "Why this exists", "md_docs_typeclass_object_pattern.html#autotoc_md201", null ],
+        [ "The surface in this repo", "md_docs_typeclass_object_pattern.html#autotoc_md202", null ],
+        [ "Lookup modes (important)", "md_docs_typeclass_object_pattern.html#autotoc_md203", null ],
+        [ "Core mechanics", "md_docs_typeclass_object_pattern.html#autotoc_md204", [
+          [ "Concept side", "md_docs_typeclass_object_pattern.html#autotoc_md205", null ],
+          [ "Type side", "md_docs_typeclass_object_pattern.html#autotoc_md206", null ],
+          [ "Call side", "md_docs_typeclass_object_pattern.html#autotoc_md207", null ]
         ] ],
-        [ "How to add a new instance", "md_docs_typeclass_object_pattern.html#autotoc_md186", null ],
-        [ "How to add a new concept", "md_docs_typeclass_object_pattern.html#autotoc_md187", null ],
-        [ "Testing and build wiring expectations", "md_docs_typeclass_object_pattern.html#autotoc_md188", null ],
-        [ "Algorithm objects: Inheriting from typeclass instances", "md_docs_typeclass_object_pattern.html#autotoc_md189", [
-          [ "Pattern", "md_docs_typeclass_object_pattern.html#autotoc_md190", null ],
-          [ "Multi-typeclass composition", "md_docs_typeclass_object_pattern.html#autotoc_md191", null ],
-          [ "Key points", "md_docs_typeclass_object_pattern.html#autotoc_md192", null ]
+        [ "How to add a new instance", "md_docs_typeclass_object_pattern.html#autotoc_md208", null ],
+        [ "How to add a new concept", "md_docs_typeclass_object_pattern.html#autotoc_md209", null ],
+        [ "Testing and build wiring expectations", "md_docs_typeclass_object_pattern.html#autotoc_md210", null ],
+        [ "Algorithm objects: Inheriting from typeclass instances", "md_docs_typeclass_object_pattern.html#autotoc_md211", [
+          [ "Pattern", "md_docs_typeclass_object_pattern.html#autotoc_md212", null ],
+          [ "Multi-typeclass composition", "md_docs_typeclass_object_pattern.html#autotoc_md213", null ],
+          [ "Key points", "md_docs_typeclass_object_pattern.html#autotoc_md214", null ]
         ] ],
-        [ "Applicative: Derived invoke via terminating partial application", "md_docs_typeclass_object_pattern.html#autotoc_md193", null ],
-        [ "Traps and corrections from tree-instance implementation", "md_docs_typeclass_object_pattern.html#autotoc_md194", null ],
-        [ "Notes for future cleanup", "md_docs_typeclass_object_pattern.html#autotoc_md195", null ]
+        [ "Applicative: Derived invoke via terminating partial application", "md_docs_typeclass_object_pattern.html#autotoc_md215", null ],
+        [ "Traps and corrections from tree-instance implementation", "md_docs_typeclass_object_pattern.html#autotoc_md216", null ],
+        [ "Notes for future cleanup", "md_docs_typeclass_object_pattern.html#autotoc_md217", null ]
       ] ]
     ] ],
     [ "The wording pipeline", "md_docs_wording_pipeline.html", [
-      [ "The loop", "md_docs_wording_pipeline.html#autotoc_md197", null ],
-      [ "What generates what", "md_docs_wording_pipeline.html#autotoc_md198", null ],
-      [ "Rules for marking up a header", "md_docs_wording_pipeline.html#autotoc_md199", null ]
+      [ "The loop", "md_docs_wording_pipeline.html#autotoc_md219", null ],
+      [ "What generates what", "md_docs_wording_pipeline.html#autotoc_md220", null ],
+      [ "Rules for marking up a header", "md_docs_wording_pipeline.html#autotoc_md221", null ]
     ] ]
   ] ]
 ];

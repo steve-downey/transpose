@@ -98,7 +98,7 @@ $(document).ready(function(){initNavTree('md_docs_review_execution_sender_regist
 <p><b>Status: COMPLETE.</b> All four deliverables done, suite green on both presets in both option states, <code>include/</code> untouched, goldens untouched.</p>
 <p>This stage was an audit, not a build — Steve's ruling of 2026-09-13 turned it into one after Stage 0 found that <code>examples/p2300_adapter.hpp</code> already supplied the basis the plan had scheduled as new work. The audit found the basis correct and the two gaps the adapter's own header comment had already declared.</p>
 <hr  />
-<h1><a class="anchor" id="autotoc_md126"></a>
+<h1><a class="anchor" id="autotoc_md137"></a>
 1. What changed</h1>
 <p>**<code>examples/p2300_adapter.hpp</code>** gained three things and lost nothing:</p>
 <ul>
@@ -110,7 +110,7 @@ $(document).ready(function(){initNavTree('md_docs_review_execution_sender_regist
 <p>**<code>tests/beman/transpose/test_support.hpp</code>** — the four applicative law helpers gained a defaulted observation parameter. Existing call sites are unchanged and behave identically; a sender passes an observer that runs the context under <code>sync_wait</code>. <b>One statement of each law</b>, which is the point: a parallel sender-flavoured law suite could drift from the one <code>optional</code> is checked against, and this cannot.</p>
 <p>**<code>tests/beman/transpose/p2300.test.cpp</code>** — 254 lines of audit assertions and five new <code>TEST_CASE</code>s.</p>
 <hr  />
-<h1><a class="anchor" id="autotoc_md128"></a>
+<h1><a class="anchor" id="autotoc_md139"></a>
 2. Findings</h1>
 <p>Six, logged in full under <a href="../decisions.md#sender-instance-keying">sender-instance-keying</a> as the ruling directs. Summarised here in the order they mattered; the sixth is in section 4, because it is less a finding about this stage than a bill Stage 3 inherits.</p>
 <p>**(a) A Stage 0 conclusion was wrong, and this stage paid for it first.** Stage 0 measured that <code>value_types_of_t&lt;…, type_identity_t, type_identity_t&gt;</code> is ill-formed for a two-argument sender — true — and concluded that a <code>requires</code> clause naming the alias is therefore "a hard error, not a graceful
@@ -129,7 +129,7 @@ constraint failure". <b>That does not follow</b>, and the probe Stage 0 wrote to
 <p><code></p><hr  />
 <p></code></p>
 <p><code></code></p>
-<h1><a class="anchor" id="autotoc_md130"></a>
+<h1><a class="anchor" id="autotoc_md141"></a>
 3. Acceptance</h1>
 <p><code> </p><table class="markdownTable">
 <tr class="markdownTableHead">
@@ -164,7 +164,7 @@ constraint failure". <b>That does not follow</b>, and the probe Stage 0 wrote to
 <p><code></p><hr  />
 <p></code></p>
 <p><code></code></p>
-<h1><a class="anchor" id="autotoc_md132"></a>
+<h1><a class="anchor" id="autotoc_md143"></a>
 4. What Stage 3's agent needs that the plan does not say</h1>
 <p><code> **<code>applicative_object</code> holds for every sender shape; the <em>policy</em> concept holds for exactly one, and that is Stage 3's first obstacle.** Deliverable 4's concept does not constrain what <code>pure</code> returns. <code>traverse</code>'s policy concept does: per <a href="../decisions.md#typeclass-conformance-depth">typeclass-conformance-depth</a>, <code>applicative_object_for&lt;POLICY, CONTEXT&gt;</code> adds <code>pure(element) -&gt; std::same_as&lt;CONTEXT&gt;</code>. Measured, not reasoned:</code></p>
 <p><code></p><table class="markdownTable">
