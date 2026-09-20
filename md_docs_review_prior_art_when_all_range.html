@@ -97,7 +97,7 @@ $(document).ready(function(){initNavTree('md_docs_review_prior_art_when_all_rang
 <div class="textblock"><p>Stage <a href="../transpose-execution-plan.md#execution-baseline">execution-baseline</a>, deliverable 5. Surveyed 2026-09-13.</p>
 <p><b>Read this as a record, not a menu.</b> The Stage 2 design is derived from <a href="../decisions.md#runtime-arity-composition">runtime-arity-composition</a> and <a href="../decisions.md#all-of-failure-semantics">all-of-failure-semantics</a>; this note exists so that where <code>all_of</code> differs from what everyone else built, the difference is a choice someone made rather than a wheel nobody looked at. Section 5 is the part with teeth: two places where prior art contradicts the plan's own text.</p>
 <hr  />
-<h1><a class="anchor" id="autotoc_md160"></a>
+<h1><a class="anchor" id="autotoc_md182"></a>
 1. The headline: exactly one prior implementation, and it is not in a standard</h1>
 <table class="markdownTable">
 <tr class="markdownTableHead">
@@ -115,10 +115,10 @@ $(document).ready(function(){initNavTree('md_docs_review_prior_art_when_all_rang
 <p>stdexec carries an open issue asking for precisely this facility — <a href="https://github.com/NVIDIA/stdexec/issues/1631">NVIDIA/stdexec#1631</a>, *"What's
 the recommended way to wait a list of senders?"*, opened 2025-09-03, noting that <code>when_all</code> cannot serve because its children must be known at compile time. <em>Recorded uncertainty:</em> whether maintainers answered could not be determined from here; only the issue body was retrievable.</p>
 <hr  />
-<h1><a class="anchor" id="autotoc_md162"></a>
+<h1><a class="anchor" id="autotoc_md184"></a>
 2. libunifex &lt;tt&gt;when_all_range&lt;/tt&gt; — the one real precedent</h1>
 <p><a href="https://github.com/facebookexperimental/libunifex/blob/main/include/unifex/when_all_range.hpp"><code>include/unifex/when_all_range.hpp</code></a>, 379 lines, last touched 2026-01-27. Absent from <code>doc/api_reference.md</code>, which documents only the variadic <code>when_all</code>.</p>
-<h2><a class="anchor" id="autotoc_md163"></a>
+<h2><a class="anchor" id="autotoc_md185"></a>
 Surface</h2>
 <div class="fragment"><div class="line"><span class="keyword">template</span>(<span class="keyword">typename</span> Sender)(<span class="keyword">requires</span>(unifex::sender&lt;Sender&gt;))</div>
 <div class="line"><span class="keyword">auto</span> <span class="keyword">operator</span>()(std::vector&lt;Sender&gt; senders) <span class="keyword">const</span>;</div>
@@ -133,7 +133,7 @@ Surface</h2>
 <div class="line"><span class="keyword">using </span>error_types = Variant&lt;std::exception_ptr&gt;;</div>
 <div class="line"><span class="keyword">static</span> <span class="keyword">constexpr</span> <span class="keywordtype">bool</span> sends_done = <span class="keyword">true</span>;</div>
 </div><!-- fragment --><p><b>Result order is input order.</b> Each element receiver carries an <code>index_</code> and writes <code>op_.holders_[index_].value.emplace(...)</code>; the result is assembled by a <code>std::transform</code> over the holders in order.</p>
-<h2><a class="anchor" id="autotoc_md164"></a>
+<h2><a class="anchor" id="autotoc_md186"></a>
 Allocation</h2>
 <p>One array allocation for all children, with each child's value slot and operation state <b>colocated in the same element</b>:</p>
 <div class="fragment"><div class="line"><span class="keyword">struct </span>_operation_holder final {</div>
@@ -146,7 +146,7 @@ Allocation</h2>
 <p><b>This converges with <a href="../decisions.md#erasure-boundary">erasure-boundary</a> without being its source.</b> The boundary decision permits exactly one allocation sized <code>n × sizeof(connect_result_t&lt;S, R&gt;)</code> plus the result vector; libunifex independently landed on the same budget. That is a useful corroboration that Stage 2's one-allocation tripwire is achievable rather than aspirational — the tripwire asks for something that has been done.</p>
 <p>Note the one refinement worth considering on its own merits, not because libunifex did it: colocating the result slot <em>with</em> the child operation state in one element, rather than keeping <code>vector&lt;optional&lt;T&gt;&gt;</code> as a separate allocation, is what gets libunifex to one array instead of two. <a href="../transpose-execution-plan.md#all-of-algorithm">transpose-execution-plan.md §3</a> deliverable 2 describes the slots as a separate <code>vector&lt;optional&lt;T&gt;&gt;</code>, which is a <em>second</em> allocation and would trip that stage's own "more than one
 allocation" tripwire unless the slots live inside the single block. <b>Flagged for Stage 2</b>: the plan's deliverable 2 and its tripwire are in tension as written, and the colocated layout is one way to resolve it.</p>
-<h2><a class="anchor" id="autotoc_md165"></a>
+<h2><a class="anchor" id="autotoc_md187"></a>
 Failure semantics — and where they differ from ours</h2>
 <div class="fragment"><div class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Error&gt;</div>
 <div class="line"><span class="keywordtype">void</span> set_error(Error&amp;&amp; error) <span class="keyword">noexcept</span> {</div>
@@ -171,7 +171,7 @@ Failure semantics — and where they differ from ours</h2>
 </ul>
 <p><b>A likely bug, recorded so nobody transliterates it.</b> <code>error_types</code> advertises only <code>std::exception_ptr</code>, but the operation state stores <code>std::optional&lt;sender_error_types_t&lt;Sender, std::variant&gt;&gt;</code> and visits it into <code>set_error(receiver, &lt;original error type&gt;)</code>. A child erroring with, say, <code>std::error_code</code> calls <code>set_error</code> with a type the sender never advertised. <a href="../decisions.md#all-of-failure-semantics">all-of-failure-semantics</a> requires <code>all_of</code> to advertise every <code>set_error_t(E)</code> of <code>S</code>, which does not have this hole; the divergence is already correct and now has a reason on the record.</p>
 <hr  />
-<h1><a class="anchor" id="autotoc_md167"></a>
+<h1><a class="anchor" id="autotoc_md189"></a>
 3. The standard's variadic &lt;tt&gt;when_all&lt;/tt&gt;, which is what we chose to match</h1>
 <p><a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2300r10.html">P2300R10 §34.9.11.11</a> <code>[exec.when.all]</code>. Pack-only; ill-formed for zero senders; each child constrained to at most one value completion.</p>
 <div class="fragment"><div class="line"><span class="keyword">enum class</span> disposition { started, error, stopped };</div>
@@ -192,7 +192,7 @@ Failure semantics — and where they differ from ours</h2>
 </div><!-- fragment --><p>The asymmetry is the point: error uses <code>exchange</code> and therefore <b>out-ranks a previously recorded <code>stopped</code></b>; stopped uses a compare-exchange and only wins from <code>started</code>. <code>start</code> checks <code>stop_src.stop_requested()</code> before starting any child and completes <code>set_stopped</code> if so. Values are stored positionally and <code>tuple_cat</code>'d.</p>
 <p><a href="../decisions.md#all-of-failure-semantics">all-of-failure-semantics</a> says "error wins over stopped; among errors the first to arrive wins", which is this, not libunifex's shared flag. <b>The decision's Why — that <code>all_of</code> should be <code>when_all</code> at runtime arity rather than a different algorithm — picks the standard over the only existing implementation, and that is the right way round.</b> Recorded here because it is the one place the plan could have been accused of inventing, and it is not: libunifex is the outlier.</p>
 <hr  />
-<h1><a class="anchor" id="autotoc_md169"></a>
+<h1><a class="anchor" id="autotoc_md191"></a>
 4. Live WG21 work that touches the semantics we are matching</h1>
 <p>All Robert Leahy. These matter because <code>all_of</code> is defined by reference to <code>when_all</code>, so <code>when_all</code> moving moves us.</p>
 <table class="markdownTable">
@@ -213,7 +213,7 @@ execution papers" — accurate as a scoping decision, but the execution papers d
 <p>P2300 itself uses "a range of senders" for the <em>opposite</em> concept — §4.13 "A
 range of senders represents an async sequence of data" consumes them one at a time in a coroutine loop, explicitly not concurrently. The standard's answer for dynamic arity is <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/p3149r11.html">P3149R11</a> <code>counting_scope</code>/<code>async_scope</code> (LWG-approved 2025-06), whose <code>join()</code> <b>completes with void and collects no results</b>; <code>spawn_future</code> yields one sender per item, which you would still need a variadic <code>when_all</code> to join. So the gap <code>all_of</code> fills is real and the standard currently routes around it.</p>
 <hr  />
-<h1><a class="anchor" id="autotoc_md171"></a>
+<h1><a class="anchor" id="autotoc_md193"></a>
 5. Where prior art contradicts the plan — read before Stage 2</h1>
 <p>Two items. Neither is settled here; both are flagged so Stage 2 does not discover them at the tripwire.</p>
 <p>**(a) The plan's completion signatures may over-advertise <code>set_stopped</code>.** <a href="../transpose-execution-plan.md#all-of-algorithm">transpose-execution-plan.md §3</a> deliverable 1 says the signatures are <code>set_value_t(vector&lt;T&gt;)</code>, every <code>set_error_t(E)</code> of <code>S</code> plus <code>set_error_t(exception_ptr)</code>, and <code>set_stopped_t()</code> — unconditionally. <b>P3887R1 is LWG-approved and says <code>when_all</code> should send <code>set_stopped</code> only if a child does</b>, and P4269R0 goes further at the implementation level. Since <a href="../decisions.md#all-of-failure-semantics">all-of-failure-semantics</a> grounds <code>all_of</code> in "follow `when_all`", following the <code>when_all</code> that was approved means making that signature conditional. The plan's text follows the older <code>when_all</code>. This is a What, and the Why ("`all_of` *is* `when_all` at runtime
@@ -221,7 +221,7 @@ arity") actively argues for the change rather than against it.</p>
 <p>**(b) The plan's operation-state layout implies two allocations, and its own tripwire forbids the second.** Deliverable 2 asks for <code>n</code> child operation states in one allocation <em>and</em> slots as <code>vector&lt;optional&lt;T&gt;&gt;</code>; the tripwire says "more than one allocation and the extra is not the `vector&lt;T&gt;` result →
 STOP". The result vector is the one permitted extra, so a separate slots vector is a third block. libunifex resolves this by colocating the slot with the child operation state in a single holder array. Flagged above in §2.</p>
 <hr  />
-<h1><a class="anchor" id="autotoc_md173"></a>
+<h1><a class="anchor" id="autotoc_md195"></a>
 6. Design-shape comparison (non-sender, recorded for contrast only)</h1>
 <table class="markdownTable">
 <tr class="markdownTableHead">
@@ -254,7 +254,7 @@ STOP". The result vector is the one permitted extra, so a separate slots vector 
 <p>Folly's <code>collectAllTryRange</code> is the other shape worth a sentence: input order, <code>Try&lt;T&gt;</code> per slot, no sibling cancellation — "give me everything, I will sort
 it out". That is what an <em>accumulating</em> applicative object over senders would want, and it is the sender-side echo of <a href="../decisions.md#applicative-objects">applicative-objects</a>'s two-objects split. Not in scope; recorded because the plan has no slug for it and someone will ask.</p>
 <hr  />
-<h1><a class="anchor" id="autotoc_md175"></a>
+<h1><a class="anchor" id="autotoc_md197"></a>
 Sources</h1>
 <p>libunifex <a href="https://github.com/facebookexperimental/libunifex/blob/main/include/unifex/when_all_range.hpp"><code>when_all_range.hpp</code></a>, <a href="https://github.com/facebookexperimental/libunifex/blob/main/test/when_all_range_test.cpp">test</a> · <a href="https://github.com/NVIDIA/stdexec">NVIDIA/stdexec</a> (<code>30bb116</code>), <a href="https://github.com/NVIDIA/stdexec/issues/1631">issue #1631</a> · <a href="https://github.com/bemanproject/execution">bemanproject/execution</a> (<code>c55d824</code>) · <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2300r10.html">P2300R10</a> · <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/p3887r1.pdf">P3887R1</a> · <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p4217r1.pdf">P4217R1</a> · <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p4269r0.pdf">P4269R0</a> · <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p4320r0.pdf">P4320R0</a> · <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3409r1.html">P3409R1</a> · <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/p3149r11.html">P3149R11</a> · <a href="https://wg21.link/index.json">wg21.link index</a> · <a href="https://github.com/facebook/folly/blob/main/folly/coro/Collect.h">Folly <code>Collect.h</code></a> · <a href="https://github.com/lewissbaker/cppcoro/blob/master/include/cppcoro/when_all.hpp">cppcoro <code>when_all.hpp</code></a> · <a href="https://github.com/boostorg/asio/blob/develop/include/boost/asio/experimental/parallel_group.hpp">Asio <code>parallel_group.hpp</code></a> · <a href="https://github.com/rust-lang/futures-rs/blob/master/futures-util/src/future/join_all.rs">futures-rs <code>join_all.rs</code></a> </p>
 </div></div><!-- contents -->
