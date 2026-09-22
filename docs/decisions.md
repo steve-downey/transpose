@@ -1783,9 +1783,18 @@ complexity and about move-only values?
 operands through forwarding references and passes each held value on with
 that operand's own value category. `detail::forward_contained` and
 `detail::forward_at` are the two spellings of that. The vector Traversable
-hands its accumulated result to each composition as an rvalue, and carries a
-second, consuming `traverse` overload so that `transpose(std::move(v))`
-expresses that intent through to `function`.
+hands its accumulated result to each composition as an rvalue. It also opts in
+to consuming traversal, so that `transpose(std::move(v))` expresses that
+intent through to `function`.
+
+Consuming traversal is an instance capability, not a promise made by every
+Traversable. An object declaring `consumes_rvalue_structure = true` presents
+the elements of a non-`const`, non-`volatile` rvalue structure as rvalues; an
+object that makes no declaration, or any lvalue or cv-qualified rvalue
+structure, presents them as `const` lvalues. The default is non-consuming.
+Context inference asks the object that will perform the traversal what category
+it presents: the registered object for free `traverse`, `self` for `for_each`,
+and the supplied map for `traverse_with`.
 
 `transpose`'s Complexity clause is stated in *composition operations* per
 element, not in element operations. The element bound is added as a Remark,
@@ -1851,14 +1860,27 @@ This is not a corner: the seed of any traversal into that context is
   `traverse` could not reach the consuming path that `transpose` could:
   `traverse(identity, std::move(v))` over a move-only element type did not
   compile. It now names `traverse_element_t`, which is the element category
-  matching the structure's own. That makes explicit a requirement the vector
-  instance already kept and the wording did not state: a traversable object
-  passes elements on in the category it received the structure in. Without
-  it the context cannot be inferred before a traversable object is selected.
+  declared by the registered Traversable object for the structure category it
+  receives. That makes explicit the vector instance's consuming behavior
+  without imposing it on every Traversable. Without that category agreeing
+  with the selected object, the context cannot be inferred before the
+  traversal is instantiated.
 
   Verified on GCC 16 and Clang 23: 241 and 239 tests, the conformance
   concepts satisfied over `optional<unique_ptr<int>>`, and the negative
   detection cases still evaluating false rather than diagnosing.
+- 2026-09-22 — Restricted consuming traversal to instances that declare it.
+  The default is non-consuming so that persistent structures need not copy
+  elements into temporaries merely to manufacture rvalues. Added
+  `detail::traversal_argument_t<OBJ, T>` so derived operations infer their
+  context from the category of the map that actually performs the walk:
+  `self` for `for_each`, and the supplied map for `traverse_with`. Free
+  `traverse` specializes the same rule to the registered object. Only an
+  unqualified rvalue structure takes the consuming route; `const T&&` and
+  `volatile T&&` remain non-consuming. Conformance probes a declaring object
+  with an rvalue-only witness, so declaration and implementation cannot
+  silently disagree. Verified with consuming `for_each` and `traverse_with`
+  probes and a `const T&&` category check on Clang 21.
 
 ---
 
@@ -2724,9 +2746,10 @@ that keeps it true rather than merely intended.
 
 ## execution-runloop-signatures
 
-**Question:** Why does the receipts example not use the schedulers the plan
-named?
-**Status:** RECORDED 2026-09-20 — an upstream defect, not a decision of ours.
+**Question:** Why did the original receipts example not use the schedulers the
+plan named?
+**Status:** RESOLVED UPSTREAM 2026-09-22 — retained as the history of the
+original receipts workaround.
 **Decided by:** Measurement at stage
 [transpose-receipts](transpose-execution-plan.md#transpose-receipts). Nothing
 here is a choice about this library's design; it is a note so the next agent
@@ -2766,14 +2789,20 @@ paper over a bug in a pinned dependency. `all_of` follows `when_all`; where
 `when_all` cannot, neither can it, and that agreement is worth more than the
 scene.
 
-**What the example does instead.** A deferred queue, written in the example
-itself: children that enqueue their completion when started, drained on the
-main thread. It serves the deliverable's Why exactly — the single-threaded,
-still-lazy case, with laziness observable at three points rather than one —
-and it needs no scheduler at all. **This is an adaptation of a What, not of a
-Why, and Steve has not ruled on it.** If he would rather the scene wait for a
-dependency bump, the example's scene 2 is self-contained and comes out
-cleanly.
+**What the example did instead at that revision.** A deferred queue, written
+in the example itself: children that enqueued their completion when started,
+drained on the main thread. It served the deliverable's Why exactly — the
+single-threaded, still-lazy case, with laziness observable at three points
+rather than one — and needed no scheduler at all.
+
+**Resolution.** `beman.execution` PR #321 fixed the zero-environment query in
+`ad788f5ff003260b66f5fef6273c9e5a4facb878`; the same revision also includes
+the default parallel-scheduler backend from PR #316. The dependency is now
+pinned there. The receipts example consequently uses
+`get_parallel_scheduler()` for scene 1 and a real `run_loop` for scene 2; both
+local scheduler substitutes have been removed. Because the new inline default
+backend uses `std::thread` without propagating a CMake threads dependency, the
+opt-in execution targets link `Threads::Threads` explicitly.
 
 **Log:**
 - 2026-09-20 — Found and measured at stage transpose-receipts. Worth
@@ -2785,6 +2814,9 @@ cleanly.
   cannot compose `run_loop` senders under *any* compiler, because the defect
   is in the dependency's own header rather than in a compiler's treatment of
   it.
+- 2026-09-22 — Resolved by `beman.execution` PR #321; bumped the pin to its
+  merge commit and replaced both scheduler substitutes in the receipts
+  example with the dependency's schedulers.
 
 ---
 

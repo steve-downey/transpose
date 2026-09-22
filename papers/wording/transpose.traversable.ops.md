@@ -8,13 +8,13 @@
 template<class T, class F> auto for_each(this auto&& self, T&& value, F&& function);
 ```
 
-[x]{.pnum} *Effects*: Applies `function` to each element of `value` and transposes the resulting contextual values, preserving the shape of `value`. The applicative object is the one `applicative_typeclass` names for the context `function` returns.
+[x]{.pnum} *Effects*: Applies `function` to each element of `value` and transposes the resulting contextual values, preserving the shape of `value`. The element is presented through `$traversal-argument-t$<decltype(self), T>`. The applicative object is the one `applicative_typeclass` names for the context `function` returns for that argument type.
 
 [x+1]{.pnum} *Returns*: The shape of `value` held in that single context.
 
 [x+2]{.pnum} *Complexity*: Exactly one application of `function` per element of `value`.
 
-[x+3]{.pnum} *Remarks*: Elements are visited in the structure's iteration order.
+[x+3]{.pnum} *Remarks*: Elements are visited in the structure's iteration order. If `self` declares consumption and `value` is a non-`const`, non-`volatile` rvalue, `function` receives rvalue elements; otherwise it receives `const` lvalue elements.
 
 ```cpp
 template<class T>

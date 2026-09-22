@@ -30,7 +30,6 @@
 #include <chrono>
 #include <cstddef>
 #include <exception>
-#include <functional>
 #include <iostream>
 #include <mutex>
 #include <optional>
@@ -47,114 +46,7 @@ namespace {
 
 // -- scene 1: children that really do run concurrently -------------------
 
-/// A child that computes on its own thread after a delay, appending its own
-/// index to a shared completion log as it finishes.
-///
-/// WHY NOT A POOL. The plan for this example said `schedule(pool) |
-/// then(work)`. `get_parallel_scheduler()`'s backend symbol is not among what
-/// the pinned `beman.execution` exports to a consumer here, so the pool is
-/// unavailable; a thread per child is the substitute, and it is the stronger
-/// demonstration anyway. The delays are staggered so the LAST child finishes
-/// FIRST, which makes "completion order is not result order" a fact of this run
-/// rather than a hope about scheduling.
-struct parallel_child {
-    using sender_concept = ex::sender_tag;
-    using signatures = ex::completion_signatures<ex::set_value_t(int)>;
-
-    template <class...>
-    static consteval auto get_completion_signatures() noexcept -> signatures {
-        return {};
-    }
-
-    int index{0};
-    std::chrono::milliseconds delay{0};
-    std::vector<int> *log{nullptr};
-    std::mutex *log_mutex{nullptr};
-
-    template <class RECEIVER>
-    struct operation {
-        using operation_state_concept = ex::operation_state_tag;
-
-        // Field by field, not a copy of the sender: inside the sender's own
-        // definition the sender type is still incomplete.
-        int index;
-        std::chrono::milliseconds delay;
-        std::vector<int> *log;
-        std::mutex *log_mutex;
-        RECEIVER receiver;
-        std::optional<std::jthread> worker{};
-
-        auto start() & noexcept -> void {
-            worker.emplace([this] {
-                std::this_thread::sleep_for(delay);
-                {
-                    const std::lock_guard<std::mutex> guard{*log_mutex};
-                    log->push_back(index);
-                }
-                ex::set_value(std::move(receiver), index * index);
-            });
-        }
-    };
-
-    template <class RECEIVER>
-    auto connect(RECEIVER receiver) const -> operation<RECEIVER> {
-        return operation<RECEIVER>{index, delay, log, log_mutex,
-                                   std::move(receiver)};
-    }
-};
-
 // -- scene 2: a single-threaded deferred queue ---------------------------
-
-/// Work that has been started but not yet performed.
-using deferred_work = std::vector<std::function<void()>>;
-
-/// A child that, when started, puts its completion on a queue instead of
-/// doing it. Draining the queue is the only thing that runs it, and the
-/// draining happens on whatever thread calls `drain`.
-///
-/// WHY NOT `run_loop`. The plan named `run_loop` for this scene. The pinned
-/// `beman.execution` (`d24898d`) cannot compute `run_loop::sender`'s
-/// completion signatures for the zero-environment case:
-/// `run_loop::sender::get_completion_signatures` calls
-/// `get_stop_token(declval<Env>()...)` with an empty `Env` pack, which is
-/// `get_stop_token()` with no arguments. This is not something transpose
-/// does -- a plain `ex::when_all(schedule(sch) | then(f), ...)` over two
-/// `run_loop` senders fails identically, with no part of this library
-/// involved. See docs/decisions.md#execution-runloop-signatures.
-struct deferred_child {
-    using sender_concept = ex::sender_tag;
-    using signatures = ex::completion_signatures<ex::set_value_t(int)>;
-
-    template <class...>
-    static consteval auto get_completion_signatures() noexcept -> signatures {
-        return {};
-    }
-
-    int value{0};
-    deferred_work *queue{nullptr};
-    std::atomic<int> *started{nullptr};
-
-    template <class RECEIVER>
-    struct operation {
-        using operation_state_concept = ex::operation_state_tag;
-
-        int value;
-        deferred_work *queue;
-        std::atomic<int> *started;
-        RECEIVER receiver;
-
-        auto start() & noexcept -> void {
-            started->fetch_add(1);
-            queue->emplace_back(
-                [this] { ex::set_value(std::move(receiver), value); });
-        }
-    };
-
-    template <class RECEIVER>
-    auto connect(RECEIVER receiver) const -> operation<RECEIVER> {
-        return operation<RECEIVER>{value, queue, started, std::move(receiver)};
-    }
-};
 
 /// Somewhere for the transposed sender's result to land, so that scene 2 can
 /// connect and start by hand rather than blocking in `sync_wait`. Blocking is
@@ -164,14 +56,31 @@ struct collecting_receiver {
     using receiver_concept = ex::receiver_tag;
 
     std::optional<std::vector<int>> *result;
+    ex::run_loop *loop;
 
     auto set_value(std::vector<int> values) noexcept -> void {
         *result = std::move(values);
+        loop->finish();
     }
-    auto set_error(auto &&) noexcept -> void {}
-    auto set_stopped() noexcept -> void {}
+    auto set_error(auto &&) noexcept -> void { loop->finish(); }
+    auto set_stopped() noexcept -> void { loop->finish(); }
     auto get_env() const noexcept -> ex::env<> { return {}; }
 };
+
+/** Make one child for scene 1. Keeping the lambda expression in one function
+ * gives every element the same concrete sender type, as a vector requires. */
+auto make_parallel_child(ex::parallel_scheduler scheduler, int index, int count,
+                         std::vector<int> &log, std::mutex &log_mutex) {
+    return ex::schedule(scheduler) | ex::then([index, count, &log, &log_mutex] {
+               std::this_thread::sleep_for(
+                   std::chrono::milliseconds{(count - index) * 20});
+               {
+                   const std::lock_guard<std::mutex> guard{log_mutex};
+                   log.push_back(index);
+               }
+               return index * index;
+           });
+}
 
 // -- scene 3: a child that fails -----------------------------------------
 
@@ -240,21 +149,23 @@ auto print_order(const std::string &label, const std::vector<int> &values)
 int main() {
     // -- Scene 1 ---------------------------------------------------------
     //
-    // Six children on six threads. transpose gives back one sender of the
-    // whole vector; the values come out in input order however the threads
-    // finish.
+    // Six children on the parallel scheduler. transpose gives back one sender
+    // of the whole vector; the values come out in input order however the
+    // workers finish.
     {
         constexpr int count = 6;
 
         std::vector<int> completion_log;
         std::mutex log_mutex;
+        auto scheduler = ex::get_parallel_scheduler();
 
-        std::vector<parallel_child> children;
+        using child_type = decltype(make_parallel_child(
+            scheduler, 0, count, completion_log, log_mutex));
+        std::vector<child_type> children;
         children.reserve(static_cast<std::size_t>(count));
         for (int index = 0; index != count; ++index) {
-            children.push_back(parallel_child{
-                index, std::chrono::milliseconds{(count - index) * 20},
-                &completion_log, &log_mutex});
+            children.push_back(make_parallel_child(scheduler, index, count,
+                                                   completion_log, log_mutex));
         }
 
         // One sender of a vector, not a vector of senders. Its type is
@@ -262,7 +173,7 @@ int main() {
         // no virtual call.
         static_assert(
             std::is_same_v<decltype(bt::transpose(std::move(children))),
-                           bt::examples::all_of_sender<parallel_child>>);
+                           bt::examples::all_of_sender<child_type>>);
 
         auto [values] = *ex::sync_wait(bt::transpose(std::move(children)));
 
@@ -276,39 +187,45 @@ int main() {
     // -- Scene 2 ---------------------------------------------------------
     //
     // The same front door with no concurrency at all. Transposing builds a
-    // sender and runs nothing; starting it only enqueues; draining the queue
-    // on this thread is what performs the work.
+    // sender and runs nothing; starting it only enqueues work in a run_loop;
+    // running that loop on this thread is what performs the work.
     {
-        deferred_work queue;
-        std::atomic<int> started{0};
+        ex::run_loop loop;
+        auto scheduler = loop.get_scheduler();
+        int produced = 0;
         std::optional<std::vector<int>> result;
 
-        std::vector<deferred_child> children;
+        auto make_child = [scheduler, &produced](int value) mutable {
+            return ex::schedule(scheduler) | ex::then([value, &produced] {
+                       ++produced;
+                       return value;
+                   });
+        };
+        using child_type = decltype(make_child(0));
+        std::vector<child_type> children;
         for (int value = 1; value != 5; ++value) {
-            children.push_back(deferred_child{value * 100, &queue, &started});
+            children.push_back(make_child(value * 100));
         }
 
         auto composed = bt::transpose(std::move(children));
 
         std::cout << "scene 2 -- single-threaded, still lazy\n";
-        std::cout << "  after transpose: " << started.load()
-                  << " children started, " << queue.size() << " queued\n";
+        std::cout << "  after transpose: " << produced << " values produced\n";
 
-        auto operation =
-            ex::connect(std::move(composed), collecting_receiver{&result});
+        auto operation = ex::connect(std::move(composed),
+                                     collecting_receiver{&result, &loop});
         ex::start(operation);
 
-        std::cout << "  after start:     " << started.load()
-                  << " children started, " << queue.size() << " queued, result "
+        std::cout << "  after start:     " << produced
+                  << " values produced, result "
                   << (result.has_value() ? "ready" : "not ready") << '\n';
 
-        // Draining is the only thing that runs anything, and it is this
-        // thread that does it.
-        for (std::size_t index = 0; index != queue.size(); ++index) {
-            queue[index]();
-        }
+        // run() is the only thing that executes the scheduled work, and the
+        // collecting receiver finishes the loop after the last child.
+        loop.run();
 
-        std::cout << "  after draining:  result "
+        std::cout << "  after run:       " << produced
+                  << " values produced, result "
                   << (result.has_value() ? "ready" : "not ready") << '\n';
         print_order("  values:         ", result.value());
         std::cout << '\n';
