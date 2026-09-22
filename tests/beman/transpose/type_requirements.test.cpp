@@ -60,6 +60,19 @@ concept traversable_with = requires(F &&function, T &&value) {
     bt::traverse(std::forward<F>(function), std::forward<T>(value));
 };
 
+template <class F, class T>
+concept for_each_with = requires(F &&function, T &&value) {
+    bt::traversable_typeclass<std::remove_cvref_t<T>>.for_each(
+        std::forward<T>(value), std::forward<F>(function));
+};
+
+template <class F, class T>
+concept delegated_traversable_with = requires(F &&function, T &&value) {
+    bt::traversable_typeclass<std::remove_cvref_t<T>>.traverse_with(
+        bt::traversable_typeclass<std::remove_cvref_t<T>>,
+        std::forward<F>(function), std::forward<T>(value));
+};
+
 } // namespace
 
 // --- Concept probes must not require a default-constructible element -------
@@ -401,10 +414,19 @@ static_assert(bt::consuming_traversable_object<
 static_assert(traversable_with<rvalue_argument_only_callable, std::vector<int>>,
               "an rvalue structure reaches the consuming overload of an "
               "object that declares one");
+static_assert(for_each_with<rvalue_argument_only_callable, std::vector<int>>,
+              "for_each infers the context from the consuming category");
+static_assert(
+    delegated_traversable_with<rvalue_argument_only_callable, std::vector<int>>,
+    "traverse_with infers the context from the consuming category of the "
+    "object it was given");
 static_assert(
     !traversable_with<rvalue_argument_only_callable, std::vector<int> &>,
     "a const lvalue structure never presents an rvalue element, and must "
     "fail to match rather than fail mid-instantiation");
+static_assert(
+    std::same_as<bt::traverse_element_t<const std::vector<int>>, const int &>,
+    "a const rvalue cannot be consumed and therefore presents const lvalues");
 
 static_assert(traversable_with<rvalue_argument_only_callable,
                                beman::transpose::test::Identity<int>>);
