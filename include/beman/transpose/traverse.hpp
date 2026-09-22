@@ -157,13 +157,32 @@ using traversable_object_t = std::remove_cvref_t<
 template <class T>
 using structure_element_t = typename traversable_object_t<T>::element_type;
 
+namespace detail {
+
+//! \remarks This alias names the category in which the traversable object
+//! `OBJ` presents an element when handed a structure of category `T`. Only an
+//! unqualified rvalue structure can be consumed; a `const` or `volatile`
+//! rvalue cannot bind a consuming primitive and therefore presents `const`
+//! lvalues, just as an lvalue or a non-consuming object does.
+//! \expos
+template <class OBJ, class T>
+using traversal_argument_t = std::conditional_t<
+    !std::is_lvalue_reference_v<T> &&
+        !std::is_const_v<std::remove_reference_t<T>> &&
+        !std::is_volatile_v<std::remove_reference_t<T>> &&
+        consuming_traversable_object<std::remove_cvref_t<OBJ>>,
+    typename std::remove_cvref_t<OBJ>::element_type &&,
+    const typename std::remove_cvref_t<OBJ>::element_type &>;
+
+} // namespace detail
+
 //! \remarks This alias names the category in which a traversal of a
 //! structure of type `T` presents an element to `function`: as an rvalue
-//! when `T` is an rvalue *and* its traversable object declares
-//! `consuming_traversable_object`, and as a `const` lvalue otherwise. It is
-//! what lets the context be inferred before a traversable object has been
-//! selected, and the declaration is what lets it be inferred correctly for
-//! an object that does not consume.
+//! when `T` is an unqualified rvalue *and* its traversable object declares
+//! `consuming_traversable_object`, and as a `const` lvalue otherwise. A
+//! `const` or `volatile` rvalue cannot bind a consuming primitive. This alias
+//! is the registered-object specialization of `traversal_argument_t`; it is
+//! what lets the context be inferred before that object has been selected.
 //!
 //! Deducing the category from `T` alone would be inferring a context from a
 //! call the object will not make. The consequence is not a slower traversal
@@ -173,10 +192,8 @@ using structure_element_t = typename traversable_object_t<T>::element_type;
 //! that does not match.
 //! \expos
 template <class T>
-using traverse_element_t = std::conditional_t<
-    !std::is_lvalue_reference_v<T> &&
-        consuming_traversable_object<traversable_object_t<T>>,
-    structure_element_t<T> &&, const structure_element_t<T> &>;
+using traverse_element_t =
+    detail::traversal_argument_t<traversable_object_t<T>, T>;
 
 /// The applicative context `traverse(function, value)` would infer: the
 /// return type of `function` applied to one element of `value`'s traversable
@@ -377,8 +394,8 @@ concept traversable_object =
 template <class Impl>
 template <class T, class F>
 auto Traversable<Impl>::for_each(this auto &&self, T &&value, F &&function) {
-    using Context =
-        std::remove_cvref_t<std::invoke_result_t<F &, const element_type &>>;
+    using Context = std::remove_cvref_t<std::invoke_result_t<
+        F &, detail::traversal_argument_t<decltype(self), T>>>;
     const auto &applicative = applicative_typeclass<Context>;
     return self.traverse(applicative, std::forward<F>(function),
                          std::forward<T>(value));
@@ -418,8 +435,7 @@ auto Traversable<Impl>::traverse_with(this auto &&,
                                       const TRAVERSABLE_MAP &traversable_map,
                                       F &&function, T &&value) {
     using Context = std::remove_cvref_t<std::invoke_result_t<
-        F &,
-        const typename std::remove_cvref_t<TRAVERSABLE_MAP>::element_type &>>;
+        F &, detail::traversal_argument_t<TRAVERSABLE_MAP, T>>>;
     const auto &applicative = applicative_typeclass<Context>;
     return traversable_map.traverse(applicative, std::forward<F>(function),
                                     std::forward<T>(value));

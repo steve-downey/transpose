@@ -4,6 +4,7 @@
 template<class VALUE_TYPE>
 struct VectorTraversableImpl {
   using element_type = VALUE_TYPE;
+  static constexpr bool consumes_rvalue_structure = true;
 
   // @[transpose.range.traverse]{- .sref}@, traversable instance for vector
   template<class APPLICATIVE, class FUNCTION>
@@ -15,6 +16,12 @@ struct VectorTraversableImpl {
                 vector<VALUE_TYPE>&& values);
 };
 ```
+
+::: wording
+
+[x]{.pnum} *Remarks*: A `vector` handed over as a non-`const`, non-`volatile` rvalue owns its elements and this instance presents each element to the traversal function as an rvalue. The declaration is what permits traversal to infer the consuming function's context before selecting this object.
+
+:::
 
 ```cpp
 template<class VALUE_TYPE>
