@@ -120,7 +120,7 @@ The n-ary knowledge lives in the one place that has it, which is the applicative
 
 * The receipts
 
-Six children, each computing on its own thread, with delays staggered so that the last one to start is the first to finish.
+Six children on the parallel scheduler, with delays staggered so that the last one to start is the first to finish.
 
 #+begin_example
 scene 1 -- concurrent children
@@ -136,15 +136,15 @@ Laziness, with three observations instead of one:
 
 #+begin_example
 scene 2 -- single-threaded, still lazy
-  after transpose: 0 children started, 0 queued
-  after start:     4 children started, 4 queued, result not ready
-  after draining:  result ready
+  after transpose: 0 values produced
+  after start:     0 values produced, result not ready
+  after run:       4 values produced, result ready
   values:          100 200 300 400
 #+end_example
 
 Transposing connects nothing and starts nothing.
-Starting the composed operation state starts the children, and they enqueue rather than compute.
-Draining the queue --- on this thread, no other thread in the program --- is what runs the work.
+Starting the composed operation state schedules the children on a ~run_loop~, but still computes nothing.
+Running the loop --- on this thread, no other thread in the program --- is what performs the work.
 The earlier post could show the first of those three lines. It could not show the other two, because a ~std::function~ thunk has no operation state to start.
 
 And a failure:
