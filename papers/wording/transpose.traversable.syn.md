@@ -8,12 +8,28 @@ concept $applicative-context$ =
 ```
 
 ```cpp
+template<class OBJ>
+concept $consuming-traversable-object$ =
+    requires { requires bool(OBJ::consumes_rvalue_structure); }; // exposition only
+```
+
+::: wording
+
+[x]{.pnum} The concept `$consuming-traversable-object$<OBJ>` is satisfied when `OBJ` declares `consumes_rvalue_structure` to be `true`. Such an object, when given a non-`const`, non-`volatile` rvalue structure, presents each element to the traversal function as an rvalue. An object that does not make the declaration presents elements as `const` lvalues.
+
+[x+1]{.pnum} *Remarks*: Consumption is an instance capability rather than a property of every structure. An owning structure can hand its elements over when it is handed over. A persistent structure that shares its representation cannot in general do so without first copying each element into a temporary.
+
+:::
+
+```cpp
 template<class Impl>
 struct Traversable : protected Impl {
   // Alternate-core: Impl::traverse is the primitive; transpose is derived
   // from it. A transpose-primitive Impl would shadow transpose instead.
   using Impl::traverse;
   using element_type = typename Impl::element_type;
+  static constexpr bool consumes_rvalue_structure =
+      $consuming-traversable-object$<Impl>;
 
   // @[transpose.traversable.ops]{- .sref}@, traversal operations
   template<class T, class F> auto for_each(this auto&& self, T&& value, F&& function);
@@ -40,7 +56,9 @@ struct Traversable : protected Impl {
 
 ::: wording
 
-[x]{.pnum} A program that instantiates `Traversable<Impl>` is ill-formed unless `is_same_v<Impl, false_type>` is `false` and `requires { typename Impl::element_type; }` is `true`.
+[x+2]{.pnum} A program that instantiates `Traversable<Impl>` is ill-formed unless `is_same_v<Impl, false_type>` is `false` and `requires { typename Impl::element_type; }` is `true`.
+
+[x+3]{.pnum} `Traversable<Impl>::consumes_rvalue_structure` re-exports the capability declared by `Impl`. If `Impl` makes no declaration, its value is `false`.
 
 :::
 
@@ -50,7 +68,7 @@ struct Traversable : protected Impl {
 template<class T> inline constexpr auto traversable_typeclass = false_type{};
 ```
 
-[x+1]{.pnum} *Remarks*: This variable template is the lookup point for the Traversable object of a structure type. A program may specialize it for a program-defined structure. The primary template names no traversable object.
+[x+4]{.pnum} *Remarks*: This variable template is the lookup point for the Traversable object of a structure type. A program may specialize it for a program-defined structure. The primary template names no traversable object.
 
 :::
 
@@ -68,10 +86,26 @@ using $structure-element-t$ =
 ```
 
 ```cpp
+template<class OBJ, class T>
+using $traversal-argument-t$ = conditional_t<
+    !is_lvalue_reference_v<T> &&
+        !is_const_v<remove_reference_t<T>> &&
+        !is_volatile_v<remove_reference_t<T>> &&
+        $consuming-traversable-object$<remove_cvref_t<OBJ>>,
+    typename remove_cvref_t<OBJ>::element_type&&,
+    const typename remove_cvref_t<OBJ>::element_type&>; // exposition only
+```
+
+::: wording
+
+[x+5]{.pnum} `$traversal-argument-t$<OBJ, T>` is the type through which the Traversable object `OBJ` presents an element when handed a structure of type and value category `T`. It is an rvalue reference only for a non-`const`, non-`volatile` rvalue structure and an object satisfying `$consuming-traversable-object$`; otherwise it is a `const` lvalue reference.
+
+:::
+
+```cpp
 template<class T>
 using $traverse-element-t$ =
-    conditional_t<is_lvalue_reference_v<T>, const $structure-element-t$<T>&,
-                  $structure-element-t$<T>&&>; // exposition only
+    $traversal-argument-t$<$traversable-object-t$<T>, T>; // exposition only
 ```
 
 ```cpp
@@ -87,62 +121,87 @@ concept $transposable-structure$ = requires {
 } && $applicative-context$<$structure-element-t$<T>>; // exposition only
 ```
 
+```cpp
+template<class APPLICATIVE, class CONTEXT>
+concept $collecting-applicative$ = requires(const APPLICATIVE& applicative) {
+  applicative.collect(declval<vector<CONTEXT>>());
+}; // exposition only
+```
+
 ::: wording
 
 ```cpp
 template<class POLICY, class CONTEXT>
 concept applicative_object_for =
-    applicative_object<POLICY, CONTEXT> && requires(const POLICY& policy) {
-      { policy.pure(declval<applicative_value_t<CONTEXT>>()) } -> same_as<CONTEXT>;
-    };
+    applicative_object<POLICY, CONTEXT> &&
+    (requires(const POLICY& policy) {
+       { policy.pure(declval<applicative_value_t<CONTEXT>>()) } -> same_as<CONTEXT>;
+     } || $collecting-applicative$<POLICY, CONTEXT>);
 ```
 
-[x+2]{.pnum} *Remarks*: This concept is satisfied when `POLICY` is an `applicative_object` over `CONTEXT` whose `pure` returns exactly `CONTEXT` from `CONTEXT`'s element type. The exact-return-type requirement is stronger than `applicative_object` itself makes -- that concept only asks that `pure` exist -- and it is what `traverse`'s trailing policy parameter needs: composing element results into anything other than `CONTEXT` itself would not preserve `traverse`'s "shape of `value` held in context" contract. Constraining the policy parameter on the full deep concept, not merely on `pure`, is what makes an argument that is not a real applicative object -- a further container, say -- ill-formed rather than silently accepted.
+[x+6]{.pnum} *Remarks*: This concept is satisfied when `POLICY` is an `applicative_object` over `CONTEXT` that can compose a structure of `CONTEXT` into one `CONTEXT` of the structure. The pairwise route requires `pure` to return exactly `CONTEXT` from `CONTEXT`'s element type. The native route is available when `POLICY` supplies `collect` for a `vector<CONTEXT>` and does not require the pairwise route also to be available. A traversal prefers the native route when both exist.
 
 :::
+
+```cpp
+template<class OBJ>
+concept $transposing-object$ = requires { typename OBJ::element_type; } &&
+    $applicative-context$<typename OBJ::element_type>; // exposition only
+```
 
 ::: wording
 
 ```cpp
 template<class IMPL, class STRUCTURE>
-concept traversable_impl = requires(const IMPL& impl, const STRUCTURE& structure) {
-  typename IMPL::element_type;
-  impl.traverse(applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
-                $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{}, structure);
-};
+concept traversable_impl =
+    requires(const IMPL& impl, const STRUCTURE& structure) {
+      typename IMPL::element_type;
+      impl.traverse(
+          applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
+          $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{}, structure);
+    } &&
+    (!$consuming-traversable-object$<IMPL> || requires(const IMPL& impl) {
+      impl.traverse(
+          applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
+          $consuming-probe-witness$<applicative_value_t<STRUCTURE>,
+                                      optional<applicative_value_t<STRUCTURE>>>{},
+          declval<STRUCTURE>());
+    });
 ```
 
-[x+3]{.pnum} *Remarks*: This concept is satisfied when `IMPL` supplies the minimal complete basis the `Traversable` CRTP base needs: a declared `element_type` and `traverse`, probed with a representative witness callable that lifts an element into `std::optional` (always a registered applicative context, for any element type). This is the `MINIMAL` pragma to `traversable_object`'s class declaration -- `for_each`, `transpose`, `traverse_with` and `transpose_with` are all derived and belong to `traversable_object` alone. Traversable admits exactly one basis, so there is no disjunction here the way there is for `applicative_impl` and `foldable_impl`.
+[x+7]{.pnum} *Remarks*: This concept is satisfied when `IMPL` supplies the minimal complete basis the `Traversable` CRTP base needs: a declared `element_type` and `traverse`, probed with a representative witness callable that lifts an element into `optional`. An `IMPL` satisfying `$consuming-traversable-object$` is additionally probed on an rvalue structure with a witness accepting an element only as an rvalue. An `IMPL` that does not declare consumption is not required to support that probe.
 
 :::
 
 ::: wording
 
 ```cpp
-template <class OBJ, class STRUCTURE>
+template<class OBJ, class STRUCTURE>
 concept traversable_object =
-    requires(const OBJ &obj, const STRUCTURE &structure) {
-        obj.traverse(
-            applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
-            $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{},
-            structure);
-        obj.for_each(
-            structure,
-            $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{});
-        obj.traverse_with(
-            obj, $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{},
-            structure);
+    requires(const OBJ& obj, const STRUCTURE& structure) {
+      obj.traverse(
+          applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
+          $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{}, structure);
+      obj.for_each(
+          structure, $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{});
+      obj.traverse_with(
+          obj, $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{}, structure);
     } &&
-    (!requires(const OBJ &) {
-        applicative_typeclass<typename OBJ::element_type>.pure(
-            declval<typename OBJ::element_type>());
-    } || requires(const OBJ &obj, const STRUCTURE &structure) {
-        obj.transpose(structure);
-        obj.transpose_with(obj, structure);
+    (!$consuming-traversable-object$<OBJ> || requires(const OBJ& obj) {
+      obj.traverse(
+          applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
+          $consuming-probe-witness$<applicative_value_t<STRUCTURE>,
+                                      optional<applicative_value_t<STRUCTURE>>>{},
+          declval<STRUCTURE>());
+    }) &&
+    (!$transposing-object$<OBJ> || requires(const OBJ& obj,
+                                             const STRUCTURE& structure) {
+      obj.transpose(structure);
+      obj.transpose_with(obj, structure);
     });
 ```
 
-[x+4]{.pnum} *Remarks*: This concept is satisfied when `OBJ` provides the full Traversable object surface over `STRUCTURE`: `traverse`, `for_each` and `traverse_with`, each probed with a representative witness callable that lifts an element into `std::optional` (always a registered applicative context, for any element type). `transpose` and `transpose_with` are required only where `OBJ::element_type` itself names a registered applicative context: both are hard-wired to `applicative_typeclass<element_type>`, which names no applicative object for a structure like `std::vector<int>` whose elements are not themselves an applicative context -- transposing such a structure is not a meaningful operation, not a missing one, so this concept treats `transpose`/`transpose_with` as conditional the same way `applicative_object` treats `ap` and `subsume`. This concept does not require a Foldable object: Traversable needs only an Applicative and the walk, the DELIBERATE CONSTRAINT `Traversable` itself carries.
+[x+8]{.pnum} *Remarks*: This concept is satisfied when `OBJ` provides the full Traversable object surface over `STRUCTURE`. An object declaring consumption is additionally required to accept an rvalue structure with a witness that accepts only an rvalue element. `transpose` and `transpose_with` are required only when `OBJ` satisfies `$transposing-object$`. This concept does not require a Foldable object.
 
 :::
 

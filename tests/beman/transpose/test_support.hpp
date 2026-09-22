@@ -346,6 +346,12 @@ template <class VALUE_TYPE>
 struct TestIdentityTraversableImpl {
     using element_type = VALUE_TYPE;
 
+    // Identity owns its single value, so the consuming overload hands it
+    // over rather than copying it into a temporary first. It is the second
+    // consuming instance in the suite, so the declaration is exercised on
+    // something other than vector.
+    static constexpr bool consumes_rvalue_structure = true;
+
     template <class APPLICATIVE, class FUNCTION>
         requires std::invocable<FUNCTION &, const VALUE_TYPE &>
     auto traverse(this auto &&, const APPLICATIVE &applicative,

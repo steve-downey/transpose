@@ -28,7 +28,7 @@
 //
 // Built only when the execution dependency is enabled, under
 // BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE. That option, its OFF-by-default
-// polarity, and the d24898d pin are all owned by
+// polarity, and the lockfile pin are all owned by
 // docs/decisions.md#p2300-front-door-shape; the execution plan's proposed
 // alternative was withdrawn as superseded on 2026-09-13
 // (docs/decisions.md#execution-dependency-shape). Nothing
