@@ -29,7 +29,7 @@ That pair of ideas is McBride and Paterson's applicative functor and Gibbons and
 
 {{{TEASER_END}}}
 
-*Prev:* [[file:transpose-at-work.org][Transpose at Work]] --- *Up:* [[file:index.org][Contents]]
+*Prev:* [[file:transpose-over-real-senders.org][Transpose Over Real Senders]] --- *Up:* [[file:index.org][Contents]]
 
 * One function, applied under effects
 
