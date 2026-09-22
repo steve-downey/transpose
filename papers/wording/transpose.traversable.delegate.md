@@ -10,7 +10,7 @@ auto traverse_with(this auto&&, const TRAVERSABLE_MAP& traversable_map, F&& func
                    T&& value);
 ```
 
-[x]{.pnum} *Effects*: Traverses `value` using the traversable object `traversable_map` rather than `*this`. The applicative object is the one `applicative_typeclass` names for the context `function` returns.
+[x]{.pnum} *Effects*: Traverses `value` using the traversable object `traversable_map` rather than `*this`. The element is presented through `$traversal-argument-t$<TRAVERSABLE_MAP, T>`. The applicative object is the one `applicative_typeclass` names for the context `function` returns for that argument type.
 
 [x+1]{.pnum} *Returns*: The result of that traversal.
 

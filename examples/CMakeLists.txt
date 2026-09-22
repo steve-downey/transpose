@@ -39,6 +39,9 @@ endforeach()
 # reason the adapter it uses is. See
 # docs/transpose-execution-plan.md#transpose-receipts.
 if(BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE)
+    # beman.execution's inline default parallel backend uses std::thread but
+    # does not yet propagate the platform threads library from its target.
+    find_package(Threads REQUIRED)
     add_executable(beman.transpose.examples.transpose_execution_example)
     target_sources(
         beman.transpose.examples.transpose_execution_example
@@ -50,7 +53,7 @@ if(BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE)
     )
     target_link_libraries(
         beman.transpose.examples.transpose_execution_example
-        PRIVATE beman::transpose beman::execution
+        PRIVATE beman::transpose beman::execution Threads::Threads
     )
     add_test(
         NAME beman.transpose.examples.transpose_execution_example
