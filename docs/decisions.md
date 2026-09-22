@@ -2746,9 +2746,10 @@ that keeps it true rather than merely intended.
 
 ## execution-runloop-signatures
 
-**Question:** Why does the receipts example not use the schedulers the plan
-named?
-**Status:** RECORDED 2026-09-20 — an upstream defect, not a decision of ours.
+**Question:** Why did the original receipts example not use the schedulers the
+plan named?
+**Status:** RESOLVED UPSTREAM 2026-09-22 — retained as the history of the
+original receipts workaround.
 **Decided by:** Measurement at stage
 [transpose-receipts](transpose-execution-plan.md#transpose-receipts). Nothing
 here is a choice about this library's design; it is a note so the next agent
@@ -2788,14 +2789,20 @@ paper over a bug in a pinned dependency. `all_of` follows `when_all`; where
 `when_all` cannot, neither can it, and that agreement is worth more than the
 scene.
 
-**What the example does instead.** A deferred queue, written in the example
-itself: children that enqueue their completion when started, drained on the
-main thread. It serves the deliverable's Why exactly — the single-threaded,
-still-lazy case, with laziness observable at three points rather than one —
-and it needs no scheduler at all. **This is an adaptation of a What, not of a
-Why, and Steve has not ruled on it.** If he would rather the scene wait for a
-dependency bump, the example's scene 2 is self-contained and comes out
-cleanly.
+**What the example did instead at that revision.** A deferred queue, written
+in the example itself: children that enqueued their completion when started,
+drained on the main thread. It served the deliverable's Why exactly — the
+single-threaded, still-lazy case, with laziness observable at three points
+rather than one — and needed no scheduler at all.
+
+**Resolution.** `beman.execution` PR #321 fixed the zero-environment query in
+`ad788f5ff003260b66f5fef6273c9e5a4facb878`; the same revision also includes
+the default parallel-scheduler backend from PR #316. The dependency is now
+pinned there. The receipts example consequently uses
+`get_parallel_scheduler()` for scene 1 and a real `run_loop` for scene 2; both
+local scheduler substitutes have been removed. Because the new inline default
+backend uses `std::thread` without propagating a CMake threads dependency, the
+opt-in execution targets link `Threads::Threads` explicitly.
 
 **Log:**
 - 2026-09-20 — Found and measured at stage transpose-receipts. Worth
@@ -2807,6 +2814,9 @@ cleanly.
   cannot compose `run_loop` senders under *any* compiler, because the defect
   is in the dependency's own header rather than in a compiler's treatment of
   it.
+- 2026-09-22 — Resolved by `beman.execution` PR #321; bumped the pin to its
+  merge commit and replaced both scheduler substitutes in the receipts
+  example with the dependency's schedulers.
 
 ---
 

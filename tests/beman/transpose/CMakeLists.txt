@@ -55,6 +55,9 @@ endforeach()
 # dependency. Its adapter lives under examples/ rather than include/, so that
 # nothing an installation of this library pulls in depends on beman.execution.
 if(BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE)
+    # beman.execution's inline default parallel backend uses std::thread but
+    # does not yet propagate the platform threads library from its target.
+    find_package(Threads REQUIRED)
     # The dependency compile probe: beman.execution and nothing of ours, so a
     # broken dependency fails here rather than inside the adapter's
     # diagnostics. See docs/transpose-execution-plan.md#execution-baseline.
@@ -65,7 +68,7 @@ if(BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE)
     )
     target_link_libraries(
         beman.transpose.tests.execution_probe
-        PRIVATE beman::execution Catch2::Catch2WithMain
+        PRIVATE beman::execution Catch2::Catch2WithMain Threads::Threads
     )
     catch_discover_tests(beman.transpose.tests.execution_probe)
 
@@ -80,7 +83,11 @@ if(BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE)
     )
     target_link_libraries(
         beman.transpose.tests.all_of
-        PRIVATE beman::transpose beman::execution Catch2::Catch2WithMain
+        PRIVATE
+            beman::transpose
+            beman::execution
+            Catch2::Catch2WithMain
+            Threads::Threads
     )
     catch_discover_tests(beman.transpose.tests.all_of)
 
@@ -99,7 +106,11 @@ if(BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE)
     )
     target_link_libraries(
         beman.transpose.tests.all_of_allocation
-        PRIVATE beman::transpose beman::execution Catch2::Catch2WithMain
+        PRIVATE
+            beman::transpose
+            beman::execution
+            Catch2::Catch2WithMain
+            Threads::Threads
     )
     catch_discover_tests(beman.transpose.tests.all_of_allocation)
 
@@ -111,7 +122,11 @@ if(BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE)
     )
     target_link_libraries(
         beman.transpose.tests.p2300
-        PRIVATE beman::transpose beman::execution Catch2::Catch2WithMain
+        PRIVATE
+            beman::transpose
+            beman::execution
+            Catch2::Catch2WithMain
+            Threads::Threads
     )
     catch_discover_tests(beman.transpose.tests.p2300)
 
@@ -130,7 +145,11 @@ if(BEMAN_TRANSPOSE_BUILD_P2300_EVIDENCE)
     )
     target_link_libraries(
         beman.transpose.tests.transpose_senders
-        PRIVATE beman::transpose beman::execution Catch2::Catch2WithMain
+        PRIVATE
+            beman::transpose
+            beman::execution
+            Catch2::Catch2WithMain
+            Threads::Threads
     )
     catch_discover_tests(beman.transpose.tests.transpose_senders)
 endif()
