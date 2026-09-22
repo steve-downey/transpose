@@ -11,6 +11,7 @@
 #include <optional>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace beman::transpose {
 
@@ -210,23 +211,54 @@ concept transposable_structure = requires {
     typename structure_element_t<T>;
 } && applicative_context<structure_element_t<T>>;
 
+namespace detail {
+
+/// Whether `APPLICATIVE` offers a native composition for a runtime-sized
+/// collection of `CONTEXT` operands.
+///
+/// Defined here rather than beside its first caller so that the policy
+/// concept below and the traversals that take the preferring branch ask the
+/// one question in the one spelling. Two spellings of the same probe are two
+/// things that can disagree, and the disagreement would show up as an
+/// operation that is constrained in and then does not compile.
+///
+/// DELIBERATE CONSTRAINT: this names no context, no carrier and no concept
+/// beyond the member itself. Whether anything answers it is the applicative
+/// object's business. See `docs/decisions.md#runtime-arity-composition`,
+/// whose Sentinel this spelling exists to keep.
+//! \expos
+template <class APPLICATIVE, class CONTEXT>
+concept collecting_applicative = requires(const APPLICATIVE &applicative) {
+    applicative.collect(std::declval<std::vector<CONTEXT>>());
+};
+
+} // namespace detail
+
 //! \remarks This concept is satisfied when `POLICY` is an `applicative_object`
-//! over `CONTEXT` whose `pure` returns exactly `CONTEXT` from `CONTEXT`'s
-//! element type. The exact-return-type requirement is stronger than
-//! `applicative_object` itself makes -- that concept only asks that `pure`
-//! exist -- and it is what `traverse`'s trailing policy parameter needs:
-//! composing element results into anything other than `CONTEXT` itself would
-//! not preserve `traverse`'s "shape of `value` held in context" contract.
-//! Constraining the policy parameter on the full deep concept, not merely on
-//! `pure`, is what makes an argument that is not a real applicative object --
-//! a further container, say -- ill-formed rather than silently accepted.
+//! over `CONTEXT` that can compose a structure of `CONTEXT` into one
+//! `CONTEXT` of the structure -- by either of the two routes a traversal has.
+//! The first is that `pure` returns exactly `CONTEXT` from `CONTEXT`'s element
+//! type, which is what the pairwise composition needs: it assigns each partial
+//! result back into a variable of one type, starting from `pure`, so composing
+//! element results into anything other than `CONTEXT` itself would not
+//! preserve `traverse`'s "shape of `value` held in context" contract. The
+//! second is that `POLICY` offers `collect`, which composes the whole
+//! structure in one operation and so is not bound by what `pure` returns. A
+//! traversal takes whichever route `POLICY` offers, preferring `collect`, so
+//! this concept asks for whichever route it will take rather than for the one
+//! it would take by default: an object that supplies `collect` is not
+//! required to also satisfy a requirement of the composition it will not
+//! perform. Constraining the policy parameter on the full deep concept, not
+//! merely on `pure`, is what makes an argument that is not a real applicative
+//! object -- a further container, say -- ill-formed rather than silently
+//! accepted.
 template <class POLICY, class CONTEXT>
 concept applicative_object_for =
-    applicative_object<POLICY, CONTEXT> && requires(const POLICY &policy) {
+    applicative_object<POLICY, CONTEXT> && (requires(const POLICY &policy) {
         {
             policy.pure(std::declval<applicative_value_t<CONTEXT>>())
         } -> std::same_as<CONTEXT>;
-    };
+    } || detail::collecting_applicative<POLICY, CONTEXT>);
 
 //! \remarks This concept is satisfied when `OBJ` declares an `element_type`
 //! that is itself a context with a conforming applicative object -- the

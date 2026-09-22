@@ -1,0 +1,207 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
+#+options: html5-fancy:t
+#+TITLE: Transpose Over Real Senders
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@gmail.com
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+SUBTITLE: The deferred domain over std::execution, and why the fold had to go
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+#+STARTUP: showall
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+#+BIBLIOGRAPHY: ./references.bib
+
+*DRAFT --- pending author revision*
+
+#+begin_comment
+Machine-drafted for author revision. Three things need doing before this
+publishes, none of which can be done from a build container:
+
+1. The ~#+begin_src cpp~ blocks below are pasted from
+   =examples/transpose_execution_example.cpp=. They should become
+   ~#+transclude:~ links against a ~blog/transpose-over-real-senders~ tag,
+   the way every other post in the series pins its code. See pins.md.
+2. The ~#+begin_example~ output blocks are captured verbatim from a real run
+   of that binary, gcc-14 Debug. They should become the babel shell blocks
+   the other "with running code" posts use, run against the gcc-16
+   RelWithDebInfo build. The numbers will not change; the wall-clock ordering
+   in scene 1 is forced by staggered delays, not by luck.
+3. The voice is an imitation. Rewrite it.
+#+end_comment
+
+#+begin_abstract
+[[file:transpose-at-work.org][Transpose at Work]] ran ~transpose~ over a vector of senders and showed that nothing executed until it was asked to.
+The senders were the library's own demonstration type: a ~std::function<T()>~ thunk, labelled non-normative, standing in for the real thing.
+It proved the typeclass story --- three unrelated types answering to one verb --- and nothing whatever about cost, because there was no cost in it to measure.
+This post runs the same front door over genuine ~std::execution~ senders.
+The interesting part is that the obvious implementation could not be made to work, and what replaced it is a rule the library already had.
+#+end_abstract
+
+{{{TEASER_END}}}
+
+*Prev:* [[file:transpose-at-work.org][Transpose at Work]] --- *Next:* [[file:traverse-does-all-the-work.org][Traverse Does All the Work]] --- *Up:* [[file:index.org][Contents]]
+
+* What the stand-in could not say
+
+The demonstration ~sender<T>~ holds a ~std::function<T()>~.
+That is what made it easy to transpose, and it is the whole reason it could not settle anything.
+A ~std::function~ is type-erased: composing two of them gives another ~sender<T>~, the same type you started with, however many times you do it.
+
+The design's claim is that it needs no such thing.
+No wrapper materialized, no conversion, no erasure --- that is the promise, and a type that is already erased cannot test it.
+Worse, it hid a real problem for a year.
+
+* Why the loop could not hold it
+
+The vector traversal was a left fold.
+
+#+begin_src cpp
+auto accumulated = applicative.pure(std::vector<Element>{});
+for (const auto& value : values)
+    accumulated = applicative.invoke(append, std::move(accumulated),
+                                     function(value));
+#+end_src
+
+Look at the assignment.
+It requires the accumulator's /type/ to be the same before and after, and for ~optional~, ~expected~, ~zip_list~ and the demonstration sender it is: each combination lands back in the type it started in.
+
+For a real sender it is not.
+~when_all(acc, s) | then(append)~ names a new expression-template type at every step, so the second iteration wants to assign a different type into ~accumulated~ than the first one produced.
+There is no variable that can hold the loop.
+
+This is where every previous attempt stopped, and there are only two ways past it if you insist on the fold.
+Sequence the children, which throws away the independence the structure was stating.
+Or erase them, which pays an allocation and an indirect call per element and destroys the type the caller wanted to keep composing.
+I had written down, in the decision log, that runtime-sized transposition of senders "needs a type-erased sender". I was wrong, and the log now says so with a measurement attached.
+
+* Not a cleverer fold
+
+The way through is not a better loop.
+It is noticing that an applicative object for a runtime-sized structure needs a /native n-ary composition/, and that the traversal should prefer one when the object has it.
+
+~invoke~ is variadic, so it serves a structure whose size is known when you compile it.
+~collect~ is its range twin:
+
+#+begin_src cpp
+template <class SENDER>
+auto collect(this auto&&, std::vector<SENDER> senders) {
+    return all_of(std::move(senders));
+}
+#+end_src
+
+and the traversal asks for it:
+
+#+begin_src cpp
+if constexpr (detail::collecting_applicative<APPLICATIVE, Effect>) {
+    // map function over values into a vector<Effect>, then one call
+    return applicative.collect(std::move(effects));
+} else {
+    // the existing fold, unchanged
+}
+#+end_src
+
+That is not a new mechanism.
+Every derived operation in this library already probes for a native implementation and derives when there is none --- ~Functor::replace~, ~Monad::join~, ~Foldable::length~.
+This is the same rule on the Traversable side, and it is the first time that rule has bought something a derivation genuinely could not express rather than merely something slower.
+
+The part worth insisting on: ~sequence.hpp~ does not know that senders exist.
+It names no sender type, includes no execution header, and has no ~if constexpr~ on "is this a sender".
+It asks whether the object it was handed has a member, and forwards.
+The n-ary knowledge lives in the one place that has it, which is the applicative object; the structure's traversal stays generic, which is what lets it keep serving ~optional~ unchanged.
+
+~all_of~ itself --- ~when_all~ at runtime arity --- is about five hundred lines and lives in =examples/=, because nothing an installation of this library pulls in is going to depend on ~std::execution~.
+
+* The receipts
+
+Six children, each computing on its own thread, with delays staggered so that the last one to start is the first to finish.
+
+#+begin_example
+scene 1 -- concurrent children
+  completion order: 5 4 3 2 1 0
+  result order:     0 1 4 9 16 25
+#+end_example
+
+The completion order is exactly reversed.
+The results are the squares, in input position.
+Shape preservation is positional and it does not care what the threads did --- for senders, "order" means the order results are assembled into the structure, never the order effects ran. A synchronous context makes those two coincide; this one cannot.
+
+Laziness, with three observations instead of one:
+
+#+begin_example
+scene 2 -- single-threaded, still lazy
+  after transpose: 0 children started, 0 queued
+  after start:     4 children started, 4 queued, result not ready
+  after draining:  result ready
+  values:          100 200 300 400
+#+end_example
+
+Transposing connects nothing and starts nothing.
+Starting the composed operation state starts the children, and they enqueue rather than compute.
+Draining the queue --- on this thread, no other thread in the program --- is what runs the work.
+The earlier post could show the first of those three lines. It could not show the other two, because a ~std::function~ thunk has no operation state to start.
+
+And a failure:
+
+#+begin_example
+scene 3 -- a child fails
+  caught: child 0 could not do the work
+  siblings that saw the stop request: 4 of 4
+#+end_example
+
+The first error to arrive wins, stop is requested on every sibling, and the error is reported once they have all completed.
+That is ~when_all~'s contract, followed deliberately --- including the asymmetry that makes it right: ~set_error~ claims the result slot with an exchange, so it takes it even from a recorded ~stopped~, while ~set_stopped~ uses a compare-exchange and claims only from ~started~.
+Get that backwards and a cancelled child can mask a real error.
+libunifex's undocumented ~when_all_range~, the one other implementation of this operation I could find anywhere, shares one flag between the two.
+
+* One allocation
+
+The receipt that matters for the design claim.
+At one thousand children:
+
+| allocations during ~connect~ | 1                                                     |
+| its size                     | 32,000 bytes = /n/ × ~sizeof(holder)~, ~sizeof~ = 32 |
+| allocations during ~start~   | 1 --- the result ~vector<T>~                          |
+| total                        | 2                                                     |
+
+One block for /n/ child operation states, each holding its result slot next to its own state so that the slot and the state are not two allocations.
+The children are constructed in place and never moved.
+The second allocation is the result vector, which the caller asked for by asking for a vector.
+
+And the type:
+
+#+begin_src cpp
+static_assert(std::is_same_v<decltype(all_of(v)), all_of_sender<S>>);
+#+end_src
+
+Spelled from ~S~.
+Nothing polymorphic anywhere in the shape, no stored callable, no ~<functional>~ include.
+This is a test in the suite, not a claim in a comment --- it replaces the global ~operator new~ and counts.
+It also cannot share a translation unit with ThreadSanitizer, which defines those symbols itself, so the measurement and the concurrency test are two executables.
+That is the sort of thing you only find out by trying it.
+
+* What this does and does not settle
+
+~transpose(std::vector<S>)~ over a real sender works, for a plain ~just~ and for anything adapted, and the result composes again: a vector of transposed structures transposes into ~all_of_sender<all_of_sender<S>>~.
+That last one matters more than it looks. It is what makes ~collect~ an applicative operation rather than a terminal one.
+
+Three things are not done.
+
+The evidence is behind an off-by-default CMake option, and no CI job sets it.
+Every line described here is built by nothing that runs on a push.
+That was a known follow-up when the adapter landed and it has now been guarding four stages of work.
+
+P3200 does not propose ~all_of~, and should not.
+A ~when_all~ that accepts a range of senders belongs to the execution papers if it belongs anywhere; this is evidence that the Traversable/Applicative split is the right seam, not a proposal for a new algorithm.
+
+And the error channel still isn't graded.
+A sender's error set looks very like a grade, and the library has a whole apparatus for grades.
+Acting on the resemblance is a different piece of work, and the log says so rather than leaving it to be discovered.
+
+#+print_bibliography:
