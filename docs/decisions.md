@@ -1783,9 +1783,18 @@ complexity and about move-only values?
 operands through forwarding references and passes each held value on with
 that operand's own value category. `detail::forward_contained` and
 `detail::forward_at` are the two spellings of that. The vector Traversable
-hands its accumulated result to each composition as an rvalue, and carries a
-second, consuming `traverse` overload so that `transpose(std::move(v))`
-expresses that intent through to `function`.
+hands its accumulated result to each composition as an rvalue. It also opts in
+to consuming traversal, so that `transpose(std::move(v))` expresses that
+intent through to `function`.
+
+Consuming traversal is an instance capability, not a promise made by every
+Traversable. An object declaring `consumes_rvalue_structure = true` presents
+the elements of a non-`const`, non-`volatile` rvalue structure as rvalues; an
+object that makes no declaration, or any lvalue or cv-qualified rvalue
+structure, presents them as `const` lvalues. The default is non-consuming.
+Context inference asks the object that will perform the traversal what category
+it presents: the registered object for free `traverse`, `self` for `for_each`,
+and the supplied map for `traverse_with`.
 
 `transpose`'s Complexity clause is stated in *composition operations* per
 element, not in element operations. The element bound is added as a Remark,
@@ -1851,14 +1860,27 @@ This is not a corner: the seed of any traversal into that context is
   `traverse` could not reach the consuming path that `transpose` could:
   `traverse(identity, std::move(v))` over a move-only element type did not
   compile. It now names `traverse_element_t`, which is the element category
-  matching the structure's own. That makes explicit a requirement the vector
-  instance already kept and the wording did not state: a traversable object
-  passes elements on in the category it received the structure in. Without
-  it the context cannot be inferred before a traversable object is selected.
+  declared by the registered Traversable object for the structure category it
+  receives. That makes explicit the vector instance's consuming behavior
+  without imposing it on every Traversable. Without that category agreeing
+  with the selected object, the context cannot be inferred before the
+  traversal is instantiated.
 
   Verified on GCC 16 and Clang 23: 241 and 239 tests, the conformance
   concepts satisfied over `optional<unique_ptr<int>>`, and the negative
   detection cases still evaluating false rather than diagnosing.
+- 2026-09-22 — Restricted consuming traversal to instances that declare it.
+  The default is non-consuming so that persistent structures need not copy
+  elements into temporaries merely to manufacture rvalues. Added
+  `detail::traversal_argument_t<OBJ, T>` so derived operations infer their
+  context from the category of the map that actually performs the walk:
+  `self` for `for_each`, and the supplied map for `traverse_with`. Free
+  `traverse` specializes the same rule to the registered object. Only an
+  unqualified rvalue structure takes the consuming route; `const T&&` and
+  `volatile T&&` remain non-consuming. Conformance probes a declaring object
+  with an rvalue-only witness, so declaration and implementation cannot
+  silently disagree. Verified with consuming `for_each` and `traverse_with`
+  probes and a `const T&&` category check on Clang 21.
 
 ---
 
