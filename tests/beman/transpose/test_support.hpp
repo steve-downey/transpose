@@ -35,26 +35,55 @@ concept has_apply_form =
     requires(const MAP &map, const FUNCTIONS_IN_CONTEXT &cf,
              const ARGUMENTS_IN_CONTEXT &cx) { map.ap(cf, cx); };
 
+/** How a law helper turns a context into something comparable.
+ *
+ * Every law below states an equation between two contexts, and until
+ * 2026-09-13 every one of them tested it with `==` on the contexts
+ * themselves. That works for `optional`, `expected`, `zip_list` and the
+ * demonstration sender, and it cannot work for a P2300 sender: two senders
+ * that compute the same value are unrelated types with no equality, and the
+ * only way to ask what a sender computes is to run it.
+ *
+ * So the OBSERVATION is a parameter and the LAWS are not. A context that
+ * compares gets `observe_directly` and behaves exactly as before; a sender
+ * gets an observer that runs it. What must not happen -- and what having one
+ * parameter here prevents -- is a second copy of the four equations written
+ * in sender vocabulary, which would be a suite that can drift from the one
+ * `optional` is checked against. See
+ * docs/transpose-execution-plan.md#sender-registration deliverable 3.
+ *
+ * An observer is called with an rvalue, so it may consume what it is given;
+ * the helpers copy where they must to supply one.
+ */
+struct observe_directly {
+    template <class CONTEXT>
+    constexpr auto operator()(CONTEXT &&context) const -> CONTEXT && {
+        return std::forward<CONTEXT>(context);
+    }
+};
+
 /** Verify the Applicative identity law, invoke form: `map(id, v) == v`.
  * Holds for every context, including those that cannot hold callables. */
-template <class CONTEXT>
-auto check_applicative_identity_law(const CONTEXT &value) -> bool {
+template <class CONTEXT, class OBSERVE = observe_directly>
+auto check_applicative_identity_law(const CONTEXT &value,
+                                    const OBSERVE &observe = {}) -> bool {
     const auto &applicative =
         applicative_typeclass<std::remove_cvref_t<CONTEXT>>;
     auto result = applicative.map([](const auto &x) { return x; }, value);
-    return result == value;
+    return observe(std::move(result)) == observe(auto(value));
 }
 
 /** Verify the Applicative homomorphism law, generalized to the n-ary core:
  * `invoke(f, pure(x1), ..., pure(xn)) == pure(f(x1, ..., xn))`. */
-template <class CONTEXT, class FUNCTION, class... VALUES>
+template <class CONTEXT, class OBSERVE = observe_directly, class FUNCTION,
+          class... VALUES>
 auto check_applicative_homomorphism_law(const FUNCTION &function,
                                         const VALUES &...values) -> bool {
     const auto &applicative =
         applicative_typeclass<std::remove_cvref_t<CONTEXT>>;
     auto left = applicative.invoke(function, applicative.pure(values)...);
     auto right = applicative.pure(std::invoke(function, values...));
-    return left == right;
+    return OBSERVE{}(std::move(left)) == OBSERVE{}(std::move(right));
 }
 
 /** Verify the Applicative interchange law, invoke form:
@@ -62,23 +91,26 @@ auto check_applicative_homomorphism_law(const FUNCTION &function,
  * operand out of an application. Instantiable only for contexts whose
  * *elements* are callables (a plain vector-of-lambdas is fine); no apply
  * verb is involved. */
-template <class FUNCTIONS_IN_CONTEXT, class VALUE>
+template <class FUNCTIONS_IN_CONTEXT, class VALUE,
+          class OBSERVE = observe_directly>
 auto check_applicative_interchange_law(const FUNCTIONS_IN_CONTEXT &functions,
-                                       const VALUE &value) -> bool {
+                                       const VALUE &value,
+                                       const OBSERVE &observe = {}) -> bool {
     const auto &applicative =
         applicative_typeclass<std::remove_cvref_t<FUNCTIONS_IN_CONTEXT>>;
     auto call = [](const auto &f, const auto &x) { return std::invoke(f, x); };
     auto left = applicative.invoke(call, functions, applicative.pure(value));
     auto right = applicative.map(
         [&value](const auto &f) { return std::invoke(f, value); }, functions);
-    return left == right;
+    return observe(std::move(left)) == observe(std::move(right));
 }
 
 /** Verify the functor composition law: `map(f . g, v) == map(f, map(g, v))`
  * -- the composition analog expressible for every applicative context. */
-template <class CONTEXT, class F, class G>
+template <class CONTEXT, class F, class G, class OBSERVE = observe_directly>
 auto check_functor_composition_law(const F &outer, const G &inner,
-                                   const CONTEXT &value) -> bool {
+                                   const CONTEXT &value,
+                                   const OBSERVE &observe = {}) -> bool {
     const auto &applicative =
         applicative_typeclass<std::remove_cvref_t<CONTEXT>>;
     auto left = applicative.map(
@@ -87,7 +119,7 @@ auto check_functor_composition_law(const F &outer, const G &inner,
         },
         value);
     auto right = applicative.map(outer, applicative.map(inner, value));
-    return left == right;
+    return observe(std::move(left)) == observe(std::move(right));
 }
 
 /** Copy-constructible, and deliberately nothing more.

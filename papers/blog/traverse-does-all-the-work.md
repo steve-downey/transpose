@@ -10,7 +10,7 @@ That pair of ideas is McBride and Paterson's applicative functor and Gibbons and
 
 </div>
 
-**Prev:** [Transpose at Work](transpose-at-work.md) &#x2014; **Up:** [Contents](index.md)
+**Prev:** [Transpose Over Real Senders](transpose-over-real-senders.md) &#x2014; **Up:** [Contents](index.md)
 
 
 # One function, applied under effects

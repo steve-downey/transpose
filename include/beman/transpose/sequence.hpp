@@ -144,24 +144,38 @@ inline constexpr vector_append_t<ELEMENT> vector_append{};
 
 // \rSec3[transpose.range.traverse]{Traversable instance for vector}
 
-//! \effects Applies `function` to each element of `values` in order and
-//! composes the resulting contextual values with `applicative`, collecting
-//! the element results into a `vector`.
+//! \effects Let `E` be the type `function` returns for an element of
+//! `values`. Applies `function` to each element of `values` in order. If
+//! `applicative.collect(v)` is a valid expression for an rvalue `vector<E>`
+//! `v`, composes the resulting contextual values by passing all of them to
+//! that one call; otherwise composes them pairwise with `applicative`,
+//! collecting the element results into a `vector`.
 //! \returns A `vector` of the element results, of the same size as `values`
 //! and in the same order, held in the single context `applicative` composes
 //! into.
-//! \complexity Exactly `values.size()` applications of `function`, and
-//! `values.size()` composition operations on `applicative`. Where
-//! `applicative` composes an rvalue operand without duplicating the value it
-//! holds -- as every applicative object this library registers does -- the
-//! total number of element operations is linear in `values.size()`.
+//! \complexity Exactly `values.size()` applications of `function`. Where
+//! `applicative` has no `collect`, `values.size()` composition operations on
+//! `applicative`, and where it composes an rvalue operand without
+//! duplicating the value it holds -- as every applicative object this
+//! library registers does -- the total number of element operations is
+//! linear in `values.size()`. Where `applicative` has `collect`, exactly one
+//! composition operation, whose own complexity is that operation's to state.
 //! \remarks Traversal preserves shape: the result holds one element per
 //! element of `values`, in the same order. Elements are visited in the
 //! vector's iteration order, and their contexts are composed in that same
-//! order. The accumulated result is handed to each composition as an rvalue:
-//! composing it as an lvalue would oblige `applicative` to copy the whole
-//! prefix built so far, once per element, making a successful traversal
-//! quadratic rather than linear in the elements it collects.
+//! order. Preferring `collect` is the Traversable-side instance of the rule
+//! every derived operation in this library follows: an object that supplies
+//! a native operation is asked for it, and one that does not is derived
+//! against unchanged. It is what admits an `applicative` whose composition
+//! is not type-stable -- a pairwise fold must assign each partial result
+//! back into a variable of one type, which a context whose combination names
+//! a new type at every step cannot do -- and the requirement is stated as
+//! the expression rather than as a property of the context so that this
+//! operation stays generic over what supplies it. On the pairwise path the
+//! accumulated result is handed to each composition as an rvalue: composing
+//! it as an lvalue would oblige `applicative` to copy the whole prefix built
+//! so far, once per element, making a successful traversal quadratic rather
+//! than linear in the elements it collects.
 template <class VALUE_TYPE>
 template <class APPLICATIVE, class FUNCTION>
 auto VectorTraversableImpl<VALUE_TYPE>::traverse(
@@ -169,18 +183,28 @@ auto VectorTraversableImpl<VALUE_TYPE>::traverse(
     const std::vector<VALUE_TYPE> &values) {
     using Effect = std::remove_cvref_t<
         std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
-    using Element = applicative_value_t<Effect>;
 
-    std::vector<Element> collected;
-    collected.reserve(values.size());
+    if constexpr (detail::collecting_applicative<APPLICATIVE, Effect>) {
+        std::vector<Effect> effects;
+        effects.reserve(values.size());
+        for (const auto &value : values) {
+            effects.push_back(std::invoke(function, value));
+        }
+        return applicative.collect(std::move(effects));
+    } else {
+        using Element = applicative_value_t<Effect>;
 
-    auto accumulated = applicative.pure(std::move(collected));
-    for (const auto &value : values) {
-        accumulated = applicative.invoke(detail::vector_append<Element>,
-                                         std::move(accumulated),
-                                         std::invoke(function, value));
+        std::vector<Element> collected;
+        collected.reserve(values.size());
+
+        auto accumulated = applicative.pure(std::move(collected));
+        for (const auto &value : values) {
+            accumulated = applicative.invoke(detail::vector_append<Element>,
+                                             std::move(accumulated),
+                                             std::invoke(function, value));
+        }
+        return accumulated;
     }
-    return accumulated;
 }
 
 //! \effects Equivalent to the preceding overload, except that each element of
@@ -198,18 +222,28 @@ auto VectorTraversableImpl<VALUE_TYPE>::traverse(
     std::vector<VALUE_TYPE> &&values) {
     using Effect =
         std::remove_cvref_t<std::invoke_result_t<FUNCTION &, VALUE_TYPE &&>>;
-    using Element = applicative_value_t<Effect>;
 
-    std::vector<Element> collected;
-    collected.reserve(values.size());
+    if constexpr (detail::collecting_applicative<APPLICATIVE, Effect>) {
+        std::vector<Effect> effects;
+        effects.reserve(values.size());
+        for (auto &value : values) {
+            effects.push_back(std::invoke(function, std::move(value)));
+        }
+        return applicative.collect(std::move(effects));
+    } else {
+        using Element = applicative_value_t<Effect>;
 
-    auto accumulated = applicative.pure(std::move(collected));
-    for (auto &value : values) {
-        accumulated = applicative.invoke(
-            detail::vector_append<Element>, std::move(accumulated),
-            std::invoke(function, std::move(value)));
+        std::vector<Element> collected;
+        collected.reserve(values.size());
+
+        auto accumulated = applicative.pure(std::move(collected));
+        for (auto &value : values) {
+            accumulated = applicative.invoke(
+                detail::vector_append<Element>, std::move(accumulated),
+                std::invoke(function, std::move(value)));
+        }
+        return accumulated;
     }
-    return accumulated;
 }
 
 } // namespace beman::transpose

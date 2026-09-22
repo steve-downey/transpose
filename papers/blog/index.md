@@ -23,4 +23,5 @@ A second arc: the same operations demonstrated from compiled examples, with the 
 
 6.  [Graded Gadgets](graded-gadgets.md) &#x2014; indexing fallible computation by the set of errors it can raise; `error_set`, lazy joins, and `recover`.
 7.  [Transpose at Work](transpose-at-work.md) &#x2014; `transpose` run over optionals, senders, and hardware SIMD lanes, with receipts.
-8.  [Traverse Does All the Work](traverse-does-all-the-work.md) &#x2014; `transpose` is `traverse` with identity, and an applicative object is the whole contract.
+8.  [Transpose Over Real Senders](transpose-over-real-senders.md) &#x2014; the deferred domain over `std::execution`: why the fold could not be spelled, and one allocation for *n* children.
+9.  [Traverse Does All the Work](traverse-does-all-the-work.md) &#x2014; `transpose` is `traverse` with identity, and an applicative object is the whole contract.
