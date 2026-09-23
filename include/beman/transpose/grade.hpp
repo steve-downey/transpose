@@ -108,6 +108,7 @@ struct grade_of {
     using type = unit_grade;
 };
 
+//! \expos
 template <class CONTEXT>
 using grade_of_t = typename grade_of<CONTEXT>::type;
 
@@ -118,6 +119,7 @@ using grade_of_t = typename grade_of<CONTEXT>::type;
 template <class CONTEXT, class GRADE>
 struct rebind_grade;
 
+//! \expos
 template <class CONTEXT, class GRADE>
 using rebind_grade_t = typename rebind_grade<CONTEXT, GRADE>::type;
 
