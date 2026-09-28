@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+# A tool cannot take responsibility for a commit. Reject commits authored or
+# committed as Claude, and messages carrying Claude attribution trailers.
+
+name: Commit Authorship
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  no-claude-authorship:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Check commits
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          # A new branch or a manual run has no usable base; check all history.
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            range="$HEAD"
+          else
+            range="$BASE..$HEAD"
+          fi
+
+          bad=0
+          for c in $(git rev-list "$range"); do
+            idents=$(git log -1 --format='%an <%ae>%n%cn <%ce>' "$c")
+            trailers=$(git log -1 --format=%B "$c" |
+              grep -iE '^(Co-Authored-By|Assisted-By|Signed-off-by):.*(claude|anthropic)|^Claude-Session:' || true)
+            if printf '%s\n' "$idents" | grep -qiE '^claude |@anthropic\.com>$' || [ -n "$trailers" ]; then
+              bad=1
+              echo "::error::$(git log -1 --format='%h %s' "$c")"
+              printf '%s\n' "$idents" | sed 's/^/    /'
+              [ -n "$trailers" ] && printf '%s\n' "$trailers" | sed 's/^/    /'
+            fi
+          done
+
+          if [ "$bad" -ne 0 ]; then
+            echo "Commits above are attributed to Claude. Re-author them to a person"
+            echo "(git commit --amend --reset-author, or git rebase -x) and drop the trailers."
+            exit 1
+          fi
+          echo "No Claude-attributed commits in $range."
