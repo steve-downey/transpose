@@ -1167,6 +1167,12 @@ down instead.
   constructs its own `MONAD_OBJECT{}` and calls `kleisli` on it in the same
   full expression that invokes the result, keeping the temporary alive for
   exactly as long as it is used.
+- 2026-10-07 — The named-carrier half of this decision is superseded by
+  [monoid-selection](#monoid-selection): the choice among several monoids on
+  one type is now spelled by passing an instance object over the bare type,
+  not by wrapping the value in a carrier type. The registration half stands
+  unchanged — a bare `int` or `bool` still has no `Monoid<T>` registration,
+  and the `has_monoid` sentinels keep failing a test if one returns.
 
 ## impl-access-through-bases
 
@@ -2936,3 +2942,165 @@ functor-shaped types reporting either way.
 - 2026-09-13 — Recorded from issue #34. Upstream provenance: OBS-2 in
   specgen's `foundation/DIVERGENCES.md`, and decision D16 in its refactoring
   plan. No change to this library follows from it.
+
+---
+
+## monoid-selection
+
+**Question:** When a type carries more than one monoid — addition, product,
+max and min on a number; conjunction and disjunction on `bool` — how does a
+caller say which one a fold uses?
+**Status:** DECIDED 2026-10-07 — implementation not yet started.
+**Decided by:** Steve Downey, 2026-10-07, in the design discussion that
+reopened the named-carrier half of
+[monoid-carrier-canonicity](#monoid-carrier-canonicity).
+**Decision:** The caller passes a **monoid instance object** over the bare
+type. The value type is not wrapped. `Sum<T>`, `Product<T>`, `Max<T>`,
+`Min<T>`, `Any` and `All` give way to instances, provisionally
+`sum_monoid<T>`, `product_monoid<T>`, `max_monoid<T>`, `min_monoid<T>`, and
+`any_monoid` and `all_monoid` over `bool`. Combinators such as
+`dual_monoid<M>` and `tuple_monoid<M...>` take instances and return an
+instance, so a value of type `std::pair<int, int>` can be folded under sum
+and max together without wrapping anything.
+
+1. **The registry stays.** `Monoid<T>` and `monoid_v<T>` remain the source
+   of the canonical instance where one exists: string and vector
+   concatenation, as [monoid-carrier-canonicity](#monoid-carrier-canonicity)
+   decided. What is registered is an *instance*, a value, and it is what a
+   fold uses when the caller passes nothing.
+2. **The call surface.** A fold takes the instance as a trailing parameter
+   whose default is the registered instance for the result type. This is
+   the [traverse-policy-surface](#traverse-policy-surface) shape, and it is
+   constrained the same way, by a `monoid_object<M, T>` concept, so a stray
+   argument fails loudly. Where the type has no registration, the default
+   does not exist and the instance is required. A fold over `int` with no
+   instance passed is not a candidate; it is not a hard error from inside
+   the body.
+3. **The Foldable basis takes the instance.** `Impl::fold_map` receives it.
+   The derived operations pass library instances over bare types: `length`
+   a sum over `std::size_t`, `any_of` and `all_of` the two `bool`
+   monoids, `find_first` a first-engaged instance over `std::optional`.
+   `Count`, the public `Any` and `All`, and `detail::First` retire with
+   them. `combine_all` and `fold` take an optional instance;
+   `detail::has_registered_monoid` becomes the test for whether a default
+   exists, rather than whether the operation is available.
+4. **Instances may carry state.** A monoid instance is an object, and
+   nothing in the algebra requires it to be empty: addition modulo a
+   runtime value is a monoid on `int`, and so is specgen's
+   `monoid{combine, identity}` aggregate (see
+   [explicit-parameter-tier-sufficiency](#explicit-parameter-tier-sufficiency)).
+   The library does **not** promise that the state survives an algorithm.
+   A `fold_map` basis is user code. It may copy the instance, or construct
+   a fresh `M{}` in its place, and nothing at the library boundary can stop
+   it. What the library does promise is about its own code: the
+   library-provided algorithms, derivations and combinators do not copy an
+   instance needlessly, and never replace the instance they were given
+   with a default-constructed one. In practice that means they take
+   `const M &` and pass the same reference down, and that a combinator
+   stores its operand instances as members rather than naming `M{}`.
+   This differs on purpose from `traverse`, which takes its policy by
+   value: that policy is stateless by construction, and a monoid instance
+   is not.
+5. **The bounds on a registered instance's state are not settled.**
+   `monoid_v<T>` is one `inline constexpr` object per type per program. A
+   registered instance's state is therefore constant-initialized, shared by
+   every fold that defaults to it, and fixed for the program. Whether that
+   is a restriction to state the registry should state, or a reason for the
+   registry to admit only empty instances, is left open as
+   [registered-instance-state](#registered-instance-state).
+
+**Why:** Monoid was the one typeclass in the library looked up by type.
+`Functor`, `Applicative`, `Monad`, `Foldable` and `Traversable` are all
+objects. The applicative object is passed as a value in `traverse`, and the
+`*_with` family passes an instance as an argument. A type-indexed lookup
+leaves a caller only one way to pick a different monoid, which is to change
+the type, and that is what the named carriers are. Carriers do not compose:
+
+- A pair of monoids is a pair of wrappers, unwrapped twice at the end.
+- `LiftedMonoid` gets its element monoid from the element type, so
+  `std::optional<int>` has to become `std::optional<Sum<int>>`
+  (`induced_monoid.test.cpp`).
+- `DualMonoid<M>` wraps the value again, and every operation a caller
+  needs on the value has to be forwarded through the wrapper.
+
+beman.fingertree, the largest consumer of monoids in the family, shows the
+cost:
+
+- `FingerTree<T, TAG_TYPE, MEASURE_POLICY>` uses its tag type as the measure
+  value, the monoid selector, and what split predicates compare, all at once.
+- The random-access and rope trees need a bare `Monoid<std::size_t>`, which
+  this library deliberately removed. The fingertree's vendored typeclass
+  layer still registers it, so the two copies have already diverged.
+- Every other measure is a hand-written tag: `Weighted`,
+  `IntervalMaxEndTag<PAYLOAD_TYPE>`, `MinTag`, `MaxTag`, `PriorityTag`.
+- `FingerTreePriorityQueue::size()` is O(n) because "the PriorityTag measure
+  does not cache a count". Caching one would mean a fifth tag type.
+  With instances, it is a product of three instances.
+- `DualMonoid` forwards `>=` so that `split_at_measure` compiles on a
+  reversed tree, and callers spell its threshold through the wrapper
+  (`split_at_measure({3U})`).
+- `MaxTag<T>` uses an adjoined `std::optional` identity, and this library's
+  `Max<T>` uses `numeric_limits::lowest()`. Both are reasonable, and as
+  carrier types they cannot coexist on one value type. As instances, they
+  are two named objects.
+
+The argument [monoid-carrier-canonicity](#monoid-carrier-canonicity) made
+for naming still holds. It was that the library must not pick among
+several monoids for the caller, and an instance is named just as
+explicitly as a carrier. The difference is that the name goes on the
+operation, where the choice is made, and not on every value that flows
+through it.
+**Consequences:**
+- *The value no longer records its monoid.* An `int` from a sum fold looks
+  like an `int` from a max fold. Where that record mattered, it moves to
+  the type of the structure that caches combined values. A fingertree
+  would carry its instance type as a template parameter, and its node type
+  should be keyed on the instance, not the value type, because a cached
+  measure is valid only under the monoid that computed it. `Elem<T, Tag>`
+  is safe today only because each tag type has exactly one monoid.
+- *State weakens that record.* Keying on the instance type checks the
+  type, not the state. Two trees whose instances are the same type with
+  different state, such as sums modulo 5 and modulo 7, would concatenate
+  without complaint. This follows from point 4. It is the price of
+  allowing state, and keying on the type does not catch it.
+- *Every Foldable instance changes signature.* That covers
+  `VectorFoldableImpl`, `test_support.hpp`, the test Impls,
+  `examples/binary_tree.hpp`, and the fingertree's Foldable Impls. It also
+  covers the `foldable_impl` and `foldable_object` probes, which witness
+  with `Count`. `induced_monoid.hpp`'s `LiftedMonoid` and `KleisliEndo`
+  become combinators over instances, and the `fold_map` sections of the two
+  blog posts need revising.
+- *Order of work:* this library first, then re-vendor its typeclass layer
+  into beman.fingertree, rather than changing both copies by hand.
+**Log:**
+- 2026-10-07 — Recorded. A standalone prototype showed several things. A
+  trailing parameter whose default comes from the registry, typed
+  `M = Monoid<R>`, compiles with both GCC and Clang at `-std=c++23`. Where
+  `Monoid<R>` is undefined, the call is removed from the candidate set
+  rather than hard-erroring. Instance combinators (`dual_monoid`, and the
+  pair case of `tuple_monoid`) fold `std::pair<int, int>` and
+  `std::string` with no wrappers. That prototype's combinators named `M{}` and so assumed empty
+  instances; under point 4 the real ones store their operands.
+
+---
+
+## registered-instance-state
+
+**Question:** What state may a *registered* monoid instance carry, given
+that registration is of an instance, not a type?
+**Status:** OPEN 2026-10-07
+**Note:** Raised by point 5 of [monoid-selection](#monoid-selection). A
+passed instance may carry any state, with no guarantee that the state
+survives user code. A registered instance is different: `monoid_v<T>` is a
+single constant-initialized object, which every defaulted fold over `T`
+silently shares. The candidate answers are:
+
+- empty instances only, which matches every registration today;
+- any constant-initializable state, with the registration documenting it;
+- no stated bound.
+
+The obvious test case is a registered instance whose state is chosen at
+startup. A `constexpr` registry cannot hold one, which may answer the
+question by itself.
+**Log:**
+- 2026-10-07 — Raised while recording [monoid-selection](#monoid-selection).
