@@ -2984,23 +2984,40 @@ and max together without wrapping anything.
    them. `combine_all` and `fold` take an optional instance;
    `detail::has_registered_monoid` becomes the test for whether a default
    exists, rather than whether the operation is available.
-4. **Instances may carry state, and must be cheap to copy.** A monoid
-   instance is an object, and nothing in the algebra requires it to be
-   empty: addition modulo a runtime value is a monoid on `int`, and so is
-   specgen's `monoid{combine, identity}` aggregate (see
+4. **Instances may carry state. The library does not go out of its way
+   to avoid copying them.** A monoid instance is an object, and nothing in
+   the algebra requires it to be empty: addition modulo a runtime value is
+   a monoid on `int`, and so is specgen's `monoid{combine, identity}`
+   aggregate (see
    [explicit-parameter-tier-sufficiency](#explicit-parameter-tier-sufficiency)).
-   Copying an instance and passing it by value are permitted everywhere,
-   in the library's own algorithms as well as in user code. This is the
-   same by-value treatment `traverse` gives its policy. The requirement on
-   the instance is that a copy be cheap. A bundle of non-virtual member
-   functions costs nothing to copy, even when they are not `static`, so an
-   instance without data members meets it trivially. A combinator holds its
-   operand instances by value. The library does not promise that an
-   instance's identity survives an algorithm: a `fold_map` basis is user
-   code, and it may copy the instance as often as it likes. State that has
-   to accumulate across a fold, such as an instrumentation counter, belongs
-   behind a pointer or reference the instance holds, so that every copy
-   reaches the same place.
+   The governing constraint is that no use of an instance, stateful or
+   not, may be undefined behavior or rest on a precondition that cannot be
+   checked. So the library places no requirement on an instance's state or
+   on the cost of copying it. Library algorithms may copy an instance and
+   pass it by value, as `traverse` does with its policy, and so may user
+   code such as a `fold_map` basis. Each copy behaves as that copy defines.
+   The result is always defined, though which copy saw which combine is
+   not specified. That may well be what the instance's author expects.
+   State that has to accumulate across copies, such as an instrumentation
+   counter, can sit behind a pointer or reference the instance holds; this
+   is a pattern that works, not a requirement.
+
+   The *expectation* is that an instance is shaped like a stateless object,
+   and that the calls the typeclass determines are statically resolvable
+   and therefore available for inlining. A bundle of non-virtual member
+   functions costs nothing extra to copy, even when they are not `static`,
+   and its calls are resolved at compile time. The library's own instances
+   and combinators meet that expectation, and a combinator holds its
+   operands by value as their concrete types, so composing instances does
+   not erase what the compiler can see. An instance that does not meet the
+   expectation, for example one holding `std::function` members, is still
+   correct. It is only slower.
+
+   This is deliberately less than stateful allocators get. They are useful,
+   and the standard should keep supporting them, but they have not been an
+   unqualified success. The cost of propagating and preserving their state
+   is paid by every container, including for the stateless allocators that
+   most code uses. Monoid instances do not repeat that bargain.
 5. **A registered instance may be stateful, and the library does not try
    to prevent it.** The registry is open, so nothing structural can
    require a registered instance to be stateless. Doing so would also not
@@ -3008,8 +3025,8 @@ and max together without wrapping anything.
    one `inline constexpr` object per type per program, shared by every fold
    that defaults to it. Any state it holds can therefore matter only by
    side effect. Instrumentation is such a side effect, and it is a
-   legitimate use. The only requirement is the one in point 4: cheap to
-   copy. See [registered-instance-state](#registered-instance-state).
+   legitimate use. Point 4 applies unchanged: no requirement, and copies
+   may be made. See [registered-instance-state](#registered-instance-state).
 
 **Why:** Monoid was the one typeclass in the library looked up by type.
 `Functor`, `Applicative`, `Monad`, `Foldable` and `Traversable` are all
@@ -3093,6 +3110,13 @@ through it.
   state that must survive copies keeps it behind a reference. Point 5 now
   answers [registered-instance-state](#registered-instance-state) instead
   of leaving it open.
+- 2026-10-07 — Point 4 revised a second time by Steve Downey. "Must be
+  cheap to copy" was itself a precondition the library could not check, so
+  it is now an expectation. What stays forbidden is undefined behavior and
+  uncheckable preconditions. The library will not go out of its way to
+  avoid copying an instance. It also expects the calls an instance
+  determines to be statically resolvable and inlinable, and it says why it
+  gives instances less than stateful allocators get.
 
 ---
 
@@ -3103,10 +3127,11 @@ that registration is of an instance, not a type?
 **Status:** DECIDED 2026-10-07
 **Decided by:** Steve Downey, 2026-10-07, the same day the question was
 raised.
-**Decision:** No bound beyond what [monoid-selection](#monoid-selection)
-point 4 asks of every instance: it must be cheap to copy. A registered
-instance may be stateful. The library neither forbids it nor tries to
-detect it.
+**Decision:** No bound. A registered instance may be stateful, and the
+library neither forbids it nor tries to detect it. As with every instance
+under [monoid-selection](#monoid-selection) point 4, the expectation is that
+it is shaped like a stateless object, but that is not a requirement, and a
+registered instance may be copied.
 **Why:** The registry is open, and there is no structural way to require an
 instance to be stateless. A registered instance is also not a useful home
 for state that changes results. `monoid_v<T>` is a single
@@ -3125,3 +3150,6 @@ simply the only place where the parameter can differ between call sites.
   constant-initializable state, documented at the registration; or no
   stated bound. Answered the same day: no stated bound, for the reasons
   above.
+- 2026-10-07 — The Decision dropped its "must be cheap to copy" clause,
+  following the second revision of [monoid-selection](#monoid-selection)
+  point 4. Being cheap to copy is now an expectation, not a requirement.
