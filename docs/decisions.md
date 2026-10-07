@@ -3079,8 +3079,9 @@ through it.
   `Monoid<R>` is undefined, the call is removed from the candidate set
   rather than hard-erroring. Instance combinators (`dual_monoid`, and the
   pair case of `tuple_monoid`) fold `std::pair<int, int>` and
-  `std::string` with no wrappers. That prototype's combinators named `M{}` and so assumed empty
-  instances; under point 4 the real ones store their operands.
+  `std::string` with no wrappers. That prototype's combinators named
+  `M{}` and so assumed empty instances; under point 4 the real ones store
+  their operands.
 
 ---
 
