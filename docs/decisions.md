@@ -2984,30 +2984,32 @@ and max together without wrapping anything.
    them. `combine_all` and `fold` take an optional instance;
    `detail::has_registered_monoid` becomes the test for whether a default
    exists, rather than whether the operation is available.
-4. **Instances may carry state.** A monoid instance is an object, and
-   nothing in the algebra requires it to be empty: addition modulo a
-   runtime value is a monoid on `int`, and so is specgen's
-   `monoid{combine, identity}` aggregate (see
+4. **Instances may carry state, and must be cheap to copy.** A monoid
+   instance is an object, and nothing in the algebra requires it to be
+   empty: addition modulo a runtime value is a monoid on `int`, and so is
+   specgen's `monoid{combine, identity}` aggregate (see
    [explicit-parameter-tier-sufficiency](#explicit-parameter-tier-sufficiency)).
-   The library does **not** promise that the state survives an algorithm.
-   A `fold_map` basis is user code. It may copy the instance, or construct
-   a fresh `M{}` in its place, and nothing at the library boundary can stop
-   it. What the library does promise is about its own code: the
-   library-provided algorithms, derivations and combinators do not copy an
-   instance needlessly, and never replace the instance they were given
-   with a default-constructed one. In practice that means they take
-   `const M &` and pass the same reference down, and that a combinator
-   stores its operand instances as members rather than naming `M{}`.
-   This differs on purpose from `traverse`, which takes its policy by
-   value: that policy is stateless by construction, and a monoid instance
-   is not.
-5. **The bounds on a registered instance's state are not settled.**
-   `monoid_v<T>` is one `inline constexpr` object per type per program. A
-   registered instance's state is therefore constant-initialized, shared by
-   every fold that defaults to it, and fixed for the program. Whether that
-   is a restriction to state the registry should state, or a reason for the
-   registry to admit only empty instances, is left open as
-   [registered-instance-state](#registered-instance-state).
+   Copying an instance and passing it by value are permitted everywhere,
+   in the library's own algorithms as well as in user code. This is the
+   same by-value treatment `traverse` gives its policy. The requirement on
+   the instance is that a copy be cheap. A bundle of non-virtual member
+   functions costs nothing to copy, even when they are not `static`, so an
+   instance without data members meets it trivially. A combinator holds its
+   operand instances by value. The library does not promise that an
+   instance's identity survives an algorithm: a `fold_map` basis is user
+   code, and it may copy the instance as often as it likes. State that has
+   to accumulate across a fold, such as an instrumentation counter, belongs
+   behind a pointer or reference the instance holds, so that every copy
+   reaches the same place.
+5. **A registered instance may be stateful, and the library does not try
+   to prevent it.** The registry is open, so nothing structural can
+   require a registered instance to be stateless. Doing so would also not
+   be worth much. A registry does not dispense a resource: `monoid_v<T>` is
+   one `inline constexpr` object per type per program, shared by every fold
+   that defaults to it. Any state it holds can therefore matter only by
+   side effect. Instrumentation is such a side effect, and it is a
+   legitimate use. The only requirement is the one in point 4: cheap to
+   copy. See [registered-instance-state](#registered-instance-state).
 
 **Why:** Monoid was the one typeclass in the library looked up by type.
 `Functor`, `Applicative`, `Monad`, `Foldable` and `Traversable` are all
@@ -3082,6 +3084,15 @@ through it.
   `std::string` with no wrappers. That prototype's combinators named
   `M{}` and so assumed empty instances; under point 4 the real ones store
   their operands.
+- 2026-10-07 — Points 4 and 5 revised the same day by Steve Downey. The
+  first draft had the library take instances by `const &` and promise not
+  to copy them. That is replaced by requiring instances to be cheap to
+  copy and permitting copies and pass-by-value everywhere. A bundle of
+  non-virtual functions costs nothing to copy, so the promise protected
+  nothing an instance without data members needs, and an instance with
+  state that must survive copies keeps it behind a reference. Point 5 now
+  answers [registered-instance-state](#registered-instance-state) instead
+  of leaving it open.
 
 ---
 
@@ -3089,19 +3100,28 @@ through it.
 
 **Question:** What state may a *registered* monoid instance carry, given
 that registration is of an instance, not a type?
-**Status:** OPEN 2026-10-07
-**Note:** Raised by point 5 of [monoid-selection](#monoid-selection). A
-passed instance may carry any state, with no guarantee that the state
-survives user code. A registered instance is different: `monoid_v<T>` is a
-single constant-initialized object, which every defaulted fold over `T`
-silently shares. The candidate answers are:
-
-- empty instances only, which matches every registration today;
-- any constant-initializable state, with the registration documenting it;
-- no stated bound.
-
-The obvious test case is a registered instance whose state is chosen at
-startup. A `constexpr` registry cannot hold one, which may answer the
-question by itself.
+**Status:** DECIDED 2026-10-07
+**Decided by:** Steve Downey, 2026-10-07, the same day the question was
+raised.
+**Decision:** No bound beyond what [monoid-selection](#monoid-selection)
+point 4 asks of every instance: it must be cheap to copy. A registered
+instance may be stateful. The library neither forbids it nor tries to
+detect it.
+**Why:** The registry is open, and there is no structural way to require an
+instance to be stateless. A registered instance is also not a useful home
+for state that changes results. `monoid_v<T>` is a single
+constant-initialized object that every defaulted fold over `T` silently
+shares. It does not dispense a resource, so it has nothing to hand out per
+fold. Whatever state it holds can matter only by side effect.
+Instrumentation, such as counting combines through a pointer to a counter
+held elsewhere, is a side effect worth allowing. Forbidding state would
+rule it out and would still be unenforceable.
+**Consequences:** A result-changing parameter, such as a modulus, belongs on
+a passed instance, not a registered one. Nothing enforces that; it is
+simply the only place where the parameter can differ between call sites.
 **Log:**
-- 2026-10-07 — Raised while recording [monoid-selection](#monoid-selection).
+- 2026-10-07 — Raised while recording [monoid-selection](#monoid-selection),
+  with three candidate answers: empty instances only; any
+  constant-initializable state, documented at the registration; or no
+  stated bound. Answered the same day: no stated bound, for the reasons
+  above.
