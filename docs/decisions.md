@@ -1173,6 +1173,8 @@ down instead.
   not by wrapping the value in a carrier type. The registration half stands
   unchanged — a bare `int` or `bool` still has no `Monoid<T>` registration,
   and the `has_monoid` sentinels keep failing a test if one returns.
+- 2026-10-08 — The six named carriers are removed from `monoid.hpp`;
+  `monoid.test.cpp` now also asserts `!has_monoid<bool>`.
 
 ## impl-access-through-bases
 
@@ -2950,7 +2952,8 @@ functor-shaped types reporting either way.
 **Question:** When a type carries more than one monoid — addition, product,
 max and min on a number; conjunction and disjunction on `bool` — how does a
 caller say which one a fold uses?
-**Status:** DECIDED 2026-10-07 — implementation not yet started.
+**Status:** DECIDED 2026-10-07; implemented in beman.transpose 2026-10-08,
+beman.fingertree to follow.
 **Decided by:** Steve Downey, 2026-10-07, in the design discussion that
 reopened the named-carrier half of
 [monoid-carrier-canonicity](#monoid-carrier-canonicity).
@@ -3117,6 +3120,36 @@ through it.
   avoid copying an instance. It also expects the calls an instance
   determines to be statically resolvable and inlinable, and it says why it
   gives instances less than stateful allocators get.
+- 2026-10-08 — Implemented in beman.transpose. Final spellings:
+  `sum_monoid<T>`, `product_monoid<T>`, `max_monoid<T>`, `min_monoid<T>`,
+  `any_monoid`, `all_monoid`, `first_monoid<T>` (over `std::optional<T>`,
+  what `find_first` folds with), and the combinators `dual_monoid<M>` and
+  `tuple_monoid<M...>`, all in `monoid.hpp` with the `monoid_object<M, T>`
+  concept and `monoid_value_t<M>`. `dual_monoid.hpp` is gone; `Count`,
+  `Any`, `All`, `detail::First` and the four `*FoldProgram*` structs with
+  it. `fold_left`/`fold_right` derive through
+  `detail::left_compose_monoid<S>` / `right_compose_monoid<S>`, two
+  instances over the one value type `std::function<S(S)>`. The induced
+  monoids are instances too: `kleisli_monoid<MONAD_OBJECT, A>` over the
+  erased arrow, and `lifted_monoid<APPLICATIVE_OBJECT, CONTEXT,
+  ELEMENT_MONOID = Monoid<applicative_value_t<CONTEXT>>>` over the bare
+  `CONTEXT`, holding its element instance by value. Three things the entry
+  did not spell out, settled in implementation:
+  *The Foldable basis is `fold_map(f, structure, monoid)`*, three
+  arguments, the instance always real; the two-argument form is derived in
+  the base and is a candidate only where the Impl declares `element_type`
+  (so the result type can be named) and that type has a registration.
+  `fold.test.cpp` carries the tripwire: `fold_map(identity, vector<int>)`
+  is not callable, `fold_map(identity, vector<int>, sum_monoid<int>{})` is.
+  *`element_type` also unlocks `to_vector`, `find_first`, and
+  `combine_all`/`fold` without an instance*, since each has to name the
+  element type to pick its instance (`Monoid<vector<E>>`,
+  `first_monoid<E>`, `Monoid<E>`). All three in-tree Impls declare it.
+  *The Maps carry no `using Impl::fold_map;`*: the base now owns both
+  overloads, and a using-declaration of the Impl's three-argument form
+  would hide the derived two-argument one. This finishes what
+  [impl-access-through-bases](#impl-access-through-bases) started -- the
+  base decides, per instantiation, and the Map says nothing.
 
 ---
 
