@@ -85,7 +85,10 @@ When older slideware guidance conflicts with these defaults, this file wins.
 
 ## Foldable Rules
 
-- `fold_map` is the semantic center.
+- `fold_map(f, structure, monoid)` is the semantic center. The monoid is an instance object over `f`'s result type, passed by value; an Impl never chooses one (`docs/decisions.md#monoid-selection`).
+- The two-argument `fold_map(f, structure)` is derived, defaults to the registered `Monoid` of the result type, and exists only where the Impl declares `element_type` and that type has a registration. Do not add a bare-numeric or boolean registration to make it exist.
+- Impls declare `using element_type = ...;`. It also unlocks `to_vector`, `find_first`, and `combine_all`/`fold` without an instance.
+- Maps carry no `using Impl::fold_map;` -- the `Foldable` base owns both overloads.
 - `length`, `to_vector`, `fold_left`, and `fold_right` should be derived where practical.
 - Tree traversal order is part of the instance contract and must be documented.
 
