@@ -1,7 +1,7 @@
 // tests/beman/transpose/dual_monoid.test.cpp                         -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include <beman/transpose/dual_monoid.hpp>
+#include <beman/transpose/monoid.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -9,15 +9,22 @@
 
 namespace bt = beman::transpose;
 
+// dual_monoid<M> is an instance over M's own value type: the string stays a
+// string, only the combine order flips. Nothing is wrapped.
+
 TEST_CASE("dual_monoid: flips combine argument order") {
-    using D = bt::DualMonoid<std::string>;
-    auto combined =
-        bt::monoid_v<D>.combine(D{std::string{"ab"}}, D{std::string{"cd"}});
-    // Flipped: rhs.value + lhs.value == "cd" + "ab".
-    REQUIRE(combined.value == "cdab");
+    bt::dual_monoid<bt::Monoid<std::string>> d;
+    auto combined = d.combine(std::string{"ab"}, std::string{"cd"});
+    // Flipped: rhs + lhs == "cd" + "ab".
+    REQUIRE(combined == "cdab");
 }
 
 TEST_CASE("dual_monoid: identity matches underlying identity") {
-    using D = bt::DualMonoid<std::string>;
-    REQUIRE(bt::monoid_v<D>.identity().value.empty());
+    bt::dual_monoid<bt::Monoid<std::string>> d;
+    REQUIRE(d.identity().empty());
+}
+
+TEST_CASE("dual_monoid: the dual of the dual is the original order") {
+    bt::dual_monoid<bt::dual_monoid<bt::Monoid<std::string>>> dd;
+    REQUIRE(dd.combine(std::string{"ab"}, std::string{"cd"}) == "abcd");
 }

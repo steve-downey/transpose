@@ -9,7 +9,6 @@ target_sources(
                 config.hpp
                 apply.hpp
                 array.hpp
-                dual_monoid.hpp
                 error_set.hpp
                 expected.hpp
                 fold.hpp
