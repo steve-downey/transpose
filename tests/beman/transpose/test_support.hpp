@@ -309,15 +309,17 @@ inline constexpr auto applicative_typeclass<test::Identity<VALUE_TYPE>> =
  * left-to-right. */
 template <class VALUE_TYPE>
 struct TestSequenceFoldableImpl {
-    template <class FUNCTION>
+    using element_type = VALUE_TYPE;
+
+    template <class FUNCTION, class MONOID>
     auto fold_map(this auto &&, FUNCTION &&function,
-                  const test::Sequence<VALUE_TYPE> &sequence) {
+                  const test::Sequence<VALUE_TYPE> &sequence, MONOID monoid) {
         using Result = std::remove_cvref_t<
-            std::invoke_result_t<FUNCTION, const VALUE_TYPE &>>;
+            std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
         return std::ranges::fold_left(
-            sequence.values, monoid_identity<Result>(),
+            sequence.values, Result(monoid.identity()),
             [&](Result acc, const VALUE_TYPE &value) {
-                return monoid_combine(std::move(acc),
+                return monoid.combine(std::move(acc),
                                       std::invoke(function, value));
             });
     }
@@ -325,9 +327,7 @@ struct TestSequenceFoldableImpl {
 
 template <class VALUE_TYPE>
 struct TestSequenceFoldableMap
-    : Foldable<TestSequenceFoldableImpl<VALUE_TYPE>> {
-    using TestSequenceFoldableImpl<VALUE_TYPE>::fold_map;
-};
+    : Foldable<TestSequenceFoldableImpl<VALUE_TYPE>> {};
 
 template <class VALUE_TYPE>
 inline constexpr auto foldable_typeclass<test::Sequence<VALUE_TYPE>> =

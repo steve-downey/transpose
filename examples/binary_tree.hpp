@@ -110,37 +110,41 @@ class BinaryTree {
 
 /** Foldable typeclass instance for BinaryTree<T>.
  * fold_map applies @p function to every node value (in-order: left, root,
- * right) and combines the results using the Monoid for the return type.
+ * right) and combines the results under the monoid instance it is passed.
  * @tparam T element type of the tree being folded
  */
 template <class T>
 struct BinaryTreeFoldableImpl {
-    template <class F>
-    auto fold_map(this auto &&self, F &&function, const BinaryTree<T> &tree)
+    using element_type = T;
+
+    template <class F, class MONOID>
+    auto fold_map(this auto &&self, F &&function, const BinaryTree<T> &tree,
+                  MONOID monoid)
         -> std::remove_cvref_t<decltype(std::invoke(function, tree.value()))> {
         auto value_result = std::invoke(function, tree.value());
         using Result = std::remove_cvref_t<decltype(value_result)>;
 
-        Result acc = tree.has_left() ? beman::transpose::monoid_combine(
-                                           self.fold_map(function, tree.left()),
-                                           std::move(value_result))
-                                     : std::move(value_result);
+        // A tree is never empty, so the identity is never needed: every
+        // combine has a real operand on both sides.
+        Result acc =
+            tree.has_left()
+                ? monoid.combine(self.fold_map(function, tree.left(), monoid),
+                                 std::move(value_result))
+                : std::move(value_result);
 
         if (tree.has_right()) {
-            acc = beman::transpose::monoid_combine(
-                std::move(acc), self.fold_map(function, tree.right()));
+            acc = monoid.combine(std::move(acc),
+                                 self.fold_map(function, tree.right(), monoid));
         }
 
         return acc;
     }
 };
 
-/** Foldable map that exposes the fold_map operation for BinaryTree<T>. */
+/** Foldable map that exposes the fold family for BinaryTree<T>. */
 template <class T>
 struct BinaryTreeFoldableMap
-    : beman::transpose::Foldable<BinaryTreeFoldableImpl<T>> {
-    using BinaryTreeFoldableImpl<T>::fold_map;
-};
+    : beman::transpose::Foldable<BinaryTreeFoldableImpl<T>> {};
 
 // ---------------------------------------------------------------------------
 // Applicative instance for BinaryTree<T>
