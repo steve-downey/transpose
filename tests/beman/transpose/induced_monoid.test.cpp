@@ -17,8 +17,9 @@ namespace bt = beman::transpose;
 namespace {
 
 // Sentinel: the raw carriers these monoids are induced over do not
-// themselves gain a Monoid. "Named and unregistered" means operationally
-// that this concept stays false for them.
+// themselves gain a registered Monoid. An induced monoid is an instance the
+// caller passes, never a registration on the context type; operationally,
+// this concept stays false for the context.
 // Probed on the specialization itself, never through monoid_v: naming
 // monoid_v<T> declares a variable of the undefined type Monoid<T>, and that
 // failure is outside the requires-expression's immediate context -- a hard
@@ -28,24 +29,26 @@ concept has_monoid = requires { sizeof(bt::Monoid<T>); } &&
                      requires(const bt::Monoid<T> &m) { m.identity(); };
 
 static_assert(!has_monoid<std::optional<int>>);
-static_assert(!has_monoid<std::optional<bt::Sum<int>>>);
 
 } // namespace
 
 // ============================================================================
-// KleisliEndo: the Kleisli endomorphism monoid over std::optional<int>.
+// kleisli_monoid: the Kleisli endomorphism monoid over std::optional<int>.
 // Identity is pure, combine is Kleisli composition (>=>). The Kleisli-form
 // monad laws (pure is the two-sided unit of >=>, and >=> is associative) are
 // exactly the three monoid laws checked below, applied "as functions": two
 // arrows are compared by applying both to the same inputs and comparing
-// results, since the erased carrier holds a std::function and has no
+// results, since the erased value type is a std::function and has no
 // operator==.
 // ============================================================================
 
 namespace {
 
 using MonadObj = bt::OptionalMonadMap<int>;
-using Endo = bt::KleisliEndo<MonadObj, int>;
+using Kleisli = bt::kleisli_monoid<MonadObj, int>;
+using Arrow = Kleisli::value_type;
+
+static_assert(bt::monoid_object<Kleisli, Arrow>);
 
 // Arrows exercising both the engaged and disengaged branches of the
 // underlying std::optional context.
@@ -77,116 +80,129 @@ auto agree_on_samples(const F &f, const G &g) -> bool {
 
 } // namespace
 
-TEST_CASE("induced_monoid: KleisliEndo identity is pure") {
-    auto id = bt::monoid_v<Endo>.identity();
+TEST_CASE("induced_monoid: kleisli_monoid identity is pure") {
+    auto id = Kleisli{}.identity();
     for (int x : sample_inputs) {
         REQUIRE(id(x) == std::optional<int>{x});
     }
 }
 
-TEST_CASE("induced_monoid: KleisliEndo left identity -- combine(pure, f) "
+TEST_CASE("induced_monoid: kleisli_monoid left identity -- combine(pure, f) "
           "agrees with f") {
-    Endo f{increment_below_100};
-    auto id = bt::monoid_v<Endo>.identity();
-    auto composed = bt::monoid_v<Endo>.combine(id, f);
+    Kleisli k;
+    Arrow f{increment_below_100};
+    auto composed = k.combine(k.identity(), f);
     REQUIRE(agree_on_samples(composed, f));
 }
 
-TEST_CASE("induced_monoid: KleisliEndo right identity -- combine(f, pure) "
+TEST_CASE("induced_monoid: kleisli_monoid right identity -- combine(f, pure) "
           "agrees with f") {
-    Endo f{increment_below_100};
-    auto id = bt::monoid_v<Endo>.identity();
-    auto composed = bt::monoid_v<Endo>.combine(f, id);
+    Kleisli k;
+    Arrow f{increment_below_100};
+    auto composed = k.combine(f, k.identity());
     REQUIRE(agree_on_samples(composed, f));
 }
 
-TEST_CASE("induced_monoid: KleisliEndo combine is >=> -- Kleisli forward "
+TEST_CASE("induced_monoid: kleisli_monoid combine is >=> -- Kleisli forward "
           "composition") {
-    Endo f{increment_below_100};
-    Endo g{doubled};
-    auto composed = bt::monoid_v<Endo>.combine(f, g);
+    Kleisli k;
+    Arrow f{increment_below_100};
+    Arrow g{doubled};
+    auto composed = k.combine(f, g);
     for (int x : sample_inputs) {
         auto expected = bt::mbind(f(x), doubled);
         REQUIRE(composed(x) == expected);
     }
 }
 
-TEST_CASE("induced_monoid: KleisliEndo associativity -- the Kleisli-form "
+TEST_CASE("induced_monoid: kleisli_monoid associativity -- the Kleisli-form "
           "monad law") {
-    Endo f{increment_below_100};
-    Endo g{doubled};
-    Endo h{decrement_above_zero};
+    Kleisli k;
+    Arrow f{increment_below_100};
+    Arrow g{doubled};
+    Arrow h{decrement_above_zero};
 
-    auto left = bt::monoid_v<Endo>.combine(bt::monoid_v<Endo>.combine(f, g), h);
-    auto right =
-        bt::monoid_v<Endo>.combine(f, bt::monoid_v<Endo>.combine(g, h));
+    auto left = k.combine(k.combine(f, g), h);
+    auto right = k.combine(f, k.combine(g, h));
 
     REQUIRE(agree_on_samples(left, right));
 }
 
 // ============================================================================
-// LiftedMonoid: the applicative-lifted monoid, F<A> from a Monoid<A>. Lifted
-// here over std::optional<Sum<int>> -- Sum<int> supplies the element monoid,
-// std::optional<Sum<int>> is the F<A> that becomes a monoid.
+// lifted_monoid: the applicative-lifted monoid, F<A> from an instance over
+// A. Lifted here over std::optional<int> under addition: sum_monoid<int>
+// supplies the element monoid, std::optional<int> -- unwrapped -- is the
+// F<A> that becomes a monoid.
 // ============================================================================
 
 namespace {
 
-using ApplicativeObj = bt::OptionalApplicativeMap<bt::Sum<int>>;
-using Lifted = bt::LiftedMonoid<ApplicativeObj, std::optional<bt::Sum<int>>>;
+using ApplicativeObj = bt::OptionalApplicativeMap<int>;
+using Lifted =
+    bt::lifted_monoid<ApplicativeObj, std::optional<int>, bt::sum_monoid<int>>;
 
-// Checks the three monoid laws for a handful of values of a carrier `M`,
-// including a disengaged operand -- the same shape as monoid.test.cpp's
-// local law-checker, specialized to LiftedMonoid's equality.
-auto check_lifted_laws(const Lifted &a, const Lifted &b, const Lifted &c)
-    -> bool {
-    const auto e = bt::monoid_v<Lifted>.identity();
-    const bool left_identity = bt::monoid_v<Lifted>.combine(e, a) == a;
-    const bool right_identity = bt::monoid_v<Lifted>.combine(a, e) == a;
+static_assert(bt::monoid_object<Lifted, std::optional<int>>);
+static_assert(std::is_same_v<bt::monoid_value_t<Lifted>, std::optional<int>>);
+
+// The element instance defaults to the registration where one exists.
+static_assert(
+    std::is_same_v<bt::lifted_monoid<bt::OptionalApplicativeMap<std::string>,
+                                     std::optional<std::string>>,
+                   bt::lifted_monoid<bt::OptionalApplicativeMap<std::string>,
+                                     std::optional<std::string>,
+                                     bt::Monoid<std::string>>>);
+
+// Checks the three monoid laws for a handful of values under the lifted
+// instance, including a disengaged operand -- the same shape as
+// monoid.test.cpp's local law-checker.
+auto check_lifted_laws(const std::optional<int> &a, const std::optional<int> &b,
+                       const std::optional<int> &c) -> bool {
+    Lifted m;
+    const auto e = m.identity();
+    const bool left_identity = m.combine(e, a) == a;
+    const bool right_identity = m.combine(a, e) == a;
     const bool associative =
-        bt::monoid_v<Lifted>.combine(bt::monoid_v<Lifted>.combine(a, b), c) ==
-        bt::monoid_v<Lifted>.combine(a, bt::monoid_v<Lifted>.combine(b, c));
+        m.combine(m.combine(a, b), c) == m.combine(a, m.combine(b, c));
     return left_identity && right_identity && associative;
 }
 
 } // namespace
 
-TEST_CASE("induced_monoid: LiftedMonoid identity is pure(monoid_v<A>."
-          "identity())") {
-    REQUIRE(bt::monoid_v<Lifted>.identity().d_value ==
-            std::optional<bt::Sum<int>>{bt::Sum<int>{0}});
+TEST_CASE("induced_monoid: lifted_monoid identity is pure(identity_A)") {
+    REQUIRE(Lifted{}.identity() == std::optional<int>{0});
 }
 
-TEST_CASE("induced_monoid: LiftedMonoid combine is invoke(combine_A) over "
+TEST_CASE("induced_monoid: lifted_monoid combine is invoke(combine_A) over "
           "engaged operands") {
-    Lifted x{std::optional<bt::Sum<int>>{bt::Sum<int>{3}}};
-    Lifted y{std::optional<bt::Sum<int>>{bt::Sum<int>{4}}};
-    REQUIRE(bt::monoid_v<Lifted>.combine(x, y).d_value ==
-            std::optional<bt::Sum<int>>{bt::Sum<int>{7}});
+    REQUIRE(Lifted{}.combine(std::optional<int>{3}, std::optional<int>{4}) ==
+            std::optional<int>{7});
 }
 
-TEST_CASE("induced_monoid: LiftedMonoid combine propagates a disengaged "
+TEST_CASE("induced_monoid: lifted_monoid combine propagates a disengaged "
           "operand") {
-    Lifted engaged{std::optional<bt::Sum<int>>{bt::Sum<int>{3}}};
-    Lifted disengaged{std::optional<bt::Sum<int>>{}};
-    REQUIRE(bt::monoid_v<Lifted>.combine(engaged, disengaged).d_value ==
-            std::optional<bt::Sum<int>>{});
-    REQUIRE(bt::monoid_v<Lifted>.combine(disengaged, engaged).d_value ==
-            std::optional<bt::Sum<int>>{});
+    Lifted m;
+    REQUIRE(m.combine(std::optional<int>{3}, std::optional<int>{}) ==
+            std::optional<int>{});
+    REQUIRE(m.combine(std::optional<int>{}, std::optional<int>{3}) ==
+            std::optional<int>{});
 }
 
-TEST_CASE("induced_monoid: LiftedMonoid satisfies the monoid laws, engaged "
+TEST_CASE("induced_monoid: lifted_monoid satisfies the monoid laws, engaged "
           "operands") {
-    Lifted a{std::optional<bt::Sum<int>>{bt::Sum<int>{2}}};
-    Lifted b{std::optional<bt::Sum<int>>{bt::Sum<int>{3}}};
-    Lifted c{std::optional<bt::Sum<int>>{bt::Sum<int>{5}}};
-    REQUIRE(check_lifted_laws(a, b, c));
+    REQUIRE(check_lifted_laws(2, 3, 5));
 }
 
-TEST_CASE("induced_monoid: LiftedMonoid satisfies the monoid laws with a "
+TEST_CASE("induced_monoid: lifted_monoid satisfies the monoid laws with a "
           "disengaged operand") {
-    Lifted a{std::optional<bt::Sum<int>>{bt::Sum<int>{2}}};
-    Lifted b{std::optional<bt::Sum<int>>{}};
-    Lifted c{std::optional<bt::Sum<int>>{bt::Sum<int>{5}}};
-    REQUIRE(check_lifted_laws(a, b, c));
+    REQUIRE(check_lifted_laws(2, std::nullopt, 5));
+}
+
+TEST_CASE("induced_monoid: lifted_monoid holds its element instance by "
+          "value") {
+    // The element monoid is state the lift carries, not a type it looks up:
+    // the same context lifts under max by passing a different instance.
+    bt::lifted_monoid<ApplicativeObj, std::optional<int>, bt::max_monoid<int>>
+        m;
+    REQUIRE(m.combine(std::optional<int>{3}, std::optional<int>{4}) ==
+            std::optional<int>{4});
 }

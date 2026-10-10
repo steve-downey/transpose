@@ -37,22 +37,28 @@ namespace beman::transpose {
 //! \omit
 template <class VALUE_TYPE>
 struct VectorFoldableImpl {
+    using element_type = VALUE_TYPE;
+
     // The trailing return type is the Impl-keeps-its-basis-SFINAE-friendly
     // invariant apply.hpp records, applied to the fold basis: computed only
     // in the body, the result type would be established by instantiating
     // that body, and an availability probe would diagnose from inside it
-    // rather than fail to match.
+    // rather than fail to match. The monoid is an instance object over that
+    // result type, passed by value; the Impl never chooses one
+    // (docs/decisions.md#monoid-selection).
     //! \omit
-    template <class FUNCTION>
+    template <class FUNCTION, class MONOID>
+        requires monoid_object<MONOID, std::remove_cvref_t<std::invoke_result_t<
+                                           FUNCTION &, const VALUE_TYPE &>>>
     auto fold_map(this auto &&, FUNCTION &&function,
-                  const std::vector<VALUE_TYPE> &values)
+                  const std::vector<VALUE_TYPE> &values, MONOID monoid)
         -> std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>> {
         using Result = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
-        auto accumulated = monoid_identity<Result>();
+        Result accumulated = monoid.identity();
         for (const auto &value : values) {
-            accumulated = monoid_combine(std::move(accumulated),
+            accumulated = monoid.combine(std::move(accumulated),
                                          std::invoke(function, value));
         }
         return accumulated;
@@ -67,9 +73,7 @@ struct VectorFoldableImpl {
 
 //! \omit
 template <class VALUE_TYPE>
-struct VectorFoldableMap : Foldable<VectorFoldableImpl<VALUE_TYPE>> {
-    using VectorFoldableImpl<VALUE_TYPE>::fold_map;
-};
+struct VectorFoldableMap : Foldable<VectorFoldableImpl<VALUE_TYPE>> {};
 
 /** Foldable instance for `std::vector<VALUE_TYPE>`. */
 template <class VALUE_TYPE>

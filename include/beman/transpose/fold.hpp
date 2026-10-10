@@ -24,69 +24,59 @@
 
 namespace beman::transpose::detail {
 
-// Identity function for fold composition - no type erasure needed
+// The two fold programs fold_left and fold_right derive through are
+// endomorphisms `STATE -> STATE`, type-erased through std::function so that
+// combine returns what it takes: a monoid's value type must close under
+// combine, and a bare lambda type does not. One value type, two instances
+// -- composition in traversal order for fold_left, in reverse for
+// fold_right -- which is docs/decisions.md#monoid-selection in miniature:
+// the choice between them is made at the operation, not by wrapping the
+// function in a differently named carrier.
+
+/** Composition monoid on `std::function<STATE(STATE)>` in application
+ * order: `combine(l, r)` runs `l` first, then `r`. Identity is the identity
+ * function.
+ */
 template <class STATE>
-struct IdentityFoldFunc {
-    constexpr auto operator()(STATE s) const -> STATE { return s; }
-};
+struct left_compose_monoid {
+    using value_type = std::function<STATE(STATE)>;
 
-// Compose two fold functions without type erasure
-template <class F1, class F2>
-struct ComposedFoldFunc {
-    F1 d_f1;
-    F2 d_f2;
+    auto identity() const -> value_type {
+        return [](STATE s) { return s; };
+    }
 
-    template <class STATE>
-    auto operator()(STATE s) const -> STATE {
-        return d_f2(d_f1(std::move(s)));
+    auto combine(const value_type &lhs, const value_type &rhs) const
+        -> value_type {
+        return [lhs, rhs](STATE s) { return rhs(lhs(std::move(s))); };
     }
 };
 
-// Left fold composition (same order as f1 then f2)
+/** Composition monoid on `std::function<STATE(STATE)>` in reverse
+ * application order: `combine(l, r)` runs `r` first, then `l`.
+ */
 template <class STATE>
-struct LeftFoldProgram {
-    std::function<STATE(STATE)> d_run;
+struct right_compose_monoid {
+    using value_type = std::function<STATE(STATE)>;
 
-    auto operator()(STATE state) const -> STATE {
-        return d_run(std::move(state));
+    auto identity() const -> value_type {
+        return [](STATE s) { return s; };
+    }
+
+    auto combine(const value_type &lhs, const value_type &rhs) const
+        -> value_type {
+        return [lhs, rhs](STATE s) { return lhs(rhs(std::move(s))); };
     }
 };
 
-// Template-based version that avoids type erasure - used internally
-template <class F>
-struct LeftFoldProgramT {
-    F d_run;
-
-    template <class STATE>
-    auto operator()(STATE state) const -> STATE {
-        return d_run(std::move(state));
-    }
-};
-
-template <class STATE>
-struct RightFoldProgram {
-    std::function<STATE(STATE)> d_run;
-
-    auto operator()(STATE state) const -> STATE {
-        return d_run(std::move(state));
-    }
-};
-
-// Template-based version that avoids type erasure - used internally
-template <class F>
-struct RightFoldProgramT {
-    F d_run;
-
-    template <class STATE>
-    auto operator()(STATE state) const -> STATE {
-        return d_run(std::move(state));
-    }
-};
-
-template <class VALUE_TYPE>
-struct First {
-    std::optional<VALUE_TYPE> d_value;
-};
+/** The result type of applying `F` to one element of an Impl that declares
+ * `element_type`: the value type a two-argument `fold_map(f, value)` folds
+ * under, and therefore the type whose registered Monoid it defaults to.
+ * Ill-formed when `IMPL` declares no `element_type`, so that a
+ * requires-expression naming it answers `false`.
+ */
+template <class IMPL, class F>
+using fold_result_t = std::remove_cvref_t<
+    std::invoke_result_t<F &, const typename IMPL::element_type &>>;
 
 // Named witnesses for the fold family's availability probes, completing
 // probe_witness/probe_witness2 with the argument-dependent return shapes
@@ -101,8 +91,8 @@ struct First {
 // probe_witness, whose body establishes a result type and nothing else,
 // these three stand in for derivations that really do copy the element --
 // `combine_all` folds with the identity function, `to_vector` collects each
-// element into a vector, `find_first` carries a matching element out in a
-// `First`. That requirement has to be stated rather than discovered in a
+// element into a vector, `find_first` carries a matching element out in an
+// optional. That requirement has to be stated rather than discovered in a
 // body: probing an operation with a deduced return type instantiates enough
 // of it to instantiate the witness call, so an unstated copy would reach
 // the compiler as a diagnostic from inside the probe, and a concept that
@@ -134,14 +124,15 @@ struct vector_probe_witness {
     }
 };
 
-/** First-shaped probe: returns an empty `First` of its argument's type --
- * the shape `find_first` folds with.
+/** Optional-shaped probe: returns an empty optional of its argument's type
+ * -- the shape `find_first` folds with.
  */
-struct first_probe_witness {
+struct optional_probe_witness {
     template <class ARGUMENT>
         requires std::copy_constructible<ARGUMENT>
-    constexpr auto operator()(const ARGUMENT &) const -> First<ARGUMENT> {
-        return First<ARGUMENT>{};
+    constexpr auto operator()(const ARGUMENT &) const
+        -> std::optional<ARGUMENT> {
+        return std::optional<ARGUMENT>{};
     }
 };
 
@@ -149,121 +140,52 @@ struct first_probe_witness {
 
 namespace beman::transpose {
 
-template <class STATE>
-struct Monoid<detail::LeftFoldProgram<STATE>> {
-    auto identity() const -> detail::LeftFoldProgram<STATE> {
-        return detail::LeftFoldProgram<STATE>{[](STATE s) { return s; }};
-    }
-
-    auto combine(const detail::LeftFoldProgram<STATE> &lhs,
-                 const detail::LeftFoldProgram<STATE> &rhs) const
-        -> detail::LeftFoldProgram<STATE> {
-        return detail::LeftFoldProgram<STATE>{
-            [lhs, rhs](STATE s) { return rhs(lhs(std::move(s))); }};
-    }
-};
-
-// Template specialization for LeftFoldProgramT - avoids type erasure
-template <class F>
-struct Monoid<detail::LeftFoldProgramT<F>> {
-    auto identity() const
-        -> detail::LeftFoldProgramT<detail::IdentityFoldFunc<int>> {
-        return detail::LeftFoldProgramT<detail::IdentityFoldFunc<int>>{
-            detail::IdentityFoldFunc<int>{}};
-    }
-
-    template <class G>
-    auto combine(const detail::LeftFoldProgramT<F> &lhs,
-                 const detail::LeftFoldProgramT<G> &rhs) const
-        -> detail::LeftFoldProgramT<detail::ComposedFoldFunc<F, G>> {
-        return detail::LeftFoldProgramT<detail::ComposedFoldFunc<F, G>>{
-            detail::ComposedFoldFunc<F, G>{lhs.d_run, rhs.d_run}};
-    }
-};
-
-template <class STATE>
-struct Monoid<detail::RightFoldProgram<STATE>> {
-    auto identity() const -> detail::RightFoldProgram<STATE> {
-        return detail::RightFoldProgram<STATE>{[](STATE s) { return s; }};
-    }
-
-    auto combine(const detail::RightFoldProgram<STATE> &lhs,
-                 const detail::RightFoldProgram<STATE> &rhs) const
-        -> detail::RightFoldProgram<STATE> {
-        return detail::RightFoldProgram<STATE>{
-            [lhs, rhs](STATE s) { return lhs(rhs(std::move(s))); }};
-    }
-};
-
-// Template specialization for RightFoldProgramT - avoids type erasure
-template <class F>
-struct Monoid<detail::RightFoldProgramT<F>> {
-    auto identity() const
-        -> detail::RightFoldProgramT<detail::IdentityFoldFunc<int>> {
-        return detail::RightFoldProgramT<detail::IdentityFoldFunc<int>>{
-            detail::IdentityFoldFunc<int>{}};
-    }
-
-    template <class G>
-    auto combine(const detail::RightFoldProgramT<F> &lhs,
-                 const detail::RightFoldProgramT<G> &rhs) const
-        -> detail::RightFoldProgramT<detail::ComposedFoldFunc<F, G>> {
-        return detail::RightFoldProgramT<detail::ComposedFoldFunc<F, G>>{
-            detail::ComposedFoldFunc<F, G>{lhs.d_run, rhs.d_run}};
-    }
-};
-
-template <class VALUE_TYPE>
-struct Monoid<detail::First<VALUE_TYPE>> {
-    auto identity() const -> detail::First<VALUE_TYPE> { return {{}}; }
-
-    auto combine(const detail::First<VALUE_TYPE> &lhs,
-                 const detail::First<VALUE_TYPE> &rhs) const
-        -> detail::First<VALUE_TYPE> {
-        if (lhs.d_value) {
-            return lhs;
-        }
-        return rhs;
-    }
-};
-
 // Foldable pattern invariants:
-// - Generic entry point is fold_map(F, T) via foldable_typeclass<T>.
-// - Instances provide an object with fold_map(F, T) and specialize
-//   foldable_typeclass<Concrete>.
+// - Generic entry point is fold_map(F, T, MONOID) via foldable_typeclass<T>.
+//   The monoid is an instance object over the result type of F, passed by
+//   value (docs/decisions.md#monoid-selection); the two-argument
+//   fold_map(F, T) is derived, defaulting to the registered Monoid of the
+//   result type, and exists only where the Impl declares `element_type`
+//   and that type has a registration.
+// - Instances provide an object with fold_map(F, T, MONOID) and specialize
+//   foldable_typeclass<Concrete>. The instance never chooses a monoid.
 // - Derived APIs (length, fold_left, fold_right, combine_all, any_of, all_of,
-//   empty, to_vector, find_first) live on the same looked-up object.
+//   empty, to_vector, find_first) live on the same looked-up object and pass
+//   the library's own instances over bare types.
 // - Traversal order is instance-defined but must be coherent per instance.
 
 /** Restricted `Impl` concept for Foldable: satisfied when `IMPL` supplies
  * one of the two minimal complete bases the `Foldable` CRTP base admits --
- * `fold_map` alone, or `fold_right` together with a declared
- * `element_type`. This is the `MINIMAL` pragma to `foldable_object`'s class
- * declaration: `length`, `fold_left`, `combine_all`, `fold`, `any_of`,
- * `all_of`, `empty`, `to_vector` and `find_first` are all derived and
- * belong to `foldable_object` alone.
+ * `fold_map(f, structure, monoid)` alone, or `fold_right` together with a
+ * declared `element_type`. This is the `MINIMAL` pragma to
+ * `foldable_object`'s class declaration: `length`, `fold_left`,
+ * `combine_all`, `fold`, `any_of`, `all_of`, `empty`, `to_vector` and
+ * `find_first` are all derived and belong to `foldable_object` alone.
  */
 template <class IMPL, class STRUCTURE>
 concept foldable_impl = requires(const IMPL &impl, const STRUCTURE &structure) {
-    impl.fold_map(detail::probe_witness<Count>{}, structure);
+    impl.fold_map(detail::probe_witness<std::size_t>{}, structure,
+                  sum_monoid<std::size_t>{});
 } || requires(const IMPL &impl, const STRUCTURE &structure) {
     typename IMPL::element_type;
     impl.fold_right(structure, int{}, detail::probe_witness2<int>{});
 };
 
 /** CRTP base for Foldable instances.
- * `Impl` must provide either `fold_map(f, container)` or `fold_right` +
- * `element_type`; all other operations are derived from whichever is the
- * primitive.
+ * `Impl` must provide either `fold_map(f, container, monoid)` or
+ * `fold_right` + `element_type`; all other operations are derived from
+ * whichever is the primitive. Declaring `element_type` additionally unlocks
+ * the derived operations that must name the element type: the
+ * two-argument `fold_map`, `combine_all` and `fold` without an instance,
+ * `to_vector` and `find_first`.
  */
 template <class Impl>
 struct Foldable : protected Impl {
-    static_assert(
-        !std::is_same_v<Impl, std::false_type>,
-        "No foldable_typeclass<T> specialization found. "
-        "Specialize beman::transpose::foldable_typeclass<T> for your "
-        "type T and provide fold_map(F, T) or fold_right(T, STATE, F) "
-        "+ element_type.");
+    static_assert(!std::is_same_v<Impl, std::false_type>,
+                  "No foldable_typeclass<T> specialization found. "
+                  "Specialize beman::transpose::foldable_typeclass<T> for your "
+                  "type T and provide fold_map(F, T, MONOID) or "
+                  "fold_right(T, STATE, F) + element_type.");
     // Alternate-core: Impl provides either fold_map or fold_right as
     // primitive. Haskell equivalent: {-# MINIMAL foldMap | foldr #-}
     //
@@ -273,39 +195,37 @@ struct Foldable : protected Impl {
     // for the other operation. Before this conversion, both derivations were
     // self-routed, and the only thing standing between that and unbounded
     // mutual template recursion -- fold_map deriving from fold_right
-    // deriving from fold_map, each round nesting another RightFoldProgram --
+    // deriving from fold_map, each round nesting another fold program --
     // was a Map's using-declaration happening to shadow one side. A Map that
     // omitted it fell into the cycle. Addressing Impl directly closes that
     // structurally: neither derivation can re-enter the other through self,
-    // because self is never named. The Maps' using-declarations are no
-    // longer what selects the primitive; the base decides, per
-    // instantiation, from whichever basis Impl actually provides.
+    // because self is never named. The Maps carry no using-declaration for
+    // fold_map at all; the base decides, per instantiation, from whichever
+    // basis Impl actually provides.
 
-    // Derived fold_map from fold_right. Requires element_type to deduce the
-    // monoid result type. foldMap f = foldr (\x acc -> f x <> acc) mempty
-    template <class F, class T>
-    auto fold_map(this auto &&self, F &&function, T &&value)
+    // fold_map with an explicit monoid instance: the basis. Native
+    // Impl::fold_map preferred; derived from fold_right otherwise.
+    // foldMap f = foldr (\x acc -> f x <> acc) mempty
+    template <class F, class T, class MONOID>
+    auto fold_map(this auto &&self, F &&function, T &&value, MONOID monoid)
         requires requires(const Impl &impl) {
-            impl.fold_map(std::forward<F>(function), std::forward<T>(value));
+            impl.fold_map(std::forward<F>(function), std::forward<T>(value),
+                          monoid);
         } || requires(const Impl &impl) {
             typename Impl::element_type;
-            impl.fold_right(
-                std::forward<T>(value),
-                monoid_identity<std::remove_cvref_t<std::invoke_result_t<
-                    F &, const typename Impl::element_type &>>>(),
-                detail::probe_witness2<std::remove_cvref_t<std::invoke_result_t<
-                    F &, const typename Impl::element_type &>>>{});
+            impl.fold_right(std::forward<T>(value), monoid.identity(),
+                            detail::probe_witness2<monoid_value_t<MONOID>>{});
         }
     {
         if constexpr (requires {
                           impl_of(self).fold_map(std::forward<F>(function),
-                                                 std::forward<T>(value));
+                                                 std::forward<T>(value),
+                                                 monoid);
                       }) {
             return impl_of(self).fold_map(std::forward<F>(function),
-                                          std::forward<T>(value));
+                                          std::forward<T>(value), monoid);
         } else {
-            using Result = std::remove_cvref_t<
-                std::invoke_result_t<F &, const typename Impl::element_type &>>;
+            using Result = monoid_value_t<MONOID>;
             // The declaration's second alternative probes with a named
             // witness, never a lambda: a capturing lambda in a
             // requires-clause is rejected by Clang's front end, and the
@@ -315,17 +235,47 @@ struct Foldable : protected Impl {
             // constraint already selected this branch -- it is the
             // GHC-MINIMAL-style last-resort message, not load-bearing SFINAE
             // -- so the concept-based condition is exactly as informative.
-            static_assert(
-                foldable_impl<Impl, std::remove_cvref_t<T>>,
-                "Foldable Impl must provide at least one basis: "
-                "fold_map(f, container), or fold_right(container, state, f) "
-                "plus element_type.");
+            static_assert(foldable_impl<Impl, std::remove_cvref_t<T>>,
+                          "Foldable Impl must provide at least one basis: "
+                          "fold_map(f, container, monoid), or "
+                          "fold_right(container, state, f) plus element_type.");
             return impl_of(self).fold_right(
-                std::forward<T>(value), monoid_identity<Result>(),
-                [&function](const auto &elem, Result acc) {
-                    return monoid_combine(std::invoke(function, elem),
+                std::forward<T>(value), monoid.identity(),
+                [&function, &monoid](const auto &elem, Result acc) {
+                    return monoid.combine(std::invoke(function, elem),
                                           std::move(acc));
                 });
+        }
+    }
+
+    // fold_map without an instance: defaults to the registered Monoid of
+    // the result type. Available only where Impl declares element_type (so
+    // the result type can be named) and that type has a registration. A
+    // fold over a type with several monoids -- int, bool -- is therefore
+    // not a candidate here; the caller passes the instance. An Impl may
+    // still supply a native two-argument fold_map of its own.
+    template <class F, class T>
+    auto fold_map(this auto &&self, F &&function, T &&value)
+        requires requires(const Impl &impl) {
+            impl.fold_map(std::forward<F>(function), std::forward<T>(value));
+        } || requires {
+            typename Impl::element_type;
+            requires detail::has_registered_monoid<
+                detail::fold_result_t<Impl, F>>;
+            self.fold_map(std::forward<F>(function), std::forward<T>(value),
+                          Monoid<detail::fold_result_t<Impl, F>>{});
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).fold_map(std::forward<F>(function),
+                                                 std::forward<T>(value));
+                      }) {
+            return impl_of(self).fold_map(std::forward<F>(function),
+                                          std::forward<T>(value));
+        } else {
+            return self.fold_map(std::forward<F>(function),
+                                 std::forward<T>(value),
+                                 Monoid<detail::fold_result_t<Impl, F>>{});
         }
     }
 
@@ -340,8 +290,8 @@ struct Foldable : protected Impl {
             // through self is what correctly admits a fold_right +
             // element_type Impl. Checking impl.fold_map directly would
             // reject that Impl, since it has no fold_map member at all.
-            self.fold_map(detail::probe_witness<Count>{},
-                          std::forward<T>(value));
+            self.fold_map(detail::probe_witness<std::size_t>{},
+                          std::forward<T>(value), sum_monoid<std::size_t>{});
         }
     {
         if constexpr (requires {
@@ -349,9 +299,9 @@ struct Foldable : protected Impl {
                       }) {
             return impl_of(self).length(std::forward<T>(value));
         } else {
-            const auto count = self.fold_map(
-                [](const auto &) { return Count{1}; }, std::forward<T>(value));
-            return count.d_value;
+            return self.fold_map([](const auto &) { return std::size_t{1}; },
+                                 std::forward<T>(value),
+                                 sum_monoid<std::size_t>{});
         }
     }
 
@@ -367,12 +317,13 @@ struct Foldable : protected Impl {
         } || requires {
             // self, not impl -- see length's second alternative. A named
             // witness, not a lambda: fold_map is generic in its callable,
-            // so only the return-type shape (LeftFoldProgram<StateType>)
+            // so only the return-type shape (the erased fold program)
             // matters for the probe.
             self.fold_map(
-                detail::probe_witness<
-                    detail::LeftFoldProgram<std::remove_cvref_t<STATE>>>{},
-                std::forward<T>(value));
+                detail::probe_witness<std::function<std::remove_cvref_t<STATE>(
+                    std::remove_cvref_t<STATE>)>>{},
+                std::forward<T>(value),
+                detail::left_compose_monoid<std::remove_cvref_t<STATE>>{});
         }
     {
         if constexpr (requires {
@@ -385,17 +336,18 @@ struct Foldable : protected Impl {
                                            std::forward<F>(function));
         } else {
             using StateType = std::remove_cvref_t<STATE>;
+            using Program = std::function<StateType(StateType)>;
             auto step = std::forward<F>(function);
 
             const auto program = self.fold_map(
-                [&step](const auto &x) {
+                [&step](const auto &x) -> Program {
                     using ValueType = std::remove_cvref_t<decltype(x)>;
-                    return detail::LeftFoldProgram<StateType>{
-                        [x_copy = ValueType(x), &step](StateType s) {
-                            return std::invoke(step, std::move(s), x_copy);
-                        }};
+                    return [x_copy = ValueType(x), &step](StateType s) {
+                        return std::invoke(step, std::move(s), x_copy);
+                    };
                 },
-                std::forward<T>(value));
+                std::forward<T>(value),
+                detail::left_compose_monoid<StateType>{});
 
             return program(StateType(std::move(initial_state)));
         }
@@ -412,9 +364,10 @@ struct Foldable : protected Impl {
                             std::forward<F>(function));
         } || requires(const Impl &impl) {
             impl.fold_map(
-                detail::probe_witness<
-                    detail::RightFoldProgram<std::remove_cvref_t<STATE>>>{},
-                std::forward<T>(value));
+                detail::probe_witness<std::function<std::remove_cvref_t<STATE>(
+                    std::remove_cvref_t<STATE>)>>{},
+                std::forward<T>(value),
+                detail::right_compose_monoid<std::remove_cvref_t<STATE>>{});
         }
     {
         if constexpr (requires {
@@ -427,38 +380,65 @@ struct Foldable : protected Impl {
                                             std::forward<F>(function));
         } else {
             using StateType = std::remove_cvref_t<STATE>;
+            using Program = std::function<StateType(StateType)>;
             auto step = std::forward<F>(function);
 
             // See fold_map's static_assert for why the concept-based
             // condition is provably redundant here rather than load-bearing.
-            static_assert(
-                foldable_impl<Impl, std::remove_cvref_t<T>>,
-                "Foldable Impl must provide at least one basis: "
-                "fold_map(f, container), or fold_right(container, state, f) "
-                "plus element_type.");
+            static_assert(foldable_impl<Impl, std::remove_cvref_t<T>>,
+                          "Foldable Impl must provide at least one basis: "
+                          "fold_map(f, container, monoid), or "
+                          "fold_right(container, state, f) plus element_type.");
             const auto program = impl_of(self).fold_map(
-                [&step](const auto &x) {
+                [&step](const auto &x) -> Program {
                     using ValueType = std::remove_cvref_t<decltype(x)>;
-                    return detail::RightFoldProgram<StateType>{
-                        [x_copy = ValueType(x), &step](StateType s) {
-                            return std::invoke(step, x_copy, std::move(s));
-                        }};
+                    return [x_copy = ValueType(x), &step](StateType s) {
+                        return std::invoke(step, x_copy, std::move(s));
+                    };
                 },
-                std::forward<T>(value));
+                std::forward<T>(value),
+                detail::right_compose_monoid<StateType>{});
 
             return program(StateType(std::move(initial_state)));
         }
     }
 
-    /** Combines all elements using the Monoid of the element type
-     * (requires elements themselves to be Monoid values).
+    /** Combines all elements under `monoid`, an instance over the element
+     * type.
+     */
+    template <class T, class MONOID>
+    auto combine_all(this auto &&self, T &&value, MONOID monoid)
+        requires requires(const Impl &impl) {
+            impl.combine_all(std::forward<T>(value), monoid);
+        } || requires {
+            // self, not impl -- see length's second alternative.
+            self.fold_map(detail::identity_probe_witness{},
+                          std::forward<T>(value), monoid);
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).combine_all(std::forward<T>(value),
+                                                    monoid);
+                      }) {
+            return impl_of(self).combine_all(std::forward<T>(value), monoid);
+        } else {
+            return self.fold_map([](const auto &x) { return x; },
+                                 std::forward<T>(value), monoid);
+        }
+    }
+
+    /** Combines all elements using the registered Monoid of the element
+     * type. Available only where that registration exists; an element type
+     * with several monoids takes the two-argument form.
      */
     template <class T>
     auto combine_all(this auto &&self, T &&value)
         requires requires(const Impl &impl) {
             impl.combine_all(std::forward<T>(value));
         } || requires {
-            // self, not impl -- see length's second alternative.
+            // self, not impl -- see length's second alternative. The
+            // two-argument fold_map carries the element_type and
+            // registration requirements.
             self.fold_map(detail::identity_probe_witness{},
                           std::forward<T>(value));
         }
@@ -478,6 +458,21 @@ struct Foldable : protected Impl {
      * -- rather than fold_map. Naming fold_map here would reject an Impl
      * that provides a native combine_all directly but no fold_map at all.
      */
+    template <class T, class MONOID>
+    auto fold(this auto &&self, T &&value, MONOID monoid)
+        requires requires(const Impl &impl) {
+            impl.fold(std::forward<T>(value), monoid);
+        } || requires { self.combine_all(std::forward<T>(value), monoid); }
+    {
+        if constexpr (requires {
+                          impl_of(self).fold(std::forward<T>(value), monoid);
+                      }) {
+            return impl_of(self).fold(std::forward<T>(value), monoid);
+        } else {
+            return self.combine_all(std::forward<T>(value), monoid);
+        }
+    }
+
     template <class T>
     auto fold(this auto &&self, T &&value)
         requires requires(const Impl &impl) {
@@ -501,9 +496,10 @@ struct Foldable : protected Impl {
                         std::forward<PREDICATE>(predicate));
         } || requires {
             // self, not impl -- see length's second alternative. A named
-            // witness, not a lambda: only the Any-shaped return matters
-            // for the probe.
-            self.fold_map(detail::probe_witness<Any>{}, std::forward<T>(value));
+            // witness, not a lambda: only the bool-shaped return matters
+            // for the probe; the instance says which bool monoid.
+            self.fold_map(detail::probe_witness<bool>{}, std::forward<T>(value),
+                          any_monoid{});
         }
     {
         if constexpr (requires {
@@ -514,13 +510,11 @@ struct Foldable : protected Impl {
             return impl_of(self).any_of(std::forward<T>(value),
                                         std::forward<PREDICATE>(predicate));
         } else {
-            const auto result = self.fold_map(
+            return self.fold_map(
                 [&predicate](const auto &x) {
-                    return Any{std::invoke(predicate, x)};
+                    return static_cast<bool>(std::invoke(predicate, x));
                 },
-                std::forward<T>(value));
-
-            return result.d_value;
+                std::forward<T>(value), any_monoid{});
         }
     }
 
@@ -532,7 +526,8 @@ struct Foldable : protected Impl {
                         std::forward<PREDICATE>(predicate));
         } || requires {
             // self, not impl; see any_of's second alternative.
-            self.fold_map(detail::probe_witness<All>{}, std::forward<T>(value));
+            self.fold_map(detail::probe_witness<bool>{}, std::forward<T>(value),
+                          all_monoid{});
         }
     {
         if constexpr (requires {
@@ -543,13 +538,11 @@ struct Foldable : protected Impl {
             return impl_of(self).all_of(std::forward<T>(value),
                                         std::forward<PREDICATE>(predicate));
         } else {
-            const auto result = self.fold_map(
+            return self.fold_map(
                 [&predicate](const auto &x) {
-                    return All{std::invoke(predicate, x)};
+                    return static_cast<bool>(std::invoke(predicate, x));
                 },
-                std::forward<T>(value));
-
-            return result.d_value;
+                std::forward<T>(value), all_monoid{});
         }
     }
 
@@ -576,15 +569,20 @@ struct Foldable : protected Impl {
         }
     }
 
-    /** Collects all elements into a `std::vector` in traversal order. */
+    /** Collects all elements into a `std::vector` in traversal order. The
+     * derivation folds under the registered vector monoid, so it needs the
+     * element type: it is available where Impl declares `element_type`.
+     */
     template <class T>
     auto to_vector(this auto &&self, T &&value)
         requires requires(const Impl &impl) {
             impl.to_vector(std::forward<T>(value));
         } || requires {
             // self, not impl -- see length's second alternative.
+            typename Impl::element_type;
             self.fold_map(detail::vector_probe_witness{},
-                          std::forward<T>(value));
+                          std::forward<T>(value),
+                          Monoid<std::vector<typename Impl::element_type>>{});
         }
     {
         if constexpr (requires {
@@ -592,16 +590,16 @@ struct Foldable : protected Impl {
                       }) {
             return impl_of(self).to_vector(std::forward<T>(value));
         } else {
+            using Element = typename Impl::element_type;
             return self.fold_map(
-                [](const auto &x) {
-                    using ValueType = std::remove_cvref_t<decltype(x)>;
-                    return std::vector<ValueType>{x};
-                },
-                std::forward<T>(value));
+                [](const auto &x) { return std::vector<Element>{x}; },
+                std::forward<T>(value), Monoid<std::vector<Element>>{});
         }
     }
 
-    /** Returns the first element satisfying `predicate`, or an empty optional.
+    /** Returns the first element satisfying `predicate`, or an empty
+     * optional. The derivation folds under `first_monoid` over the element
+     * type, so like `to_vector` it needs Impl to declare `element_type`.
      */
     template <class T, class PREDICATE>
     auto find_first(this auto &&self, T &&value, PREDICATE &&predicate)
@@ -610,8 +608,10 @@ struct Foldable : protected Impl {
                             std::forward<PREDICATE>(predicate));
         } || requires {
             // self, not impl; see any_of's second alternative.
-            self.fold_map(detail::first_probe_witness{},
-                          std::forward<T>(value));
+            typename Impl::element_type;
+            self.fold_map(detail::optional_probe_witness{},
+                          std::forward<T>(value),
+                          first_monoid<typename Impl::element_type>{});
         }
     {
         if constexpr (requires {
@@ -622,17 +622,15 @@ struct Foldable : protected Impl {
             return impl_of(self).find_first(std::forward<T>(value),
                                             std::forward<PREDICATE>(predicate));
         } else {
-            const auto result = self.fold_map(
-                [&predicate](const auto &x) {
-                    using X = std::remove_cvref_t<decltype(x)>;
+            using Element = typename Impl::element_type;
+            return self.fold_map(
+                [&predicate](const auto &x) -> std::optional<Element> {
                     if (std::invoke(predicate, x)) {
-                        return detail::First<X>{{x}};
+                        return std::optional<Element>{x};
                     }
-                    return detail::First<X>{{}};
+                    return std::optional<Element>{};
                 },
-                std::forward<T>(value));
-
-            return result.d_value;
+                std::forward<T>(value), first_monoid<Element>{});
         }
     }
 
@@ -649,39 +647,21 @@ struct Foldable : protected Impl {
 template <class T>
 inline constexpr auto foldable_typeclass = std::false_type{};
 
-namespace detail {
-
-/** Satisfied when `VALUE_TYPE` has a registered `Monoid`. Naming a
- * `Monoid<VALUE_TYPE>` specialization is always well-formed even when none
- * exists -- the primary template is declared, only undefined -- so the
- * probe has to attempt to *construct* one, which needs the type complete.
- * `combine_all` and `fold` fold over the elements themselves via the
- * identity function, so unlike every other member in the fold family they
- * need the element type, not a wrapped accumulator type, to be a Monoid;
- * `std::vector<int>` is Foldable but its `int` elements carry no Monoid
- * since docs/decisions.md#monoid-carrier-canonicity, so this concept is
- * what keeps `combine_all`/`fold` a conditional operation the same way `ap`
- * and `subsume` are conditional elsewhere.
- */
-template <class VALUE_TYPE>
-concept has_registered_monoid = requires { Monoid<VALUE_TYPE>{}; };
-
-} // namespace detail
-
 /** Deep object concept for a Foldable object over `STRUCTURE`: satisfied
- * when `OBJ` provides the full object surface -- `fold_map`, `length`,
- * `fold_left`, `fold_right`, `any_of`, `all_of`, `empty`, `to_vector` and
- * `find_first`, each probed with a representative witness callable.
- * `combine_all` and `fold` are required only where `STRUCTURE`'s element
- * type has a registered `Monoid` -- see `detail::has_registered_monoid` --
- * since both fold over the elements themselves rather than a wrapped
- * accumulator. Foldable is evidence, not proposed wording; this concept
+ * when `OBJ` provides the full object surface -- `fold_map` with an
+ * instance, `length`, `fold_left`, `fold_right`, `any_of`, `all_of`,
+ * `empty`, `to_vector` and `find_first`, each probed with a representative
+ * witness callable. `combine_all` and `fold` without an instance are
+ * required only where `STRUCTURE`'s element type has a registered `Monoid`
+ * -- see `detail::has_registered_monoid` -- since both default to that
+ * registration. Foldable is evidence, not proposed wording; this concept
  * carries no wording either.
  */
 template <class OBJ, class STRUCTURE>
 concept foldable_object =
     requires(const OBJ &obj, const STRUCTURE &structure) {
-        obj.fold_map(detail::probe_witness<Count>{}, structure);
+        obj.fold_map(detail::probe_witness<std::size_t>{}, structure,
+                     sum_monoid<std::size_t>{});
         obj.length(structure);
         obj.fold_left(structure, int{}, detail::probe_witness2<int>{});
         obj.fold_right(structure, int{}, detail::probe_witness2<int>{});
