@@ -183,7 +183,10 @@ Typeclass Design</h2>
 <h2><a class="anchor" id="autotoc_md15"></a>
 Foldable Rules</h2>
 <ul>
-<li><code>fold_map</code> is the semantic center.</li>
+<li><code>fold_map(f, structure, monoid)</code> is the semantic center. The monoid is an instance object over <code>f</code>'s result type, passed by value; an Impl never chooses one (<code><a class="el" href="decisions_8md.html">docs/decisions.md</a>#monoid-selection</code>).</li>
+<li>The two-argument <code>fold_map(f, structure)</code> is derived, defaults to the registered <code>Monoid</code> of the result type, and exists only where the Impl declares <code>element_type</code> and that type has a registration. Do not add a bare-numeric or boolean registration to make it exist.</li>
+<li>Impls declare <code>using element_type = ...;</code>. It also unlocks <code>to_vector</code>, <code>find_first</code>, and <code>combine_all</code>/<code>fold</code> without an instance.</li>
+<li>Maps carry no <code>using Impl::fold_map;</code> &ndash; the <code>Foldable</code> base owns both overloads.</li>
 <li><code>length</code>, <code>to_vector</code>, <code>fold_left</code>, and <code>fold_right</code> should be derived where practical.</li>
 <li>Tree traversal order is part of the instance contract and must be documented.</li>
 </ul>
