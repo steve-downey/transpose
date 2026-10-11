@@ -61,11 +61,10 @@ fragment is drift by definition, and the September 2026 round of them took a
 pass of its own to carry back. Keep the normative text in `//!` and the
 rationale beside it in `///`, which is stripped.
 
-Three specgen gaps leave authored wording unrendered, silently:
+Generating needs specgen with steve-downey/specgen#124, which renders the
+description of an exposition-only entity. Two specgen gaps remain, and neither
+is reported:
 
-- A description on a namespace-scope `\expos` entity is dropped.
-  `consuming_traversable_object` and `traversal_argument_t` in `traverse.hpp`
-  carry their wording in `//!` already, so it renders once specgen does.
 - A description on a data member in a class body that routes it nowhere is
   dropped, without the routing error a member function gets. Put such wording
   in the class's own docblock instead, as `vector_traversable_impl` does.
