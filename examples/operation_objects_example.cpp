@@ -117,7 +117,7 @@ template <class T>
 struct ReverseFunctorImpl {
     template <class F>
     auto fmap(this auto &&, F &&function, const std::vector<T> &values) {
-        using Result = bt::remove_cvref_t<std::invoke_result_t<F, const T &>>;
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const T &>>;
         std::vector<Result> output;
         output.reserve(values.size());
         for (auto it = values.rbegin(); it != values.rend(); ++it) {

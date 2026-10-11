@@ -17,10 +17,11 @@
 
 #include <beman/transpose/apply.hpp>
 #include <beman/transpose/array.hpp>
-#include <beman/transpose/detail/typeclass_base.hpp>
-#include <beman/transpose/dual_monoid.hpp>
+#include <beman/transpose/error_set.hpp>
+#include <beman/transpose/expected.hpp>
 #include <beman/transpose/fold.hpp>
 #include <beman/transpose/functor.hpp>
+#include <beman/transpose/grade.hpp>
 #include <beman/transpose/monad.hpp>
 #include <beman/transpose/monoid.hpp>
 #include <beman/transpose/sender.hpp>
@@ -37,36 +38,35 @@
 
 namespace beman::transpose {
 
-/** Operation object for Traversable's derived `transpose`; the
- * object form of the verb, matching `traverse`.
- */
-struct transpose_fn {
-    /** @brief Transposes a structure of contextual values into a contextual
-     *         structure, preserving shape: `structure<context<T>>` becomes
-     *         `context<structure<T>>`.
-     *
-     * Equivalent to `traverse(identity, value)`; the applicative context is
-     * inferred from the structure's element type.
-     *
-     * @param value  A traversable structure whose elements are an applicative
-     *               context (e.g. `std::vector<std::optional<T>>`).
-     * @return       The single outer context holding the structure.
-     * @tparam TC  The Traversable instance, from the lookup for the keying
-     * argument. Not for callers to supply; pin with mode 2.
-     */
-    template <class T, const auto &TC = traversable<remove_cvref_t<T>>>
-    constexpr auto operator()(T &&value) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Traversable instance for this type. Specialize "
-                      "beman::transpose::traversable<T> with an "
-                      "object providing traverse(applicative, f, container) "
-                      "and 'using element_type = ...;'.");
-        return TC.transpose(std::forward<T>(value));
-    }
-};
+// \rSec3[transpose.alg.transpose]{transpose}
 
-/** Structure of contexts to context of structure: `transpose(structure)`. */
-inline constexpr transpose_fn transpose{};
+//! \constraints `traversable` names a traversable object for
+//! `value`'s type, and `applicative` names an applicative object
+//! for that structure's element type.
+//! \effects Equivalent to traversing `value` with the identity function: a
+//! structure of contextual values, `structure<context<T>>`, becomes a single
+//! contextual value of the structure, `context<structure<T>>`, preserving
+//! shape. The applicative object is inferred from the structure's element
+//! type.
+//! \returns That single contextual value.
+//! \complexity Exactly one composition operation on the inferred applicative
+//! object per element of `value`.
+//! \remarks Elements are visited in the structure's iteration order, and
+//! their contexts are composed in that same order. The complexity is stated
+//! in composition operations rather than in element operations because the
+//! latter is not the algorithm's to promise: an applicative object that
+//! composes its operands only as `const` lvalues must copy the accumulated
+//! result at every step, which is quadratic in the elements collected
+//! however the traversal is written. Every applicative object this library
+//! registers composes an rvalue operand without duplicating the value it
+//! holds, so for those the total number of element operations is linear in
+//! the number of elements.
+template <class T>
+    requires transposable_structure<T>
+auto transpose(T &&value) {
+    const auto &map = traversable<std::remove_cvref_t<T>>;
+    return map.transpose(std::forward<T>(value));
+}
 
 } // namespace beman::transpose
 

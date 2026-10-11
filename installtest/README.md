@@ -1,9 +1,6 @@
-# Test Project against installed `beman.optional`
+# Test Project against installed `beman.transpose`
 
 To test from the root of the source tree
 ```sh
-cmake --workflow --preset gcc-release
-cmake --install build/gcc-release --prefix .install --component beman.optional
-cmake -S installtest -B installtest/build
-cmake --build  installtest/build --target test
+make TOOLCHAIN=gcc-16 installtest
 ```

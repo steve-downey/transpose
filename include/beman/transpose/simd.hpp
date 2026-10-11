@@ -16,7 +16,12 @@
 // two typeclasses are distinct. The traversal-capable lanewise context
 // remains simd_lanes<T, N>.
 
-#if __has_include(<simd>) && __cplusplus > 202302L
+#include <version>
+
+// __has_include(<simd>) alone is not enough: libstdc++ ships the <simd>
+// header unconditionally but leaves it empty unless the toolchain also
+// supports expansion statements (P1306), so check its readiness macro too.
+#if __has_include(<simd>) && __cplusplus > 202302L && defined(__glibcxx_simd)
 
 #include <beman/transpose/apply.hpp>
 
@@ -41,13 +46,13 @@ struct SimdVecApplicativeImpl {
     /** Broadcast a scalar to every lane. */
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
-        -> std::simd::vec<remove_cvref_t<VALUE>, width>
+        -> std::simd::vec<std::remove_cvref_t<VALUE>, width>
         requires requires {
-            std::simd::vec<remove_cvref_t<VALUE>, width>(
+            std::simd::vec<std::remove_cvref_t<VALUE>, width>(
                 std::forward<VALUE>(value));
         }
     {
-        return std::simd::vec<remove_cvref_t<VALUE>, width>(
+        return std::simd::vec<std::remove_cvref_t<VALUE>, width>(
             std::forward<VALUE>(value));
     }
 
@@ -56,11 +61,11 @@ struct SimdVecApplicativeImpl {
     template <class FUNCTION, class FIRST, class... REST>
     auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
                 const REST &...rest)
-        -> std::simd::vec<remove_cvref_t<std::invoke_result_t<
+        -> std::simd::vec<std::remove_cvref_t<std::invoke_result_t<
                               FUNCTION &, const typename FIRST::value_type &,
                               const typename REST::value_type &...>>,
                           width> {
-        using U = remove_cvref_t<
+        using U = std::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const typename FIRST::value_type &,
                                  const typename REST::value_type &...>>;
         return std::simd::vec<U, width>([&](auto lane) -> U {
@@ -86,5 +91,6 @@ inline constexpr auto applicative<std::simd::basic_vec<T, ABI>> =
 
 } // namespace beman::transpose
 
-#endif // __has_include(<simd>) && __cplusplus > 202302L
+#endif // __has_include(<simd>) && __cplusplus > 202302L &&
+       // defined(__glibcxx_simd)
 #endif // BEMAN_TRANSPOSE_SIMD_HPP

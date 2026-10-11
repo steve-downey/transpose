@@ -44,7 +44,7 @@ struct HeadOnlyFunctorImpl {
     auto fmap(this auto &&, F &&function,
               const std::vector<VALUE_TYPE> &values) {
         using Result =
-            bt::remove_cvref_t<std::invoke_result_t<F, const VALUE_TYPE &>>;
+            std::remove_cvref_t<std::invoke_result_t<F, const VALUE_TYPE &>>;
         std::vector<Result> output;
         if (!values.empty()) {
             output.push_back(std::invoke(function, values.front()));
@@ -92,8 +92,6 @@ TEST_CASE("typeclass: every operation is an object") {
     // and `transpose` used to be.
     STATIC_REQUIRE(std::is_class_v<decltype(bt::fmap)>);
     STATIC_REQUIRE(std::is_class_v<decltype(bt::invoke)>);
-    STATIC_REQUIRE(std::is_class_v<decltype(bt::traverse)>);
-    STATIC_REQUIRE(std::is_class_v<decltype(bt::transpose)>);
     STATIC_REQUIRE(std::is_class_v<decltype(bt::fold_map)>);
     STATIC_REQUIRE(std::is_class_v<decltype(bt::bind)>);
     STATIC_REQUIRE(std::is_empty_v<decltype(bt::fmap)>);
@@ -199,17 +197,37 @@ TEST_CASE("typeclass: fold_map is the primitive and agrees with the object") {
     const std::vector<int> values{1, 2, 3, 4};
     auto identity = [](int x) { return x; };
 
+    const bt::sum_monoid<int> sum{};
+
     const auto &foldable = bt::foldable<std::vector<int>>;
-    REQUIRE(bt::fold_map(identity, values) ==
-            foldable.fold_map(identity, values));
-    REQUIRE(bt::fold_map(identity, values) == 10);
+    REQUIRE(bt::fold_map(identity, values, sum) ==
+            foldable.fold_map(identity, values, sum));
+    REQUIRE(bt::fold_map(identity, values, sum) == 10);
+    REQUIRE(bt::fold_map(identity, values, bt::max_monoid<int>{}) == 4);
+}
+
+TEST_CASE("typeclass: fold_map without an instance needs a registered one") {
+    // int carries several monoids and has no registration, so the
+    // two-argument form is not a candidate -- the object must not turn that
+    // into a hard error from inside its body. A string result has a
+    // registered monoid, and the two-argument form folds with it.
+    using vec = const std::vector<int> &;
+    auto identity = [](int x) { return x; };
+    auto show = [](int x) { return std::to_string(x); };
+    STATIC_REQUIRE_FALSE(
+        std::is_invocable_v<decltype(bt::fold_map), decltype(identity), vec>);
+    STATIC_REQUIRE(
+        std::is_invocable_v<decltype(bt::fold_map), decltype(identity), vec,
+                            bt::sum_monoid<int>>);
+    REQUIRE(bt::fold_map(show, std::vector<int>{1, 2, 3}) == "123");
 }
 
 TEST_CASE("typeclass: derived Foldable operations dispatch") {
     const std::vector<int> values{2, 4, 6, 7};
     REQUIRE(bt::length(values) == 4);
     REQUIRE(bt::to_vector(values) == values);
-    REQUIRE(bt::combine_all(values) == 19);
+    REQUIRE(bt::combine_all(values, bt::sum_monoid<int>{}) == 19);
+    REQUIRE(bt::combine_all(std::vector<std::string>{"a", "b"}) == "ab");
     REQUIRE(bt::any_of(values, [](int x) { return x % 2 == 1; }));
     REQUIRE_FALSE(bt::all_of(values, [](int x) { return x % 2 == 0; }));
     REQUIRE(bt::find_first(values, [](int x) { return x > 5; }) == 6);
@@ -315,7 +333,8 @@ TEST_CASE(
     const auto &applicative = bt::applicative<std::optional<int>>;
     const auto &monad = bt::monad<std::optional<int>>;
 
-    REQUIRE(foldable.fold_map([](int x) { return x; }, values) == 10);
+    REQUIRE(foldable.fold_map([](int x) { return x; }, values,
+                              bt::sum_monoid<int>{}) == 10);
     REQUIRE(foldable.length(values) == 4); // derived, still reachable
     REQUIRE(traversable.for_each(values, [](int x) {
         return std::optional<int>{x};
@@ -355,7 +374,8 @@ TEST_CASE(
     const std::vector<int> readings{3, 1, 4, 1, 5};
 
     const auto doubled = bt::fmap([](int x) { return x * 2; }, readings);
-    const auto total = bt::fold_map([](int x) { return x; }, doubled);
+    const auto total =
+        bt::fold_map([](int x) { return x; }, doubled, bt::sum_monoid<int>{});
     const auto checked = bt::traverse(
         [](int x) {
             return x < 100 ? std::optional<int>{x} : std::optional<int>{};

@@ -27,33 +27,46 @@
 
 namespace beman::transpose {
 
+namespace detail {
+
+/** Whether `T`, ignoring cv-qualification and reference, is a `std::array`
+ * of exactly `N` elements -- the operand shape the array applicative
+ * composes. Lets `invoke` deduce its operands through forwarding references,
+ * which is what carries the caller's value category into the operation,
+ * without accepting operands of some other shape.
+ *
+ * The extent is part of the shape, not a separate refinement of it.
+ * Application is positional across all `N` lanes, so an operand that is a
+ * `std::array` of some other length is not merely an unusual argument: every
+ * lane past its end is read out of bounds. */
+//! \expos
+template <class T, std::size_t N>
+struct is_std_array_of_extent : std::false_type {};
+
+template <class U, std::size_t N>
+struct is_std_array_of_extent<std::array<U, N>, N> : std::true_type {};
+
+//! \expos
+template <class T, std::size_t N>
+inline constexpr bool is_std_array_of_extent_v =
+    is_std_array_of_extent<std::remove_cvref_t<T>, N>::value;
+
+} // namespace detail
+
 template <class T, std::size_t N>
 struct ArrayApplicativeImpl {
+    // \ref{transpose.array.applicative}, applicative instance for array
     template <class VALUE>
-    auto pure(this auto &&, VALUE &&value) {
-        using U = remove_cvref_t<VALUE>;
-        std::array<U, N> result;
-        result.fill(U(std::forward<VALUE>(value)));
-        return result;
-    }
+    auto pure(this auto &&, VALUE &&value);
 
     template <class FUNCTION, class FIRST, class... REST>
-    auto invoke(this auto &&, FUNCTION &&function, const FIRST &first,
-                const REST &...rest) {
-        using Result =
-            std::invoke_result_t<FUNCTION, const typename FIRST::value_type &,
-                                 const typename REST::value_type &...>;
-        using U = remove_cvref_t<Result>;
-
-        std::array<U, N> result;
-        for (std::size_t i = 0; i < N; ++i) {
-            result[i] = std::invoke(function, first[i], rest[i]...);
-        }
-        return result;
-    }
+        requires detail::is_std_array_of_extent_v<FIRST, N> &&
+                 (detail::is_std_array_of_extent_v<REST, N> && ...)
+    auto invoke(this auto &&, FUNCTION &&function, FIRST &&first,
+                REST &&...rest);
 };
 
-/** Applicative map for std::array<T, N>: the native n-ary invoke core. */
+/// Applicative map for std::array<T, N>: the native n-ary invoke core.
 template <class T, std::size_t N>
 struct ArrayApplicativeMap : derive_applicative<ArrayApplicativeImpl<T, N>> {
     using ArrayApplicativeImpl<T, N>::invoke;
@@ -77,16 +90,65 @@ auto transpose_tuple_impl(const std::tuple<std::array<Ts, N>...> &soa,
 
 } // namespace detail
 
-/** Transpose a tuple of arrays (SoA) into an array of tuples (AoS).
- *
- * This is a heterogeneous traversal: each tuple element may have a different
- * value type, so the standard Traversable loop (which requires a single
- * element_type) does not apply. Instead, the fold happens at compile time
- * over the tuple indices via the array applicative's positional invoke.
- *
- * @param soa  A tuple where each element is a std::array of the same size N.
- * @return     An array of N tuples, one per position across the input arrays.
- */
+// \rSec3[transpose.array.applicative]{Applicative instance for array}
+
+//! \returns An `array<std::remove_cvref_t<VALUE>, N>` each of whose `N`
+//! elements is a copy of `value`.
+template <class T, std::size_t N>
+template <class VALUE>
+auto ArrayApplicativeImpl<T, N>::pure(this auto &&, VALUE &&value) {
+    using U = std::remove_cvref_t<VALUE>;
+    // Constructed directly rather than default-constructed and filled: every
+    // element is a copy of `value`, which is all this operation documents,
+    // and filling would additionally require U to be default-constructible
+    // and assignable.
+    return detail::make_array<U, N>(
+        [&value](std::size_t) -> U { return U(value); },
+        std::make_index_sequence<N>{});
+}
+
+//! \returns An `array` of `N` elements whose element at position `i` is the
+//! result of invoking `function` with the element at position `i` of each
+//! operand.
+//! \complexity Exactly `N` applications of `function`.
+//! \remarks Application is positional: operands are combined lane by lane,
+//! and every operand is constrained to have the same fixed extent `N`. Each
+//! position of each operand is read exactly once, so an operand passed as an
+//! rvalue has its elements handed to `function` rather than copied.
+template <class T, std::size_t N>
+template <class FUNCTION, class FIRST, class... REST>
+    requires detail::is_std_array_of_extent_v<FIRST, N> &&
+             (detail::is_std_array_of_extent_v<REST, N> && ...)
+auto ArrayApplicativeImpl<T, N>::invoke(this auto &&, FUNCTION &&function,
+                                        FIRST &&first, REST &&...rest) {
+    using Result =
+        std::invoke_result_t<FUNCTION &, detail::element_ref_t<FIRST>,
+                             detail::element_ref_t<REST>...>;
+    using U = std::remove_cvref_t<Result>;
+
+    // Constructed directly rather than default-constructed and assigned into:
+    // the operation documents only that each result element is the result of
+    // one invocation, so U need not be default-constructible or assignable.
+    return detail::make_array<U, N>(
+        [&](std::size_t index) -> U {
+            return std::invoke(
+                function, detail::forward_at(std::forward<FIRST>(first), index),
+                detail::forward_at(std::forward<REST>(rest), index)...);
+        },
+        std::make_index_sequence<N>{});
+}
+
+// \rSec3[transpose.array.tuple]{Transposing a tuple of arrays}
+
+//! \effects Transposes a tuple of arrays into an array of tuples: the
+//! element at position `i` of the result is the tuple of the elements at
+//! position `i` of each operand array.
+//! \returns That array of `N` tuples.
+//! \complexity Linear in `N`.
+//! \remarks This is a heterogeneous traversal. Each operand array may have a
+//! different element type, so the homogeneous traversable loop, which
+//! requires one element type, does not apply; the composition is over the
+//! tuple positions instead, through the array applicative object.
 template <std::size_t N, class... Ts>
 auto transpose_tuple(const std::tuple<std::array<Ts, N>...> &soa)
     -> std::array<std::tuple<Ts...>, N> {

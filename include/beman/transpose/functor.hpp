@@ -27,16 +27,52 @@ namespace beman::transpose {
  */
 template <class Impl>
 struct derive_functor : protected Impl {
-    using Impl::fmap;
+    /** Applies `function` to every element of `value`. */
+    template <class FUNCTION, class T>
+    auto fmap(this auto &&self, FUNCTION &&function, T &&value)
+        requires requires(const Impl &impl) {
+            impl.fmap(std::forward<FUNCTION>(function), std::forward<T>(value));
+        }
+    {
+        return impl_of(self).fmap(std::forward<FUNCTION>(function),
+                                  std::forward<T>(value));
+    }
 
     /** Replaces every element of `value` with `replacement`, ignoring the
-     * original element values.
+     * original element values. Prefers a native `Impl::replace` when the
+     * instance supplies one.
      */
     template <class T, class U>
-    auto replace(this auto &&self, T &&value, U &&replacement) {
-        return self.fmap([replacement = std::forward<U>(replacement)](
-                             const auto &) { return replacement; },
-                         std::forward<T>(value));
+    auto replace(this auto &&self, T &&value, U &&replacement)
+        requires requires(const Impl &impl) {
+            impl.replace(std::forward<T>(value), std::forward<U>(replacement));
+        } || requires(const Impl &impl) {
+            impl.fmap([replacement = std::forward<U>(replacement)](
+                          const auto &) { return replacement; },
+                      std::forward<T>(value));
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).replace(std::forward<T>(value),
+                                                std::forward<U>(replacement));
+                      }) {
+            return impl_of(self).replace(std::forward<T>(value),
+                                         std::forward<U>(replacement));
+        } else {
+            // One-way derivation (not a mutually-derivable pair): route
+            // through self, not Impl, so a shadow on a wrapping Map is
+            // still reached.
+            return self.fmap([replacement = std::forward<U>(replacement)](
+                                 const auto &) { return replacement; },
+                             std::forward<T>(value));
+        }
+    }
+
+  private:
+    //! \omit
+    template <class SELF>
+    static constexpr decltype(auto) impl_of(SELF &&self) {
+        return static_cast<impl_ref_t<Impl, SELF>>(self);
     }
 };
 
@@ -145,7 +181,8 @@ struct fmap_fn {
      * @tparam TC  The Functor instance, from the lookup for the keying
      * argument. Not for callers to supply; pin with mode 2.
      */
-    template <class F, class T, const auto &TC = functor<remove_cvref_t<T>>>
+    template <class F, class T,
+              const auto &TC = functor<std::remove_cvref_t<T>>>
     constexpr auto operator()(F &&function, T &&value) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Functor instance for this type. Specialize "
@@ -161,7 +198,8 @@ inline constexpr fmap_fn fmap{};
 /** Operation object for Functor's derived `replace`. */
 struct replace_fn {
     /** Replaces every element of `value` with `replacement`. */
-    template <class T, class U, const auto &TC = functor<remove_cvref_t<T>>>
+    template <class T, class U,
+              const auto &TC = functor<std::remove_cvref_t<T>>>
     constexpr auto operator()(T &&value, U &&replacement) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Functor instance for this type. Specialize "
@@ -174,6 +212,40 @@ struct replace_fn {
 /** Replaces every element of a functor with one value. */
 inline constexpr replace_fn replace{};
 
+/** Restricted `Impl` concept for Functor: satisfied when `IMPL` supplies the
+ * minimal complete basis the `Functor` CRTP base needs -- `fmap` alone,
+ * probed with a representative witness callable. This is the `MINIMAL`
+ * pragma to `functor_object`'s class declaration: an `IMPL` may satisfy
+ * this concept and still fail `functor_object`, which is exactly the
+ * bargain the CRTP base exists to keep. Never demand a derived operation
+ * (`replace`) here; that surface belongs to `functor_object` alone.
+ */
+template <class IMPL, class CONTEXT>
+concept functor_impl = requires(const IMPL &impl, const CONTEXT &context) {
+    impl.fmap(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
+};
+
+/** Deep object concept for a Functor object over `CONTEXT`: satisfied when
+ * `OBJ` provides the full object surface -- `fmap` (probed with a
+ * representative witness callable, not a proof for every callable) and the
+ * derived `replace`. Conformance here is structural, so a hand-implemented
+ * object that never uses the `Functor` CRTP base can satisfy this concept
+ * too; nothing here requires deriving from `derive_functor<Impl>`.
+ *
+ * There is no superclass edge to `Applicative` or `Monad`. In particular, a
+ * bare `Monad` object correctly fails this concept: `derive_monad<Impl>` grows
+ * only the Functor basis (`fmap`), never the derived surface, so it has no
+ * `replace`. Wrapping the monad object in `derive_functor<>`
+ * (`derive_functor<SomeMonadMap>`) is today's remedy; a later presentation
+ * member on `Monad` is expected to name the same wrapping.
+ */
+template <class OBJ, class CONTEXT>
+concept functor_object = requires(const OBJ &obj, const CONTEXT &context,
+                                  const applicative_value_t<CONTEXT> &element) {
+    obj.fmap(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
+    obj.replace(context, element);
+};
+
 template <class VALUE_TYPE>
 struct OptionalFunctorImpl {
     template <class F>
@@ -181,9 +253,9 @@ struct OptionalFunctorImpl {
               const std::optional<VALUE_TYPE> &value) {
         using Result = std::invoke_result_t<F, const VALUE_TYPE &>;
         if (!value) {
-            return std::optional<remove_cvref_t<Result>>{};
+            return std::optional<std::remove_cvref_t<Result>>{};
         }
-        return std::optional<remove_cvref_t<Result>>{
+        return std::optional<std::remove_cvref_t<Result>>{
             std::invoke(std::forward<F>(function), *value)};
     }
 };
@@ -193,8 +265,11 @@ struct VectorFunctorImpl {
     template <class F>
     auto fmap(this auto &&, F &&function,
               const std::vector<VALUE_TYPE> &values) {
-        using Result = std::invoke_result_t<F, const VALUE_TYPE &>;
-        std::vector<remove_cvref_t<Result>> output;
+        // `F &`, unlike the optional instance above: that one forwards the
+        // callable into a single std::invoke, this one invokes a captured
+        // lvalue once per element.
+        using Result = std::invoke_result_t<F &, const VALUE_TYPE &>;
+        std::vector<std::remove_cvref_t<Result>> output;
         output.reserve(values.size());
 
         std::ranges::transform(values, std::back_inserter(output),

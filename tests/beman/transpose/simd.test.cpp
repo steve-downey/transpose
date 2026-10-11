@@ -6,7 +6,12 @@
 // toolchain with <simd>; otherwise a single SUCCEED so Catch2 discovery
 // never sees an empty binary.
 
-#if __has_include(<simd>) && __cplusplus > 202302L
+#include <version>
+
+// __has_include(<simd>) alone is not enough: libstdc++ ships the <simd>
+// header unconditionally but leaves it empty unless the toolchain also
+// supports expansion statements (P1306), so check its readiness macro too.
+#if __has_include(<simd>) && __cplusplus > 202302L && defined(__glibcxx_simd)
 
 #include <beman/transpose/simd.hpp>
 
@@ -92,7 +97,7 @@ TEST_CASE("simd: ap does not exist here -- the invoke-interface proof") {
     // every nameable operand. This is the case that makes invoke the
     // user-facing interface -- ap remains a fine basis elsewhere, but an
     // ap-shaped interface would lock this domain out entirely.
-    using Map = bt::remove_cvref_t<decltype(bt::applicative<vec4>)>;
+    using Map = std::remove_cvref_t<decltype(bt::applicative<vec4>)>;
     STATIC_REQUIRE_FALSE(bt::test::has_apply_form<Map, vec4, vec4>);
     SUCCEED("std::simd::basic_vec participates through pure + invoke alone");
 }

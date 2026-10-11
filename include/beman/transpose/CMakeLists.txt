@@ -9,9 +9,12 @@ target_sources(
                 config.hpp
                 apply.hpp
                 array.hpp
-                dual_monoid.hpp
+                error_set.hpp
+                expected.hpp
                 fold.hpp
                 functor.hpp
+                grade.hpp
+                induced_monoid.hpp
                 monad.hpp
                 monoid.hpp
                 sender.hpp
@@ -21,6 +24,7 @@ target_sources(
                 zip_list.hpp
                 simd.hpp
                 simd_lanes.hpp
+                detail/applicative_derivation.hpp
                 detail/typeclass_base.hpp
                 "${PROJECT_BINARY_DIR}/include/beman/transpose/config_generated.hpp"
 )

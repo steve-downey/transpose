@@ -244,11 +244,11 @@ Three operations still get no object:
 
 * The lookup variables get the good names
 
-=functor_typeclass<T>= was a name working around a collision that shouldn't have been resolved in its favour.
+=functor<T>= was a name working around a collision that shouldn't have been resolved in its favour.
 It's the user-facing surface; it should be =functor<T>=.
 So the lookup variables are =functor<T>=, =applicative<T>=, =foldable<T>=, =traversable<T>= and =monad<T>=, and the thing that collides gets the longer, more descriptive name instead.
 
-What collided was the CRTP bases, which were =Functor<Impl>= and friends, distinguished from the lookup variables only by a capital letter.
+What collided was the CRTP bases, which were =derive_functor<Impl>= and friends, distinguished from the lookup variables only by a capital letter.
 That's not a distinction to build on.
 They're now =derive_functor<Impl>=, =derive_applicative<Impl>=, and so on, which says what they actually do: derive the rest of a typeclass from whatever primitives an instance supplies.
 
