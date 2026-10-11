@@ -251,7 +251,7 @@ TEST_CASE("accumulating-object: a non-applicative third argument is "
 //       ok(1), [](int) { return ok(2); });
 //
 // was added temporarily to this file, built, and confirmed to fail with the
-// static_assert message on AccumulatingExpectedApplicativeMap::bind
+// static_assert message on accumulating_expected_applicative_map::bind
 // (expected.hpp) naming the value-flow reason -- "sequencing needs a value
 // from the first computation ... there is none when that computation
 // failed" -- then removed. See docs/decisions.md#applicative-objects.

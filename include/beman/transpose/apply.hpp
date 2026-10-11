@@ -268,6 +268,9 @@ struct derive_applicative : protected Impl {
 //! object of a context type. A program may specialize it for a
 //! program-defined context. The primary template names no applicative
 //! object.
+//! The type of each object named by a specialization this document declares
+//! is a class type that is not final and models `semiregular`, so a program
+//! may derive from it to combine several objects in one algorithm object.
 template <class T>
 inline constexpr auto applicative = std::false_type{};
 
@@ -280,6 +283,9 @@ inline constexpr auto applicative = std::false_type{};
 //! determine which composition discipline a caller wants. This object has
 //! no Monad instance, because sequencing requires a value from a
 //! computation that accumulation admits may have failed.
+//! The type of each object named by a specialization this document declares
+//! is a class type that is not final and models `semiregular`, so a program
+//! may derive from it to combine several objects in one algorithm object.
 template <class T>
 inline constexpr auto accumulating_applicative = std::false_type{};
 
@@ -474,8 +480,9 @@ concept applicative_object =
 /// Applicative instance for std::optional: the flagship of the invoke core.
 /// The trailing return type keeps invoke SFINAE-friendly so availability
 /// probes fail cleanly.
+//! \expos
 template <class VALUE_TYPE>
-struct OptionalApplicativeImpl {
+struct optional_applicative_impl {
     // \ref{transpose.applicative.optional}, applicative instance for optional
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
@@ -491,17 +498,18 @@ struct OptionalApplicativeImpl {
                                  detail::contained_ref_t<REST>...>>>;
 };
 
+//! \expos
 template <class VALUE_TYPE>
-struct OptionalApplicativeMap
-    : derive_applicative<OptionalApplicativeImpl<VALUE_TYPE>> {
-    using OptionalApplicativeImpl<VALUE_TYPE>::invoke;
-    using OptionalApplicativeImpl<VALUE_TYPE>::pure;
+struct optional_applicative_map
+    : derive_applicative<optional_applicative_impl<VALUE_TYPE>> {
+    using optional_applicative_impl<VALUE_TYPE>::invoke;
+    using optional_applicative_impl<VALUE_TYPE>::pure;
 };
 
 /// Applicative instance for `std::optional<VALUE_TYPE>`.
 template <class VALUE_TYPE>
 inline constexpr auto applicative<std::optional<VALUE_TYPE>> =
-    OptionalApplicativeMap<VALUE_TYPE>{};
+    optional_applicative_map<VALUE_TYPE>{};
 
 // \rSec3[transpose.applicative.basis]{Basis operations}
 
@@ -898,7 +906,7 @@ inline constexpr discard_second_fn discard_second{};
 //! \returns An engaged `optional` holding `value`.
 template <class VALUE_TYPE>
 template <class VALUE>
-auto OptionalApplicativeImpl<VALUE_TYPE>::pure(this auto &&, VALUE &&value)
+auto optional_applicative_impl<VALUE_TYPE>::pure(this auto &&, VALUE &&value)
     -> std::optional<std::remove_cvref_t<VALUE>> {
     return std::optional<std::remove_cvref_t<VALUE>>{
         std::forward<VALUE>(value)};
@@ -916,9 +924,10 @@ template <class VALUE_TYPE>
 template <class FUNCTION, class FIRST, class... REST>
     requires detail::is_optional_v<FIRST> &&
              (detail::is_optional_v<REST> && ...)
-auto OptionalApplicativeImpl<VALUE_TYPE>::invoke(this auto &&,
-                                                 FUNCTION &&function,
-                                                 FIRST &&first, REST &&...rest)
+auto optional_applicative_impl<VALUE_TYPE>::invoke(this auto &&,
+                                                   FUNCTION &&function,
+                                                   FIRST &&first,
+                                                   REST &&...rest)
     -> std::optional<std::remove_cvref_t<
         std::invoke_result_t<FUNCTION &, detail::contained_ref_t<FIRST>,
                              detail::contained_ref_t<REST>...>>> {

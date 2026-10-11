@@ -147,8 +147,9 @@ constexpr auto operand_failed(const CARRIER &operand) -> bool {
 /// the leftmost error propagates. The trailing return type keeps invoke
 /// SFINAE-friendly, so an operand carrying a different error type fails
 /// deduction cleanly instead of hard-erroring.
+//! \expos
 template <class VALUE_TYPE, class ERROR_TYPE>
-struct ExpectedApplicativeImpl {
+struct expected_applicative_impl {
     // \ref{transpose.expected.applicative}, applicative instance for expected
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
@@ -219,22 +220,23 @@ struct ExpectedApplicativeImpl {
             CARRIERS...>;
 };
 
+//! \expos
 template <class VALUE_TYPE, class ERROR_TYPE>
-struct ExpectedApplicativeMap
-    : derive_applicative<ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
-    using ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke;
-    using ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure;
+struct expected_applicative_map
+    : derive_applicative<expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>> {
+    using expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>::invoke;
+    using expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>::pure;
 };
 
 /** Applicative instance for `std::expected<VALUE_TYPE, ERROR_TYPE>`. */
 template <class VALUE_TYPE, class ERROR_TYPE>
 inline constexpr auto applicative<std::expected<VALUE_TYPE, ERROR_TYPE>> =
-    ExpectedApplicativeMap<VALUE_TYPE, ERROR_TYPE>{};
+    expected_applicative_map<VALUE_TYPE, ERROR_TYPE>{};
 
 // -- The accumulating applicative instance ---------------------------------
 //
 // The second NTTP-pinned object over the SAME carrier and grade algebra as
-// ExpectedApplicativeMap above, per docs/decisions.md#applicative-objects.
+// expected_applicative_map above, per docs/decisions.md#applicative-objects.
 // Stage accumulating-object of docs/transpose-grading-plan.md.
 //
 // Where the short-circuit object above keeps only the LEFTMOST failing
@@ -244,7 +246,7 @@ inline constexpr auto applicative<std::expected<VALUE_TYPE, ERROR_TYPE>> =
 // failures of genuinely different types. That is the whole difference:
 // examining every operand instead of stopping at the first.
 //
-// Structurally this mirrors ExpectedApplicativeImpl's ungraded/graded split
+// Structurally this mirrors expected_applicative_impl's ungraded/graded split
 // exactly -- same two constraints, same complementary coverage, same
 // bare-operand promotion. Only the failure-collecting step differs.
 
@@ -278,11 +280,12 @@ constexpr auto accumulate_failures(EXTRACT &&extract,
 } // namespace detail
 
 /** Accumulating applicative instance for std::expected<VALUE_TYPE,
- * ERROR_TYPE>. Same carrier as ExpectedApplicativeImpl; see the section
+ * ERROR_TYPE>. Same carrier as expected_applicative_impl; see the section
  * comment above for how the two differ.
  */
+//! \expos
 template <class VALUE_TYPE, class ERROR_TYPE>
-struct AccumulatingExpectedApplicativeImpl {
+struct accumulating_expected_applicative_impl {
     // \ref{transpose.expected.accumulating}, accumulating instance
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
@@ -295,7 +298,7 @@ struct AccumulatingExpectedApplicativeImpl {
      * leftmost-wins, same as the short-circuit object.
      *
      * Operands are deduced through forwarding references, as
-     * ExpectedApplicativeImpl's counterpart core explains.
+     * expected_applicative_impl's counterpart core explains.
      */
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
@@ -321,7 +324,7 @@ struct AccumulatingExpectedApplicativeImpl {
             ERROR_TYPE>;
 
     /** Graded n-ary core: the mixing point, mirroring
-     * ExpectedApplicativeImpl's, but accumulating every failing operand's
+     * expected_applicative_impl's, but accumulating every failing operand's
      * witness into the joined grade instead of keeping only the first.
      */
     template <class FUNCTION, class... CARRIERS>
@@ -342,12 +345,14 @@ struct AccumulatingExpectedApplicativeImpl {
             CARRIERS...>;
 };
 
+//! \expos
 template <class VALUE_TYPE, class ERROR_TYPE>
-struct AccumulatingExpectedApplicativeMap
+struct accumulating_expected_applicative_map
     : derive_applicative<
-          AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
-    using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke;
-    using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure;
+          accumulating_expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>> {
+    using accumulating_expected_applicative_impl<VALUE_TYPE,
+                                                 ERROR_TYPE>::invoke;
+    using accumulating_expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>::pure;
 
     /// Bind is refused, not merely absent: sequencing needs a value from
     /// the first computation to feed the continuation, and when that
@@ -377,7 +382,7 @@ struct AccumulatingExpectedApplicativeMap
 template <class VALUE_TYPE, class ERROR_TYPE>
 inline constexpr auto
     accumulating_applicative<std::expected<VALUE_TYPE, ERROR_TYPE>> =
-        AccumulatingExpectedApplicativeMap<VALUE_TYPE, ERROR_TYPE>{};
+        accumulating_expected_applicative_map<VALUE_TYPE, ERROR_TYPE>{};
 
 /** Monad instance for std::expected<VALUE_TYPE, ERROR_TYPE>.
  * bind short-circuits on the error alternative. The continuation must return
@@ -448,8 +453,8 @@ inline constexpr auto monad<std::expected<VALUE_TYPE, ERROR_TYPE>> =
 //! \returns An `expected` holding `value`.
 template <class VALUE_TYPE, class ERROR_TYPE>
 template <class VALUE>
-auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure(this auto &&,
-                                                           VALUE &&value)
+auto expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>::pure(this auto &&,
+                                                             VALUE &&value)
     -> std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE> {
     return std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE>{
         std::forward<VALUE>(value)};
@@ -467,7 +472,7 @@ template <class VALUE_TYPE, class ERROR_TYPE>
 template <class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
             detail::all_declare_v<ERROR_TYPE, CARRIERS...>
-auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
+auto expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, CARRIERS &&...operands)
     -> std::expected<std::remove_cvref_t<std::invoke_result_t<
                          FUNCTION &, detail::contained_ref_t<CARRIERS>...>>,
@@ -505,7 +510,7 @@ template <class FUNCTION, class... CARRIERS>
             (is_expected_v<std::remove_cvref_t<CARRIERS>> || ...) &&
             (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>) &&
             detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
-auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
+auto expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, const CARRIERS &...operands)
     -> std::expected<
         std::remove_cvref_t<std::invoke_result_t<
@@ -552,7 +557,7 @@ template <class FUNCTION, class... CARRIERS>
             (detail::mixes_with_model<
                  grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
              ...)
-auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
+auto expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, const CARRIERS &...operands)
     -> detail::mixed_result_t<
         grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
@@ -590,7 +595,7 @@ auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
 //! \returns An `expected` holding `value`.
 template <class VALUE_TYPE, class ERROR_TYPE>
 template <class VALUE>
-auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure(
+auto accumulating_expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>::pure(
     this auto &&, VALUE &&value)
     -> std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE> {
     return std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE>{
@@ -609,7 +614,7 @@ template <class VALUE_TYPE, class ERROR_TYPE>
 template <class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
             detail::all_declare_v<ERROR_TYPE, CARRIERS...>
-auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
+auto accumulating_expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, CARRIERS &&...operands)
     -> std::expected<std::remove_cvref_t<std::invoke_result_t<
                          FUNCTION &, detail::contained_ref_t<CARRIERS>...>>,
@@ -647,7 +652,7 @@ template <class FUNCTION, class... CARRIERS>
             (is_expected_v<std::remove_cvref_t<CARRIERS>> || ...) &&
             (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>) &&
             detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
-auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
+auto accumulating_expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, const CARRIERS &...operands)
     -> std::expected<
         std::remove_cvref_t<std::invoke_result_t<
@@ -690,7 +695,7 @@ template <class FUNCTION, class... CARRIERS>
             (detail::mixes_with_model<
                  grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
              ...)
-auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
+auto accumulating_expected_applicative_impl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, const CARRIERS &...operands)
     -> detail::mixed_result_t<
         grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,

@@ -68,7 +68,7 @@ struct derive_traversable : protected Impl {
 template<class T> inline constexpr auto traversable = false_type{};
 ```
 
-[x+4]{.pnum} *Remarks*: This variable template is the lookup point for the Traversable object of a structure type. A program may specialize it for a program-defined structure. The primary template names no traversable object.
+[x+4]{.pnum} *Remarks*: This variable template is the lookup point for the Traversable object of a structure type. A program may specialize it for a program-defined structure. The primary template names no traversable object. The type of each object named by a specialization this document declares is a class type that is not final and models `semiregular`, so a program may derive from it to combine several objects in one algorithm object.
 
 :::
 

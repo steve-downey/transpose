@@ -2,7 +2,7 @@
 
 ```cpp
 template<class VALUE_TYPE>
-struct VectorTraversableImpl {
+struct $vector-traversable-impl$ {
   using element_type = VALUE_TYPE;
   static constexpr bool consumes_rvalue_structure = true;
 
@@ -14,7 +14,7 @@ struct VectorTraversableImpl {
   template<class APPLICATIVE, class FUNCTION>
   auto traverse(this auto&&, const APPLICATIVE& applicative, FUNCTION&& function,
                 vector<VALUE_TYPE>&& values);
-};
+}; // exposition only
 ```
 
 ::: wording
@@ -25,9 +25,10 @@ struct VectorTraversableImpl {
 
 ```cpp
 template<class VALUE_TYPE>
-struct VectorTraversableMap : derive_traversable<VectorTraversableImpl<VALUE_TYPE>> {
-  using VectorTraversableImpl<VALUE_TYPE>::traverse;
-};
+struct $vector-traversable-map$
+    : derive_traversable<$vector-traversable-impl$<VALUE_TYPE>> {
+  using $vector-traversable-impl$<VALUE_TYPE>::traverse;
+}; // exposition only
 ```
 
 :::

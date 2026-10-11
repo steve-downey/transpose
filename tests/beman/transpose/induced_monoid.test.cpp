@@ -137,7 +137,10 @@ TEST_CASE("induced_monoid: kleisli_monoid associativity -- the Kleisli-form "
 
 namespace {
 
-using ApplicativeObj = bt::OptionalApplicativeMap<int>;
+// The applicative object's class is exposition-only; reach it through the
+// lookup, as a program would.
+using ApplicativeObj =
+    std::remove_cvref_t<decltype(bt::applicative<std::optional<int>>)>;
 using Lifted =
     bt::lifted_monoid<ApplicativeObj, std::optional<int>, bt::sum_monoid<int>>;
 
@@ -146,9 +149,9 @@ static_assert(std::is_same_v<bt::monoid_value_t<Lifted>, std::optional<int>>);
 
 // The element instance defaults to the registration where one exists.
 static_assert(
-    std::is_same_v<bt::lifted_monoid<bt::OptionalApplicativeMap<std::string>,
+    std::is_same_v<bt::lifted_monoid<bt::optional_applicative_map<std::string>,
                                      std::optional<std::string>>,
-                   bt::lifted_monoid<bt::OptionalApplicativeMap<std::string>,
+                   bt::lifted_monoid<bt::optional_applicative_map<std::string>,
                                      std::optional<std::string>,
                                      bt::Monoid<std::string>>>);
 

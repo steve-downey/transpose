@@ -150,7 +150,7 @@ struct derive_applicative : protected Impl {
 template<class T> inline constexpr auto applicative = false_type{};
 ```
 
-[x+5]{.pnum} *Remarks*: This variable template is the lookup point for the Applicative object of a context type. A program may specialize it for a program-defined context. The primary template names no applicative object.
+[x+5]{.pnum} *Remarks*: This variable template is the lookup point for the Applicative object of a context type. A program may specialize it for a program-defined context. The primary template names no applicative object. The type of each object named by a specialization this document declares is a class type that is not final and models `semiregular`, so a program may derive from it to combine several objects in one algorithm object.
 
 :::
 
@@ -161,7 +161,7 @@ template<class T>
 inline constexpr auto accumulating_applicative = false_type{};
 ```
 
-[x+6]{.pnum} *Remarks*: This variable template is a second lookup point, over the same carrier and grade algebra as `applicative`, naming the accumulating Applicative object. Where the object named by `applicative` stops at the first failing operand, this object combines the evidence of every failing operand. Neither object is selected automatically for a carrier: the context type alone does not determine which composition discipline a caller wants. This object has no Monad instance, because sequencing requires a value from a computation that accumulation admits may have failed.
+[x+6]{.pnum} *Remarks*: This variable template is a second lookup point, over the same carrier and grade algebra as `applicative`, naming the accumulating Applicative object. Where the object named by `applicative` stops at the first failing operand, this object combines the evidence of every failing operand. Neither object is selected automatically for a carrier: the context type alone does not determine which composition discipline a caller wants. This object has no Monad instance, because sequencing requires a value from a computation that accumulation admits may have failed. The type of each object named by a specialization this document declares is a class type that is not final and models `semiregular`, so a program may derive from it to combine several objects in one algorithm object.
 
 :::
 
@@ -202,7 +202,7 @@ concept applicative_object =
 
 ```cpp
 template<class VALUE_TYPE>
-struct OptionalApplicativeImpl {
+struct $optional-applicative-impl$ {
   // @[transpose.applicative.optional]{- .sref}@, applicative instance for optional
   template<class VALUE>
   auto pure(this auto&&, VALUE&& value) -> optional<remove_cvref_t<VALUE>>;
@@ -212,15 +212,16 @@ struct OptionalApplicativeImpl {
   auto invoke(this auto&&, FUNCTION&& function, FIRST&& first, REST&&... rest)
       -> optional<remove_cvref_t<invoke_result_t<FUNCTION&, $contained-ref-t$<FIRST>,
                                                  $contained-ref-t$<REST>...>>>;
-};
+}; // exposition only
 ```
 
 ```cpp
 template<class VALUE_TYPE>
-struct OptionalApplicativeMap : derive_applicative<OptionalApplicativeImpl<VALUE_TYPE>> {
-  using OptionalApplicativeImpl<VALUE_TYPE>::invoke;
-  using OptionalApplicativeImpl<VALUE_TYPE>::pure;
-};
+struct $optional-applicative-map$
+    : derive_applicative<$optional-applicative-impl$<VALUE_TYPE>> {
+  using $optional-applicative-impl$<VALUE_TYPE>::invoke;
+  using $optional-applicative-impl$<VALUE_TYPE>::pure;
+}; // exposition only
 ```
 
 :::

@@ -83,8 +83,10 @@ struct kleisli_monoid {
  * combine is `invoke(combine_A, ·, ·)`. The element instance defaults to
  * the registered Monoid of the element type and is held by value, so a
  * lift of `std::optional<int>` under addition is spelled
- * `lifted_monoid<OptionalApplicativeMap<int>, std::optional<int>,
- * sum_monoid<int>>` -- the context stays `std::optional<int>`, unwrapped.
+ * `lifted_monoid<std::remove_cvref_t<decltype(applicative<std::optional<int>>)>,
+ * std::optional<int>, sum_monoid<int>>` -- the context stays
+ * `std::optional<int>`, unwrapped. The instance's own class is an
+ * implementation detail; reach it through the lookup.
  *
  * Uses `invoke`, not `ap`: `invoke` is the interface that works for every
  * context, including one that cannot hold a callable (`apply.hpp`'s

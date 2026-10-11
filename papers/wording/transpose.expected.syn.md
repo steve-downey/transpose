@@ -59,7 +59,7 @@ inline constexpr bool $all-declare-or-bare-v$ =
 
 ```cpp
 template<class VALUE_TYPE, class ERROR_TYPE>
-struct ExpectedApplicativeImpl {
+struct $expected-applicative-impl$ {
   // @[transpose.expected.applicative]{- .sref}@, applicative instance for expected
   template<class VALUE>
   auto pure(this auto&&, VALUE&& value) -> expected<remove_cvref_t<VALUE>, ERROR_TYPE>;
@@ -92,21 +92,21 @@ struct ExpectedApplicativeImpl {
                                      FUNCTION&, const $carrier-value-t$<CARRIERS>&...>>,
                                  ERROR_TYPE>,
                         CARRIERS...>;
-};
+}; // exposition only
 ```
 
 ```cpp
 template<class VALUE_TYPE, class ERROR_TYPE>
-struct ExpectedApplicativeMap
-    : derive_applicative<ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
-  using ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke;
-  using ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure;
-};
+struct $expected-applicative-map$
+    : derive_applicative<$expected-applicative-impl$<VALUE_TYPE, ERROR_TYPE>> {
+  using $expected-applicative-impl$<VALUE_TYPE, ERROR_TYPE>::invoke;
+  using $expected-applicative-impl$<VALUE_TYPE, ERROR_TYPE>::pure;
+}; // exposition only
 ```
 
 ```cpp
 template<class VALUE_TYPE, class ERROR_TYPE>
-struct AccumulatingExpectedApplicativeImpl {
+struct $accumulating-expected-applicative-impl$ {
   // @[transpose.expected.accumulating]{- .sref}@, accumulating instance
   template<class VALUE>
   auto pure(this auto&&, VALUE&& value) -> expected<remove_cvref_t<VALUE>, ERROR_TYPE>;
@@ -139,16 +139,17 @@ struct AccumulatingExpectedApplicativeImpl {
                                      FUNCTION&, const $carrier-value-t$<CARRIERS>&...>>,
                                  ERROR_TYPE>,
                         CARRIERS...>;
-};
+}; // exposition only
 ```
 
 ```cpp
 template<class VALUE_TYPE, class ERROR_TYPE>
-struct AccumulatingExpectedApplicativeMap
-    : derive_applicative<AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
-  using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke;
-  using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure;
-};
+struct $accumulating-expected-applicative-map$
+    : derive_applicative<
+          $accumulating-expected-applicative-impl$<VALUE_TYPE, ERROR_TYPE>> {
+  using $accumulating-expected-applicative-impl$<VALUE_TYPE, ERROR_TYPE>::invoke;
+  using $accumulating-expected-applicative-impl$<VALUE_TYPE, ERROR_TYPE>::pure;
+}; // exposition only
 ```
 
 :::
