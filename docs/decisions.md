@@ -1089,19 +1089,33 @@ the marker that would end the chain -- `\seebelow` on an exposition-only alias
 
 **Question:** Are the reference implementation's spellings the ones the
 wording should use?
-**Status:** OPEN
-**Decision:** Deferred for R0.
-`Applicative`, `Traversable`, `applicative_typeclass`,
-`OptionalApplicativeMap` and their siblings are implementation names; WG21
-wording is lowercase and would not name a CRTP base this way. The explicit
-object parameter (`this auto&& self`) likewise appears in every generated item
-declaration and would not appear in a specification.
-**Why:** The naming discussion is a paper-level argument, not a markup
-question, and settling it before the mechanism has been reviewed would spend
-the discussion twice. D3200R0 says so in the wording preamble rather than
-shipping the spellings as if they were settled.
+**Status:** DECIDED 2026-10-11, except for the explicit object parameter.
+**Decided by:** Steve Downey, 2026-10-11.
+**Decision:** Names in the wording are snake_case, by
+[proposal-name-case](#proposal-name-case). The lookup variables and CRTP
+bases already were, after [lookup-variable-naming](#lookup-variable-naming).
+The instance classes the wording shows — `optional_applicative_impl` and
+`_map`, and the same pairs for `expected`, accumulating `expected`, `array`
+and `vector`'s Traversable — are renamed to snake_case and marked
+exposition-only. They describe the instances as if they were built that way;
+a program reaches an instance through `applicative<T>` or `traversable<T>` and
+never names its class. What a program may rely on is stated instead: each such
+object is of a non-final class type that models `semiregular`, which is what
+deriving an algorithm object from several instances needs.
+The explicit object parameter (`this auto&& self`) in every item declaration
+is still open.
+**Why:** The wording is the proposal's text, and the instances' class
+structure is an implementation choice that a specification should not commit
+to. The class-type promise is not optional: the paper's one-namespace argument
+rests on inheriting from instances, and `traverse` already value-initializes
+an object of the instance's type.
 **Log:**
 - 2026-09-03 — Recorded when the wording pipeline landed.
+- 2026-10-11 — Graduated for names. The ten instance classes renamed and
+  marked `\expos`; the class-type promise added to `applicative`,
+  `accumulating_applicative` and `traversable`. Rendering them needed a
+  specgen fix: an `\expos` class definition was copied into the synopsis as
+  written, member bodies, `\omit`ted members and comments included.
 
 ---
 
@@ -3265,9 +3279,10 @@ looked-up instance are spelled `applicative_map`, `traversable_map`,
 Every operation and lookup lives in the one library namespace; there is no
 nested `typeclass` or `ops` namespace.
 **Why:** The lookup variables are the user-facing surface, so a suffix that
-dodges a collision is a cost paid in the wrong place. The CRTP bases were told
-apart from the lookups only by an initial capital, which is not a distinction
-to build on, and `derive_` says what they do. One namespace for the whole
+dodges a collision is a cost paid in the wrong place. The CRTP bases
+`derive_applicative` and `derive_traversable` appear in the wording, so
+[proposal-name-case](#proposal-name-case) already required them to be
+snake_case; `derive_` also says what they do, and the other three follow them. One namespace for the whole
 family is for coherence: a name there means one thing across every typeclass,
 which is what lets Applicative provide the Functor names. A nested namespace
 was tried on the branch and removed; it lengthened every call site for a
@@ -3358,16 +3373,39 @@ outside the proposed headers and get no wording.
 
 **Question:** Should the monoid registry struct and its lookup variable be
 told apart by more than case?
-**Status:** OPEN
-**Recorded by:** Steve Downey, 2026-10-10.
-**Context:** Under [lookup-variable-naming](#lookup-variable-naming) the
-lookup is `monoid<T>`, and a program registers an instance by specializing
-the struct `Monoid<T>`. The other typeclasses register by specializing the
-lookup variable itself, so they have no second name. Telling `Monoid` from
-`monoid` by its initial capital is the distinction that decision stopped
-relying on for the CRTP bases. Options include specializing the variable
-directly, as the other typeclasses do, or giving the struct a descriptive
-name. beman.fingertree re-vendors this layer, so the answer reaches it too
-(see [monoid-selection](#monoid-selection), order of work).
+**Status:** DECIDED 2026-10-11
+**Decided by:** Steve Downey, 2026-10-11.
+**Decision:** No. `Monoid<T>` and `monoid<T>` both stay. Case is how the
+library marks what is proposed: anything that reaches the proposal's text is
+snake_case, and implementation names that do not are CapitalCase. `monoid.hpp`
+is outside the proposal's headers, and the paper proposes neither Monoid nor
+Foldable, so `Monoid<T>` is CapitalCase on purpose. `monoid<T>` is not
+proposed either, but it is a lookup variable and is spelled like the ones that
+are.
+**Why:** The question assumed an initial capital is not a distinction worth
+having. Under the naming rule it carries information: it says the name is not
+proposed. See [proposal-name-case](#proposal-name-case).
 **Log:**
-- 2026-10-10 — Recorded with the `monoid_v` rename.
+- 2026-10-10 — Recorded OPEN with the `monoid_v` rename.
+- 2026-10-11 — Decided by Steve Downey on the naming rule.
+
+---
+
+## proposal-name-case
+
+**Question:** How is a name's case chosen?
+**Status:** DECIDED 2026-10-11
+**Decided by:** Steve Downey, 2026-10-11.
+**Decision:** Anything that reaches the proposal's text is snake_case: proposed
+entities, and exposition-only names, which the wording renders in the draft's
+kebab-case italic form (`$optional-applicative-impl$`). Implementation names
+that do not reach the proposal are CapitalCase, Steve's ordinary style. Case
+therefore says whether a name is proposed.
+**Why:** The standard library is snake_case, and a proposal's names are read as
+the names it would standardize. Keeping implementation detail in a different
+case makes it visible at a glance which names a reviewer is being asked to
+accept.
+**Log:**
+- 2026-10-11 — Stated by Steve Downey while settling
+  [monoid-registry-spelling](#monoid-registry-spelling) and
+  [wording-spec-names](#wording-spec-names).

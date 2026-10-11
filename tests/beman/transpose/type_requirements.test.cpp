@@ -405,7 +405,8 @@ TEST_CASE("type requirements: zip_list composes lvalue operands as const") {
 
 using beman::transpose::test::rvalue_argument_only_callable;
 
-static_assert(bt::consuming_traversable_object<bt::VectorTraversableMap<int>>);
+static_assert(
+    bt::consuming_traversable_object<bt::vector_traversable_map<int>>);
 static_assert(bt::consuming_traversable_object<
               traversable_for<beman::transpose::test::Identity<int>>>);
 
@@ -432,7 +433,7 @@ static_assert(!traversable_with<rvalue_argument_only_callable,
                                 beman::transpose::test::Identity<int> &>);
 
 static_assert(
-    bt::traversable_impl<bt::VectorTraversableImpl<int>, std::vector<int>>);
+    bt::traversable_impl<bt::vector_traversable_impl<int>, std::vector<int>>);
 static_assert(bt::traversable_object<
               traversable_for<beman::transpose::test::Identity<int>>,
               beman::transpose::test::Identity<int>>);

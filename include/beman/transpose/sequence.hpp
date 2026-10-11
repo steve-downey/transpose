@@ -84,8 +84,9 @@ inline constexpr auto foldable<std::vector<VALUE_TYPE>> =
 /// The primitive `traverse` sequences each element's effect via the supplied
 /// applicative, collecting the in-context element results into a vector while
 /// preserving the original element order and count.
+//! \expos
 template <class VALUE_TYPE>
-struct VectorTraversableImpl {
+struct vector_traversable_impl {
     using element_type = VALUE_TYPE;
 
     //! \remarks A `vector` handed over as an rvalue owns its elements
@@ -106,16 +107,17 @@ struct VectorTraversableImpl {
                   FUNCTION &&function, std::vector<VALUE_TYPE> &&values);
 };
 
+//! \expos
 template <class VALUE_TYPE>
-struct VectorTraversableMap
-    : derive_traversable<VectorTraversableImpl<VALUE_TYPE>> {
-    using VectorTraversableImpl<VALUE_TYPE>::traverse;
+struct vector_traversable_map
+    : derive_traversable<vector_traversable_impl<VALUE_TYPE>> {
+    using vector_traversable_impl<VALUE_TYPE>::traverse;
 };
 
 /// Traversable instance for `std::vector<VALUE_TYPE>`.
 template <class VALUE_TYPE>
 inline constexpr auto traversable<std::vector<VALUE_TYPE>> =
-    VectorTraversableMap<VALUE_TYPE>{};
+    vector_traversable_map<VALUE_TYPE>{};
 
 namespace detail {
 
@@ -183,7 +185,7 @@ inline constexpr vector_append_t<ELEMENT> vector_append{};
 //! than linear in the elements it collects.
 template <class VALUE_TYPE>
 template <class APPLICATIVE, class FUNCTION>
-auto VectorTraversableImpl<VALUE_TYPE>::traverse(
+auto vector_traversable_impl<VALUE_TYPE>::traverse(
     this auto &&, const APPLICATIVE &applicative, FUNCTION &&function,
     const std::vector<VALUE_TYPE> &values) {
     using Effect = std::remove_cvref_t<
@@ -222,7 +224,7 @@ auto VectorTraversableImpl<VALUE_TYPE>::traverse(
 //! copied. `values` is left in a valid but unspecified state.
 template <class VALUE_TYPE>
 template <class APPLICATIVE, class FUNCTION>
-auto VectorTraversableImpl<VALUE_TYPE>::traverse(
+auto vector_traversable_impl<VALUE_TYPE>::traverse(
     this auto &&, const APPLICATIVE &applicative, FUNCTION &&function,
     std::vector<VALUE_TYPE> &&values) {
     using Effect =

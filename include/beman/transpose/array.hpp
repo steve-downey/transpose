@@ -53,8 +53,9 @@ inline constexpr bool is_std_array_of_extent_v =
 
 } // namespace detail
 
+//! \expos
 template <class T, std::size_t N>
-struct ArrayApplicativeImpl {
+struct array_applicative_impl {
     // \ref{transpose.array.applicative}, applicative instance for array
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value);
@@ -67,15 +68,17 @@ struct ArrayApplicativeImpl {
 };
 
 /// Applicative map for std::array<T, N>: the native n-ary invoke core.
+//! \expos
 template <class T, std::size_t N>
-struct ArrayApplicativeMap : derive_applicative<ArrayApplicativeImpl<T, N>> {
-    using ArrayApplicativeImpl<T, N>::invoke;
-    using ArrayApplicativeImpl<T, N>::pure;
+struct array_applicative_map
+    : derive_applicative<array_applicative_impl<T, N>> {
+    using array_applicative_impl<T, N>::invoke;
+    using array_applicative_impl<T, N>::pure;
 };
 
 template <class T, std::size_t N>
 inline constexpr auto applicative<std::array<T, N>> =
-    ArrayApplicativeMap<T, N>{};
+    array_applicative_map<T, N>{};
 
 namespace detail {
 
@@ -96,7 +99,7 @@ auto transpose_tuple_impl(const std::tuple<std::array<Ts, N>...> &soa,
 //! elements is a copy of `value`.
 template <class T, std::size_t N>
 template <class VALUE>
-auto ArrayApplicativeImpl<T, N>::pure(this auto &&, VALUE &&value) {
+auto array_applicative_impl<T, N>::pure(this auto &&, VALUE &&value) {
     using U = std::remove_cvref_t<VALUE>;
     // Constructed directly rather than default-constructed and filled: every
     // element is a copy of `value`, which is all this operation documents,
@@ -119,8 +122,8 @@ template <class T, std::size_t N>
 template <class FUNCTION, class FIRST, class... REST>
     requires detail::is_std_array_of_extent_v<FIRST, N> &&
              (detail::is_std_array_of_extent_v<REST, N> && ...)
-auto ArrayApplicativeImpl<T, N>::invoke(this auto &&, FUNCTION &&function,
-                                        FIRST &&first, REST &&...rest) {
+auto array_applicative_impl<T, N>::invoke(this auto &&, FUNCTION &&function,
+                                          FIRST &&first, REST &&...rest) {
     using Result =
         std::invoke_result_t<FUNCTION &, detail::element_ref_t<FIRST>,
                              detail::element_ref_t<REST>...>;

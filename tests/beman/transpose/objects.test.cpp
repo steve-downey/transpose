@@ -17,6 +17,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
+#include <concepts>
 #include <expected>
 #include <optional>
 #include <string>
@@ -127,12 +128,12 @@ static_assert(
     bt::functor_object<bt::OptionalFunctorMap<int>, std::optional<int>>);
 static_assert(bt::functor_object<bt::VectorFunctorMap<int>, std::vector<int>>);
 
-static_assert(bt::applicative_object<bt::OptionalApplicativeMap<int>,
+static_assert(bt::applicative_object<bt::optional_applicative_map<int>,
                                      std::optional<int>>);
 static_assert(bt::applicative_object<
               std::remove_cvref_t<decltype(bt::applicative<bt::zip_list<int>>)>,
               bt::zip_list<int>>);
-static_assert(bt::applicative_object<bt::ArrayApplicativeMap<int, 3>,
+static_assert(bt::applicative_object<bt::array_applicative_map<int, 3>,
                                      std::array<int, 3>>);
 static_assert(bt::applicative_object<
               std::remove_cvref_t<decltype(bt::applicative<bt::sender<int>>)>,
@@ -152,7 +153,32 @@ static_assert(
     bt::foldable_object<bt::VectorFoldableMap<int>, std::vector<int>>);
 
 static_assert(
-    bt::traversable_object<bt::VectorTraversableMap<int>, std::vector<int>>);
+    bt::traversable_object<bt::vector_traversable_map<int>, std::vector<int>>);
+
+// -- The instance types are derivable classes --
+//
+// Their names are exposition-only, but the wording promises what an
+// algorithm object needs from them: a non-final class type that models
+// semiregular, so a program can inherit from several at once.
+
+template <class OBJ>
+constexpr bool derivable_instance_v =
+    std::is_class_v<OBJ> && !std::is_final_v<OBJ> && std::semiregular<OBJ>;
+
+template <const auto &TC>
+using instance_t = std::remove_cvref_t<decltype(TC)>;
+
+static_assert(
+    derivable_instance_v<instance_t<bt::applicative<std::optional<int>>>>);
+static_assert(
+    derivable_instance_v<instance_t<bt::applicative<std::array<int, 3>>>>);
+static_assert(derivable_instance_v<
+              instance_t<bt::applicative<std::expected<int, std::string>>>>);
+static_assert(
+    derivable_instance_v<instance_t<
+        bt::accumulating_applicative<std::expected<int, std::string>>>>);
+static_assert(
+    derivable_instance_v<instance_t<bt::traversable<std::vector<int>>>>);
 
 // -- An ap-only object satisfies applicative_object --
 //
@@ -224,16 +250,16 @@ static_assert(bt::functor_object<
 static_assert(
     bt::functor_impl<bt::OptionalFunctorImpl<int>, std::optional<int>>);
 
+static_assert(bt::applicative_impl<bt::optional_applicative_impl<int>,
+                                   std::optional<int>>);
 static_assert(
-    bt::applicative_impl<bt::OptionalApplicativeImpl<int>, std::optional<int>>);
-static_assert(
-    bt::applicative_impl<bt::ExpectedApplicativeImpl<int, std::string>,
+    bt::applicative_impl<bt::expected_applicative_impl<int, std::string>,
                          std::expected<int, std::string>>);
 static_assert(bt::applicative_impl<
-              bt::AccumulatingExpectedApplicativeImpl<int, std::string>,
+              bt::accumulating_expected_applicative_impl<int, std::string>,
               std::expected<int, std::string>>);
-static_assert(
-    bt::applicative_impl<bt::ArrayApplicativeImpl<int, 3>, std::array<int, 3>>);
+static_assert(bt::applicative_impl<bt::array_applicative_impl<int, 3>,
+                                   std::array<int, 3>>);
 static_assert(
     bt::applicative_impl<bt::ZipListApplicativeImpl<int>, bt::zip_list<int>>);
 static_assert(
@@ -246,7 +272,7 @@ static_assert(bt::monad_impl<bt::OptionalMonadImpl<int>, std::optional<int>>);
 static_assert(bt::foldable_impl<bt::VectorFoldableImpl<int>, std::vector<int>>);
 
 static_assert(
-    bt::traversable_impl<bt::VectorTraversableImpl<int>, std::vector<int>>);
+    bt::traversable_impl<bt::vector_traversable_impl<int>, std::vector<int>>);
 
 // -- Both bases of each dual-basis class are accepted --
 //
@@ -257,7 +283,7 @@ static_assert(
 // foldable_impl are exactly where a concept written only against one basis
 // would bake that defect back in.
 static_assert(bt::applicative_impl<ApOnlyImpl, std::optional<int>>); // ap-only
-static_assert(bt::applicative_impl<bt::OptionalApplicativeImpl<int>,
+static_assert(bt::applicative_impl<bt::optional_applicative_impl<int>,
                                    std::optional<int>>); // invoke-only
 static_assert(
     bt::foldable_impl<FoldRightOnlyImpl, std::vector<int>>); // fold_right-only
@@ -274,9 +300,9 @@ static_assert(
 static_assert(
     !bt::functor_object<bt::OptionalFunctorImpl<int>, std::optional<int>>);
 
-static_assert(
-    bt::applicative_impl<bt::OptionalApplicativeImpl<int>, std::optional<int>>);
-static_assert(!bt::applicative_object<bt::OptionalApplicativeImpl<int>,
+static_assert(bt::applicative_impl<bt::optional_applicative_impl<int>,
+                                   std::optional<int>>);
+static_assert(!bt::applicative_object<bt::optional_applicative_impl<int>,
                                       std::optional<int>>);
 
 static_assert(bt::monad_impl<bt::OptionalMonadImpl<int>, std::optional<int>>);
@@ -288,9 +314,9 @@ static_assert(
     !bt::foldable_object<bt::VectorFoldableImpl<int>, std::vector<int>>);
 
 static_assert(
-    bt::traversable_impl<bt::VectorTraversableImpl<int>, std::vector<int>>);
-static_assert(
-    !bt::traversable_object<bt::VectorTraversableImpl<int>, std::vector<int>>);
+    bt::traversable_impl<bt::vector_traversable_impl<int>, std::vector<int>>);
+static_assert(!bt::traversable_object<bt::vector_traversable_impl<int>,
+                                      std::vector<int>>);
 
 // -- A basis-less Impl fails --
 static_assert(!bt::functor_impl<NoBasisImpl, std::optional<int>>);
@@ -309,9 +335,9 @@ static_assert(!bt::traversable_impl<NoBasisImpl, std::vector<int>>);
 // the concept diagnoses from inside it instead of evaluating to false --
 // which is the one thing a detection concept may not do. These are the
 // negative cases: every object, asked about a context that is not its own.
-static_assert(!bt::applicative_object<bt::OptionalApplicativeMap<int>,
+static_assert(!bt::applicative_object<bt::optional_applicative_map<int>,
                                       std::array<int, 3>>);
-static_assert(!bt::applicative_object<bt::ArrayApplicativeMap<int, 3>,
+static_assert(!bt::applicative_object<bt::array_applicative_map<int, 3>,
                                       std::optional<int>>);
 static_assert(!bt::applicative_object<bt::SimdLanesApplicativeMap<int, 4>,
                                       std::optional<int>>);
@@ -338,9 +364,9 @@ concept composes_pairwise =
 
 } // namespace
 
-static_assert(composes_pairwise<bt::ArrayApplicativeMap<int, 4>,
+static_assert(composes_pairwise<bt::array_applicative_map<int, 4>,
                                 std::array<int, 4>, std::array<int, 4>>);
-static_assert(!composes_pairwise<bt::ArrayApplicativeMap<int, 4>,
+static_assert(!composes_pairwise<bt::array_applicative_map<int, 4>,
                                  std::array<int, 4>, std::array<int, 2>>);
 
 static_assert(
@@ -382,7 +408,8 @@ template <>
 inline constexpr auto bt::applicative<half_context> = HalfApplicativeObject{};
 
 static_assert(!bt::applicative_context<half_context>);
-static_assert(!bt::transposing_object<bt::VectorTraversableMap<half_context>>);
+static_assert(
+    !bt::transposing_object<bt::vector_traversable_map<half_context>>);
 
 // The weaker question answers yes for this element type, which is what
 // pins the two spellings apart rather than merely restating one of them.
@@ -390,12 +417,12 @@ static_assert(requires {
     bt::applicative<half_context>.pure(std::declval<half_context>());
 });
 
-static_assert(bt::traversable_object<bt::VectorTraversableMap<half_context>,
+static_assert(bt::traversable_object<bt::vector_traversable_map<half_context>,
                                      std::vector<half_context>>);
 
 // And the positive case is still required to provide transpose.
 static_assert(
-    bt::transposing_object<bt::VectorTraversableMap<std::optional<int>>>);
+    bt::transposing_object<bt::vector_traversable_map<std::optional<int>>>);
 static_assert(
-    bt::traversable_object<bt::VectorTraversableMap<std::optional<int>>,
+    bt::traversable_object<bt::vector_traversable_map<std::optional<int>>,
                            std::vector<std::optional<int>>>);

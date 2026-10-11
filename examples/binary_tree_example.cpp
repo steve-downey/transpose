@@ -30,7 +30,8 @@ static_assert(bt::traversable_object<example::BinaryTreeTraversableMap<int>,
                                      BinaryTree<int>>);
 static_assert(
     !bt::consuming_traversable_object<example::BinaryTreeTraversableMap<int>>);
-static_assert(bt::consuming_traversable_object<bt::VectorTraversableMap<int>>);
+static_assert(
+    bt::consuming_traversable_object<bt::vector_traversable_map<int>>);
 
 int main() {
     // tree: node(2) with left=leaf(3), right=leaf(5)
