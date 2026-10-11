@@ -83,6 +83,11 @@ struct grade_of {
 
 :::
 
+```cpp
+template<class CONTEXT>
+using $grade-of-t$ = typename grade_of<CONTEXT>::type; // exposition only
+```
+
 ::: wording
 
 ```cpp
@@ -94,11 +99,16 @@ struct rebind_grade;
 
 :::
 
+```cpp
+template<class CONTEXT, class GRADE>
+using $rebind-grade-t$ = typename rebind_grade<CONTEXT, GRADE>::type; // exposition only
+```
+
 ::: wording
 
 ```cpp
 template<class CONTEXT>
-concept graded_context = !is_same_v<grade_of_t<CONTEXT>, unit_grade>;
+concept graded_context = !is_same_v<$grade-of-t$<CONTEXT>, unit_grade>;
 ```
 
 [x+8]{.pnum} *Remarks*: `graded_context<CONTEXT>` is satisfied when `CONTEXT` carries a model grade rather than `unit_grade`. Graded and ungraded paths are kept mutually exclusive by this constraint rather than by overload ranking.
@@ -121,7 +131,7 @@ struct $mixes-with-model-impl$<MODEL_GRADE, unit_grade> : true_type {}; // expos
 template<class MODEL_GRADE, class OPERAND>
 concept $mixes-with-model$ =
     $mixes-with-model-impl$<MODEL_GRADE,
-                          grade_of_t<remove_cvref_t<OPERAND>>>::value; // exposition
+                          $grade-of-t$<remove_cvref_t<OPERAND>>>::value; // exposition
                                                                        // only
 ```
 

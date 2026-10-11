@@ -84,10 +84,10 @@ struct $expected-applicative-impl$ {
     requires(sizeof...(CARRIERS) > 0) &&
             ($is-expected-v$<remove_cvref_t<CARRIERS>> || ...) &&
             (!$all-declare-or-bare-v$<ERROR_TYPE, CARRIERS...>) &&
-            ($mixes-with-model$<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
+            ($mixes-with-model$<$grade-of-t$<expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
              ...)
   auto invoke(this auto&&, FUNCTION&& function, const CARRIERS&... operands)
-      -> $mixed-result-t$<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>,
+      -> $mixed-result-t$<$grade-of-t$<expected<VALUE_TYPE, ERROR_TYPE>>,
                         expected<remove_cvref_t<invoke_result_t<
                                      FUNCTION&, const $carrier-value-t$<CARRIERS>&...>>,
                                  ERROR_TYPE>,
@@ -131,10 +131,10 @@ struct $accumulating-expected-applicative-impl$ {
     requires(sizeof...(CARRIERS) > 0) &&
             ($is-expected-v$<remove_cvref_t<CARRIERS>> || ...) &&
             (!$all-declare-or-bare-v$<ERROR_TYPE, CARRIERS...>) &&
-            ($mixes-with-model$<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
+            ($mixes-with-model$<$grade-of-t$<expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
              ...)
   auto invoke(this auto&&, FUNCTION&& function, const CARRIERS&... operands)
-      -> $mixed-result-t$<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>,
+      -> $mixed-result-t$<$grade-of-t$<expected<VALUE_TYPE, ERROR_TYPE>>,
                         expected<remove_cvref_t<invoke_result_t<
                                      FUNCTION&, const $carrier-value-t$<CARRIERS>&...>>,
                                  ERROR_TYPE>,

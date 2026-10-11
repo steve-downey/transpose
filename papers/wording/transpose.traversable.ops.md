@@ -17,9 +17,7 @@ template<class T, class F> auto for_each(this auto&& self, T&& value, F&& functi
 [x+3]{.pnum} *Remarks*: Elements are visited in the structure's iteration order. If `self` declares consumption and `value` is a non-`const`, non-`volatile` rvalue, `function` receives rvalue elements; otherwise it receives `const` lvalue elements.
 
 ```cpp
-template<class T>
-  requires $applicative-context$<typename Impl::element_type>
-auto transpose(this auto&& self, T&& value);
+template<class T> auto transpose(this auto&& self, T&& value);
 ```
 
 [x+4]{.pnum} *Constraints*: `element_type` is a context for which `applicative` names an applicative object.

@@ -4,6 +4,7 @@
 template<class VALUE_TYPE>
 struct $vector-traversable-impl$ {
   using element_type = VALUE_TYPE;
+
   static constexpr bool consumes_rvalue_structure = true;
 
   // @[transpose.range.traverse]{- .sref}@, traversable instance for vector

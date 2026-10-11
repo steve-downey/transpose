@@ -54,15 +54,26 @@ order is reconciled against. One render writes one manifest,
 manifests date from when each header was rendered on its own, and are replaced
 the first time a render succeeds.
 
-**`make wording` does not currently succeed.** Rendering the documents
-together is meant to clear the cross-header findings and does not: the union
-`--validate` builds from the sibling documents admits their exposition-only
-names but not the ones they fully specify, so `traverse.hpp`'s wording still
-cannot name `applicative_typeclass`. Tracked at steve-downey/specgen#109. The
-checked-in fragments are therefore older than the headers.
+**`make wording` succeeds, and `make wording-check` passes.** The checked-in
+fragments are what the headers generate. When a fragment's text needs to
+change, change the header's `//!` markup and regenerate; a hand edit to a
+fragment is drift by definition, and the September 2026 round of them took a
+pass of its own to carry back. Keep the normative text in `//!` and the
+rationale beside it in `///`, which is stripped.
+
+Three specgen gaps leave authored wording unrendered, silently:
+
+- A description on a namespace-scope `\expos` entity is dropped.
+  `consuming_traversable_object` and `traversal_argument_t` in `traverse.hpp`
+  carry their wording in `//!` already, so it renders once specgen does.
+- A description on a data member in a class body that routes it nowhere is
+  dropped, without the routing error a member function gets. Put such wording
+  in the class's own docblock instead, as `vector_traversable_impl` does.
+- A derived Constraints paragraph keeps a `std::` qualifier the itemdecl
+  drops (`traverse_with` in `transpose.traversable.delegate.md`).
 
 Headers outside the proposal carry no markup and are not generated from:
-`fold.hpp`, `monad.hpp`, `monoid.hpp`, `dual_monoid.hpp`, `functor.hpp`,
+`fold.hpp`, `monad.hpp`, `monoid.hpp`, `induced_monoid.hpp`, `functor.hpp`,
 `sender.hpp`, `zip_list.hpp`, `simd*.hpp`, `config.hpp`. `sender` and
 `zip_list` are non-normative demonstration types (see
 [`provenance.md`](provenance.md)); Monad and Foldable are stated non-goals, so

@@ -29,12 +29,13 @@ return traversable_map.traverse(applicative_map, forward<F>(function),
 
 ```cpp
 template<class TRAVERSABLE_MAP, class T>
-  requires $applicative-context$<typename remove_cvref_t<TRAVERSABLE_MAP>::element_type>
 auto transpose_with(this auto&& self, const TRAVERSABLE_MAP& traversable_map,
                     T&& value);
 ```
 
-[x+3]{.pnum} *Effects*: Equivalent to:
+[x+3]{.pnum} *Constraints*: `typename std::remove_cvref_t<TRAVERSABLE_MAP>::element_type` models `$applicative-context$`.
+
+[x+4]{.pnum} *Effects*: Equivalent to:
 
 ```cpp
 return self.traverse_with(

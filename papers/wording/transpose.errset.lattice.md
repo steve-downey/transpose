@@ -118,7 +118,7 @@ struct recover_final_grade<HANDLER, VALUE, error_set_of<ERRORS...>, HANDLED...> 
 
 ```cpp
 template<class HANDLER, class VALUE, class GRADE, class... HANDLED>
-using $recover-return-t$ = rebind_grade_t<
+using $recover-return-t$ = $rebind-grade-t$<
     VALUE, recover_final_grade_t<HANDLER, VALUE, GRADE, HANDLED...>>; // exposition only
 ```
 
