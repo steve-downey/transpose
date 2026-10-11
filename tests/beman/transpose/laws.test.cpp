@@ -300,13 +300,13 @@ struct FallibleApplicativeImpl {
 
 template <class VALUE_TYPE, class GRADE>
 struct FallibleApplicativeMap
-    : Applicative<FallibleApplicativeImpl<VALUE_TYPE, GRADE>> {
+    : derive_applicative<FallibleApplicativeImpl<VALUE_TYPE, GRADE>> {
     using FallibleApplicativeImpl<VALUE_TYPE, GRADE>::invoke;
     using FallibleApplicativeImpl<VALUE_TYPE, GRADE>::pure;
 };
 
 template <class VALUE_TYPE, class GRADE>
-inline constexpr auto applicative_typeclass<Fallible<VALUE_TYPE, GRADE>> =
+inline constexpr auto applicative<Fallible<VALUE_TYPE, GRADE>> =
     FallibleApplicativeMap<VALUE_TYPE, GRADE>{};
 
 } // namespace beman::transpose
@@ -342,7 +342,7 @@ using graded_i = std::expected<int, e_i>;
 using boolean_may = Fallible<int, may_fail>;
 using boolean_never = Fallible<int, never_fails>;
 
-using graded_mix = decltype(bt::applicative_typeclass<graded_c>.invoke(
+using graded_mix = decltype(bt::applicative<graded_c>.invoke(
     add, std::declval<const graded_c &>(), std::declval<const graded_i &>()));
 
 static_assert(std::is_same_v<bt::grade_of_t<graded_mix>,
@@ -354,7 +354,7 @@ static_assert(std::is_same_v<bt::grade_of_t<graded_mix>,
 static_assert(std::is_same_v<bt::grade_of_t<bare_c>, e_c>);
 static_assert(std::is_same_v<bt::grade_of_t<bare_i>, e_i>);
 
-using bare_mix = decltype(bt::applicative_typeclass<bare_c>.invoke(
+using bare_mix = decltype(bt::applicative<bare_c>.invoke(
     add, std::declval<const bare_c &>(), std::declval<const bare_i &>()));
 
 static_assert(std::is_same_v<bare_mix, std::expected<int, e_ci>>);
@@ -368,7 +368,7 @@ static_assert(
     "Plain-error expected carriers are semantically graded at singleton "
     "model grades, so grade_of plus grade_join_t predicts the mixed result.");
 
-using boolean_mix = decltype(bt::applicative_typeclass<boolean_may>.invoke(
+using boolean_mix = decltype(bt::applicative<boolean_may>.invoke(
     add, std::declval<const boolean_may &>(),
     std::declval<const boolean_never &>()));
 
@@ -381,7 +381,7 @@ static_assert(
 
 template <class LEFT, class RIGHT>
 concept accepts_boolean_invoke = requires(const LEFT &lhs, const RIGHT &rhs) {
-    bt::applicative_typeclass<boolean_may>.invoke(add, lhs, rhs);
+    bt::applicative<boolean_may>.invoke(add, lhs, rhs);
 };
 
 static_assert(accepts_boolean_invoke<boolean_may, boolean_never>);
@@ -395,14 +395,14 @@ accepts_expected_value_and_foreign_carrier(const int &expected_value,
 
 template <class LEFT, class RIGHT>
 concept accepts_expected_invoke = requires(const LEFT &lhs, const RIGHT &rhs) {
-    bt::applicative_typeclass<bare_c>.invoke(
-        accepts_expected_value_and_foreign_carrier, lhs, rhs);
+    bt::applicative<bare_c>.invoke(accepts_expected_value_and_foreign_carrier,
+                                   lhs, rhs);
 };
 
 template <class LEFT, class RIGHT>
 concept accepts_accumulating_expected_invoke =
     requires(const LEFT &lhs, const RIGHT &rhs) {
-        bt::accumulating_applicative_typeclass<bare_c>.invoke(
+        bt::accumulating_applicative<bare_c>.invoke(
             accepts_expected_value_and_foreign_carrier, lhs, rhs);
     };
 
@@ -417,17 +417,17 @@ static_assert(!accepts_accumulating_expected_invoke<bare_c, boolean_may>);
 // FUNCTOR-MONAD GROUNDING: the layered instance, its laws, and the
 // agreement between a hand-written Functor and the fmap Monad grows.
 //
-// std::optional carries both a hand-written functor_typeclass and a Monad
+// std::optional carries both a hand-written functor and a Monad
 // instance; the latter grows fmap structurally, from bind + pure, and the
-// full Functor instance is spelled Functor<OptionalMonadMap<int>>{} rather
-// than registered anywhere. This section checks that layered instance
+// full Functor instance is spelled derive_functor<OptionalMonadMap<int>>{}
+// rather than registered anywhere. This section checks that layered instance
 // compiles, satisfies the functor laws, and agrees with the hand-written
 // one -- see docs/decisions.md#functor-monad-grounding.
 // =========================================================================
 
 namespace functor_monad_grounding {
 
-constexpr bt::Functor<bt::OptionalMonadMap<int>> layered_functor{};
+constexpr bt::derive_functor<bt::OptionalMonadMap<int>> layered_functor{};
 
 constexpr auto increment(int x) -> int { return x + 1; }
 constexpr auto double_it(int x) -> int { return x * 2; }
@@ -435,7 +435,7 @@ constexpr auto identity(int x) -> int { return x; }
 
 } // namespace functor_monad_grounding
 
-TEST_CASE("laws: functor identity holds for Functor<OptionalMonadMap>") {
+TEST_CASE("laws: functor identity holds for derive_functor<OptionalMonadMap>") {
     using namespace functor_monad_grounding;
     REQUIRE(layered_functor.fmap(identity, std::optional<int>{5}) ==
             std::optional<int>{5});
@@ -443,7 +443,8 @@ TEST_CASE("laws: functor identity holds for Functor<OptionalMonadMap>") {
             std::optional<int>{});
 }
 
-TEST_CASE("laws: functor composition holds for Functor<OptionalMonadMap>") {
+TEST_CASE(
+    "laws: functor composition holds for derive_functor<OptionalMonadMap>") {
     using namespace functor_monad_grounding;
     auto composed = [](int x) { return double_it(increment(x)); };
 
@@ -460,8 +461,8 @@ TEST_CASE("laws: functor composition holds for Functor<OptionalMonadMap>") {
 TEST_CASE("laws: hand-written Functor and Monad-grown fmap agree on optional") {
     using functor_monad_grounding::increment;
 
-    const auto &functor = bt::functor_typeclass<std::optional<int>>;
-    const auto &monad = bt::monad_typeclass<std::optional<int>>;
+    const auto &functor = bt::functor<std::optional<int>>;
+    const auto &monad = bt::monad<std::optional<int>>;
     auto via_bind = [](std::optional<int> ma) {
         return bt::mbind(
             ma, [](int a) { return std::optional<int>{increment(a)}; });

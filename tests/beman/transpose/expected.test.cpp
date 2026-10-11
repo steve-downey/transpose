@@ -40,7 +40,7 @@ auto positive(int x) -> exp_int {
 } // namespace
 
 TEST_CASE("expected: applicative pure and invoke") {
-    const auto &app = bt::applicative_typeclass<exp_int>;
+    const auto &app = bt::applicative<exp_int>;
 
     REQUIRE(app.pure(7) == std::expected<int, errc>{7});
 
@@ -50,7 +50,7 @@ TEST_CASE("expected: applicative pure and invoke") {
 }
 
 TEST_CASE("expected: invoke short-circuits and the leftmost error wins") {
-    const auto &app = bt::applicative_typeclass<exp_int>;
+    const auto &app = bt::applicative<exp_int>;
     auto add = [](int a, int b, int c) { return a + b + c; };
 
     // Effect order is observable and part of the contract: with two failing
@@ -67,7 +67,7 @@ TEST_CASE("expected: invoke short-circuits and the leftmost error wins") {
 }
 
 TEST_CASE("expected: applicative map and the derived operations") {
-    const auto &app = bt::applicative_typeclass<exp_int>;
+    const auto &app = bt::applicative<exp_int>;
 
     auto mapped = app.map([](int x) { return x * 1.5; }, exp_int{4});
     REQUIRE(mapped == std::expected<double, errc>{6.0});
@@ -82,7 +82,7 @@ TEST_CASE("expected: applicative map and the derived operations") {
 }
 
 TEST_CASE("expected: monad bind short-circuits") {
-    const auto &monad = bt::monad_typeclass<exp_int>;
+    const auto &monad = bt::monad<exp_int>;
 
     auto to_text = [](int x) {
         return std::expected<std::string, errc>{std::to_string(x)};
@@ -136,7 +136,7 @@ TEST_CASE("expected: transpose a vector of expected") {
 
 TEST_CASE("expected: mixing two error types joins them into an error_set") {
     using mixed = bt::error_set<errc, std::io_errc>;
-    const auto &app = bt::applicative_typeclass<exp_int>;
+    const auto &app = bt::applicative<exp_int>;
 
     auto add = [](int a, int b) { return a + b; };
     std::expected<int, std::io_errc> io_ok{10};
@@ -158,7 +158,7 @@ TEST_CASE("expected: mixing two error types joins them into an error_set") {
 }
 
 TEST_CASE("expected: a bare operand is promoted and leaves no trace") {
-    const auto &app = bt::applicative_typeclass<exp_int>;
+    const auto &app = bt::applicative<exp_int>;
     auto add = [](int a, int b) { return a + b; };
 
     // The bare 5 is empty-graded, so the join is a no-op and the result is
@@ -174,7 +174,7 @@ TEST_CASE("expected: a bare operand is promoted and leaves no trace") {
 
 TEST_CASE("expected: graded bind joins the continuation's error") {
     using mixed = bt::error_set<errc, std::io_errc>;
-    const auto &monad = bt::monad_typeclass<exp_int>;
+    const auto &monad = bt::monad<exp_int>;
 
     auto to_io = [](int x) {
         return std::expected<double, std::io_errc>{static_cast<double>(x)};
@@ -201,7 +201,7 @@ TEST_CASE("expected: an existing error_set absorbs rather than nests") {
     using set_errc = bt::error_set<errc>;
     using mixed = bt::error_set<errc, std::io_errc>;
 
-    const auto &app = bt::applicative_typeclass<std::expected<int, set_errc>>;
+    const auto &app = bt::applicative<std::expected<int, set_errc>>;
     auto add = [](int a, int b) { return a + b; };
 
     std::expected<int, set_errc> already_a_set{3};
@@ -213,7 +213,7 @@ TEST_CASE("expected: an existing error_set absorbs rather than nests") {
 }
 
 TEST_CASE("expected: for_each over the Identity traversable") {
-    const auto &t = bt::traversable_typeclass<bt::test::Identity<int>>;
+    const auto &t = bt::traversable<bt::test::Identity<int>>;
     auto result = t.for_each(bt::test::Identity<int>{20}, positive);
     REQUIRE(result == std::expected<bt::test::Identity<int>, errc>{
                           bt::test::Identity<int>{40}});

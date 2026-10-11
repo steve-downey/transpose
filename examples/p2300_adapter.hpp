@@ -28,7 +28,7 @@
 //
 //   1. THE FIRST LIMIT IS NOW HALF LIFTED -- see the registration at the
 //      bottom of this header, added by stage sender-registration on
-//      2026-09-13. There IS an `applicative_typeclass` registration here
+//      2026-09-13. There IS an `applicative` registration here
 //      now, keyed by concept, and `applicative_value` reads a sender's
 //      element type from its completion signatures. What is still absent is
 //      `transpose(vector<sender>)`: the vector traversal accumulates with
@@ -111,7 +111,7 @@ struct P2300ApplicativeImpl {
 
 /** Applicative map over P2300 senders: the basis above, everything else
  * derived by the library's own CRTP base. */
-struct P2300ApplicativeMap : Applicative<P2300ApplicativeImpl> {
+struct P2300ApplicativeMap : derive_applicative<P2300ApplicativeImpl> {
     using P2300ApplicativeImpl::collect;
     using P2300ApplicativeImpl::invoke;
     using P2300ApplicativeImpl::pure;
@@ -208,18 +208,17 @@ struct applicative_value<
  * Senders outside `single_value_sender` are simply NOT REGISTERED: they fail
  * the constraint, this specialization does not apply, and the primary
  * template's `std::false_type` gives the framework's existing
- * "No applicative_typeclass<T> specialization found" diagnostic.
+ * "No applicative<T> specialization found" diagnostic.
  *
  * SENTINEL (docs/decisions.md#sender-instance-keying): any
- * `applicative_typeclass<some_specific_adaptor_type>` specialization is a
+ * `applicative<some_specific_adaptor_type>` specialization is a
  * regression to per-type keying. Ambiguity between this and any future
  * concept-keyed registration must be resolved by subsumption, never by
  * adding a tie-breaker tag.
  */
 template <class SENDER>
     requires examples::single_value_sender<SENDER>
-inline constexpr auto applicative_typeclass<SENDER> =
-    examples::P2300ApplicativeMap{};
+inline constexpr auto applicative<SENDER> = examples::P2300ApplicativeMap{};
 
 } // namespace beman::transpose
 

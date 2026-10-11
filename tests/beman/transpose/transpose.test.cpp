@@ -68,8 +68,8 @@ TEST_CASE(
 // --- The front door is detectable -----------------------------------------
 //
 // transpose's Constraints clause says it is available where
-// traversable_typeclass names a traversable object for the argument's type
-// and applicative_typeclass names an applicative object for that structure's
+// traversable names a traversable object for the argument's type
+// and applicative names an applicative object for that structure's
 // element type. Until that was an associated constraint the declaration
 // said none of it: the return type is deduced, so asking whether transpose
 // is available for a type instantiated the body and hard-errored instead of

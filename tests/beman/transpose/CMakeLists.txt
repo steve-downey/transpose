@@ -19,6 +19,7 @@ set(transpose_tests
     monad
     induced_monoid
     objects
+    operation_objects
     traverse
     transpose
     type_requirements

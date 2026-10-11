@@ -38,7 +38,7 @@ TEST_CASE("sender: ready value runs on get") {
 
 TEST_CASE("sender: applicative defers work until get") {
     auto runs = std::make_shared<int>(0);
-    const auto &app = bt::applicative_typeclass<bt::sender<int>>;
+    const auto &app = bt::applicative<bt::sender<int>>;
 
     auto make = [runs](int v) {
         return bt::sender<int>{[runs, v] {
@@ -56,7 +56,7 @@ TEST_CASE("sender: applicative defers work until get") {
 
 TEST_CASE("sender: n-ary invoke defers every operand until get") {
     auto runs = std::make_shared<int>(0);
-    const auto &app = bt::applicative_typeclass<bt::sender<int>>;
+    const auto &app = bt::applicative<bt::sender<int>>;
 
     auto make = [runs](int v) {
         return bt::sender<int>{[runs, v] {
@@ -76,7 +76,7 @@ TEST_CASE("sender: a lifted callable applied through invoke stays deferred") {
     // A sender of a callable is a perfectly good sender; applying it is
     // spelled through the n-ary invoke and must preserve laziness.
     auto runs = std::make_shared<int>(0);
-    const auto &app = bt::applicative_typeclass<bt::sender<int>>;
+    const auto &app = bt::applicative<bt::sender<int>>;
 
     auto lifted = app.pure([](int x) { return x * 3; });
     bt::sender<int> operand{[runs] {
@@ -93,7 +93,7 @@ TEST_CASE("sender: a lifted callable applied through invoke stays deferred") {
 
 TEST_CASE("sender: invoke runs its operands in the order written") {
     auto log = std::make_shared<effect_log>();
-    const auto &app = bt::applicative_typeclass<bt::sender<int>>;
+    const auto &app = bt::applicative<bt::sender<int>>;
 
     auto combined =
         app.invoke([](int a, int b, int c, int d) { return a + b + c + d; },

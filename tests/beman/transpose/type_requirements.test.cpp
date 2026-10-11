@@ -45,12 +45,11 @@ using beman::transpose::test::rvalue_only_callable;
 namespace {
 
 template <class CONTEXT>
-using object_for =
-    std::remove_cvref_t<decltype(bt::applicative_typeclass<CONTEXT>)>;
+using object_for = std::remove_cvref_t<decltype(bt::applicative<CONTEXT>)>;
 
 template <class STRUCTURE>
 using traversable_for =
-    std::remove_cvref_t<decltype(bt::traversable_typeclass<STRUCTURE>)>;
+    std::remove_cvref_t<decltype(bt::traversable<STRUCTURE>)>;
 
 // A named concept, not a bare requires-expression at block scope: the latter
 // hard-errors on an invalid expression instead of yielding false
@@ -62,15 +61,15 @@ concept traversable_with = requires(F &&function, T &&value) {
 
 template <class F, class T>
 concept for_each_with = requires(F &&function, T &&value) {
-    bt::traversable_typeclass<std::remove_cvref_t<T>>.for_each(
-        std::forward<T>(value), std::forward<F>(function));
+    bt::traversable<std::remove_cvref_t<T>>.for_each(std::forward<T>(value),
+                                                     std::forward<F>(function));
 };
 
 template <class F, class T>
 concept delegated_traversable_with = requires(F &&function, T &&value) {
-    bt::traversable_typeclass<std::remove_cvref_t<T>>.traverse_with(
-        bt::traversable_typeclass<std::remove_cvref_t<T>>,
-        std::forward<F>(function), std::forward<T>(value));
+    bt::traversable<std::remove_cvref_t<T>>.traverse_with(
+        bt::traversable<std::remove_cvref_t<T>>, std::forward<F>(function),
+        std::forward<T>(value));
 };
 
 } // namespace
@@ -101,7 +100,7 @@ static_assert(bt::applicative_object<object_for<std::array<copyable_only, 3>>,
 // --- Array and lane results are constructed, not assigned into -------------
 
 TEST_CASE("type requirements: array pure broadcasts without assigning") {
-    const auto &app = bt::applicative_typeclass<std::array<copyable_only, 3>>;
+    const auto &app = bt::applicative<std::array<copyable_only, 3>>;
 
     auto broadcast = app.pure(copyable_only{7});
 
@@ -112,7 +111,7 @@ TEST_CASE("type requirements: array pure broadcasts without assigning") {
 }
 
 TEST_CASE("type requirements: array invoke builds lanes without assigning") {
-    const auto &app = bt::applicative_typeclass<std::array<copyable_only, 3>>;
+    const auto &app = bt::applicative<std::array<copyable_only, 3>>;
 
     std::array<copyable_only, 3> left{copyable_only{1}, copyable_only{2},
                                       copyable_only{3}};
@@ -131,8 +130,7 @@ TEST_CASE("type requirements: array invoke builds lanes without assigning") {
 }
 
 TEST_CASE("type requirements: simd_lanes builds lanes without assigning") {
-    const auto &app =
-        bt::applicative_typeclass<bt::simd_lanes<copyable_only, 3>>;
+    const auto &app = bt::applicative<bt::simd_lanes<copyable_only, 3>>;
 
     auto repeated = bt::simd_lanes<copyable_only, 3>::repeat(copyable_only{5});
     REQUIRE(repeated.data[0] == copyable_only{5});
@@ -328,7 +326,7 @@ struct records_operand_category {
 } // namespace
 
 TEST_CASE("type requirements: optional composes lvalue operands as const") {
-    const auto &app = bt::applicative_typeclass<std::optional<int>>;
+    const auto &app = bt::applicative<std::optional<int>>;
 
     std::optional<int> left{1};
     std::optional<int> right{2};
@@ -342,7 +340,7 @@ TEST_CASE("type requirements: optional composes lvalue operands as const") {
 
 TEST_CASE("type requirements: expected composes lvalue operands as const") {
     using carrier = std::expected<int, std::string>;
-    const auto &app = bt::applicative_typeclass<carrier>;
+    const auto &app = bt::applicative<carrier>;
 
     carrier left{1};
     carrier right{2};
@@ -355,7 +353,7 @@ TEST_CASE("type requirements: expected composes lvalue operands as const") {
 }
 
 TEST_CASE("type requirements: array composes lvalue operands as const") {
-    const auto &app = bt::applicative_typeclass<std::array<int, 2>>;
+    const auto &app = bt::applicative<std::array<int, 2>>;
 
     std::array<int, 2> left{1, 2};
     std::array<int, 2> right{10, 20};
@@ -368,7 +366,7 @@ TEST_CASE("type requirements: array composes lvalue operands as const") {
 }
 
 TEST_CASE("type requirements: simd_lanes composes lvalue operands as const") {
-    const auto &app = bt::applicative_typeclass<bt::simd_lanes<int, 2>>;
+    const auto &app = bt::applicative<bt::simd_lanes<int, 2>>;
 
     bt::simd_lanes<int, 2> left{{1, 2}};
     bt::simd_lanes<int, 2> right{{10, 20}};
@@ -381,7 +379,7 @@ TEST_CASE("type requirements: simd_lanes composes lvalue operands as const") {
 }
 
 TEST_CASE("type requirements: zip_list composes lvalue operands as const") {
-    const auto &app = bt::applicative_typeclass<bt::zip_list<int>>;
+    const auto &app = bt::applicative<bt::zip_list<int>>;
 
     bt::zip_list<int> left{{1, 2}};
     bt::zip_list<int> right{{10, 20}};
@@ -478,13 +476,12 @@ struct BoxTraversableImpl {
 };
 
 template <class T>
-struct BoxTraversableMap : Traversable<BoxTraversableImpl<T>> {
+struct BoxTraversableMap : derive_traversable<BoxTraversableImpl<T>> {
     using BoxTraversableImpl<T>::traverse;
 };
 
 template <class T>
-inline constexpr auto traversable_typeclass<shared::Box<T>> =
-    BoxTraversableMap<T>{};
+inline constexpr auto traversable<shared::Box<T>> = BoxTraversableMap<T>{};
 
 } // namespace beman::transpose
 

@@ -38,11 +38,23 @@
 
 namespace beman::transpose {
 
+/// The type of the `transpose` operation object; see `traverse_fn`.
+//! \omit
+struct transpose_fn {
+    template <class T>
+        requires transposable_structure<T>
+    constexpr auto operator()(T &&value) const {
+        const auto &map = traversable<std::remove_cvref_t<T>>;
+        return map.transpose(std::forward<T>(value));
+    }
+};
+
 // \rSec3[transpose.alg.transpose]{transpose}
 
-//! \constraints `traversable_typeclass` names a traversable object for
-//! `value`'s type, and `applicative_typeclass` names an applicative object
-//! for that structure's element type.
+//! \seebelow
+//! \constraints For a call `transpose(value)`, `traversable` names a
+//! traversable object for `value`'s type, and `applicative` names an
+//! applicative object for that structure's element type.
 //! \effects Equivalent to traversing `value` with the identity function: a
 //! structure of contextual values, `structure<context<T>>`, becomes a single
 //! contextual value of the structure, `context<structure<T>>`, preserving
@@ -51,22 +63,19 @@ namespace beman::transpose {
 //! \returns That single contextual value.
 //! \complexity Exactly one composition operation on the inferred applicative
 //! object per element of `value`.
-//! \remarks Elements are visited in the structure's iteration order, and
-//! their contexts are composed in that same order. The complexity is stated
-//! in composition operations rather than in element operations because the
-//! latter is not the algorithm's to promise: an applicative object that
-//! composes its operands only as `const` lvalues must copy the accumulated
-//! result at every step, which is quadratic in the elements collected
-//! however the traversal is written. Every applicative object this library
-//! registers composes an rvalue operand without duplicating the value it
-//! holds, so for those the total number of element operations is linear in
-//! the number of elements.
-template <class T>
-    requires transposable_structure<T>
-auto transpose(T &&value) {
-    const auto &map = traversable_typeclass<std::remove_cvref_t<T>>;
-    return map.transpose(std::forward<T>(value));
-}
+//! \remarks The name `transpose` denotes an operation object: it is not found
+//! by argument-dependent lookup, and no explicit template argument list may
+//! be given in a call to it. Elements are visited in the structure's
+//! iteration order, and their contexts are composed in that same order. The
+//! complexity is stated in composition operations rather than in element
+//! operations because the latter is not the algorithm's to promise: an
+//! applicative object that composes its operands only as `const` lvalues
+//! must copy the accumulated result at every step, which is quadratic in the
+//! elements collected however the traversal is written. Every applicative
+//! object this library registers composes an rvalue operand without
+//! duplicating the value it holds, so for those the total number of element
+//! operations is linear in the number of elements.
+inline constexpr transpose_fn transpose{};
 
 } // namespace beman::transpose
 

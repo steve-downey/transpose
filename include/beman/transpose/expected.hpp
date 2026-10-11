@@ -221,16 +221,15 @@ struct ExpectedApplicativeImpl {
 
 template <class VALUE_TYPE, class ERROR_TYPE>
 struct ExpectedApplicativeMap
-    : Applicative<ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
+    : derive_applicative<ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
     using ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke;
     using ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure;
 };
 
 /** Applicative instance for `std::expected<VALUE_TYPE, ERROR_TYPE>`. */
 template <class VALUE_TYPE, class ERROR_TYPE>
-inline constexpr auto
-    applicative_typeclass<std::expected<VALUE_TYPE, ERROR_TYPE>> =
-        ExpectedApplicativeMap<VALUE_TYPE, ERROR_TYPE>{};
+inline constexpr auto applicative<std::expected<VALUE_TYPE, ERROR_TYPE>> =
+    ExpectedApplicativeMap<VALUE_TYPE, ERROR_TYPE>{};
 
 // -- The accumulating applicative instance ---------------------------------
 //
@@ -345,7 +344,8 @@ struct AccumulatingExpectedApplicativeImpl {
 
 template <class VALUE_TYPE, class ERROR_TYPE>
 struct AccumulatingExpectedApplicativeMap
-    : Applicative<AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
+    : derive_applicative<
+          AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
     using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke;
     using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure;
 
@@ -355,7 +355,7 @@ struct AccumulatingExpectedApplicativeMap
     /// something grade bookkeeping can fix. The framework never derives bind
     /// for this object. `always_false_v` defers the static_assert to the
     /// point of an actual call, so merely naming this type (as
-    /// `accumulating_applicative_typeclass<T>` does) stays well-formed; only
+    /// `accumulating_applicative<T>` does) stays well-formed; only
     /// calling `.bind(...)` on it fails, with this message.
     //! \omit
     template <class... ARGS>
@@ -367,7 +367,7 @@ struct AccumulatingExpectedApplicativeMap
             "continuation, and there is none when that computation failed "
             "-- a value-flow obstruction, not something grade bookkeeping "
             "can fix. Use the short-circuit (monad-derived) applicative "
-            "object (applicative_typeclass) for sequential composition. "
+            "object (applicative) for sequential composition. "
             "See docs/decisions.md#applicative-objects.");
     }
 };
@@ -376,7 +376,7 @@ struct AccumulatingExpectedApplicativeMap
  * ERROR_TYPE>`. */
 template <class VALUE_TYPE, class ERROR_TYPE>
 inline constexpr auto
-    accumulating_applicative_typeclass<std::expected<VALUE_TYPE, ERROR_TYPE>> =
+    accumulating_applicative<std::expected<VALUE_TYPE, ERROR_TYPE>> =
         AccumulatingExpectedApplicativeMap<VALUE_TYPE, ERROR_TYPE>{};
 
 /** Monad instance for std::expected<VALUE_TYPE, ERROR_TYPE>.
@@ -432,14 +432,15 @@ struct ExpectedMonadImpl {
 
 //! \omit
 template <class VALUE_TYPE, class ERROR_TYPE>
-struct ExpectedMonadMap : Monad<ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>> {
+struct ExpectedMonadMap
+    : derive_monad<ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>> {
     using ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::bind;
     using ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::pure;
 };
 
 /** Monad instance for `std::expected<VALUE_TYPE, ERROR_TYPE>`. */
 template <class VALUE_TYPE, class ERROR_TYPE>
-inline constexpr auto monad_typeclass<std::expected<VALUE_TYPE, ERROR_TYPE>> =
+inline constexpr auto monad<std::expected<VALUE_TYPE, ERROR_TYPE>> =
     ExpectedMonadMap<VALUE_TYPE, ERROR_TYPE>{};
 
 // \rSec3[transpose.expected.applicative]{Applicative instance for expected}
@@ -728,7 +729,7 @@ template <class VALUE>
 auto ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::pure(this auto &&,
                                                      VALUE &&value)
     -> std::expected<std::remove_cvref_t<VALUE>, ERROR_TYPE> {
-    return applicative_typeclass<std::expected<VALUE_TYPE, ERROR_TYPE>>.pure(
+    return applicative<std::expected<VALUE_TYPE, ERROR_TYPE>>.pure(
         std::forward<VALUE>(value));
 }
 

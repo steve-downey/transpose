@@ -76,7 +76,7 @@ struct FoldingApplicativeImpl {
     }
 };
 
-struct FoldingApplicativeMap : bt::Applicative<FoldingApplicativeImpl> {
+struct FoldingApplicativeMap : bt::derive_applicative<FoldingApplicativeImpl> {
     using FoldingApplicativeImpl::invoke;
     using FoldingApplicativeImpl::pure;
 };
@@ -99,7 +99,8 @@ struct CollectingApplicativeImpl : FoldingApplicativeImpl {
     }
 };
 
-struct CollectingApplicativeMap : bt::Applicative<CollectingApplicativeImpl> {
+struct CollectingApplicativeMap
+    : bt::derive_applicative<CollectingApplicativeImpl> {
     using CollectingApplicativeImpl::collect;
     using CollectingApplicativeImpl::invoke;
     using CollectingApplicativeImpl::pure;
@@ -155,13 +156,14 @@ struct CollectingWideningApplicativeImpl : WideningApplicativeImpl {
 
 /// The same basis without `collect`: what the policy concept says about a
 /// widening object that offers the traversal no way through.
-struct WideningApplicativeMap : bt::Applicative<WideningApplicativeImpl> {
+struct WideningApplicativeMap
+    : bt::derive_applicative<WideningApplicativeImpl> {
     using WideningApplicativeImpl::invoke;
     using WideningApplicativeImpl::pure;
 };
 
 struct CollectingWideningApplicativeMap
-    : bt::Applicative<CollectingWideningApplicativeImpl> {
+    : bt::derive_applicative<CollectingWideningApplicativeImpl> {
     using CollectingWideningApplicativeImpl::collect;
     using CollectingWideningApplicativeImpl::invoke;
     using CollectingWideningApplicativeImpl::pure;
@@ -187,15 +189,15 @@ static_assert(offers_collect<CollectingApplicativeMap, boxed<int>>);
 // take the fold -- stated per object so that acquiring one becomes a test
 // failure rather than a silent change of path.
 
-static_assert(!offers_collect<
-              std::remove_cvref_t<
-                  decltype(bt::applicative_typeclass<std::optional<int>>)>,
-              std::optional<int>>);
+static_assert(
+    !offers_collect<
+        std::remove_cvref_t<decltype(bt::applicative<std::optional<int>>)>,
+        std::optional<int>>);
 
 TEST_CASE("collect hook: an object without collect takes the pairwise fold") {
     composition_counts::reset();
 
-    const auto &traversable = bt::traversable_typeclass<std::vector<int>>;
+    const auto &traversable = bt::traversable<std::vector<int>>;
     auto result = traversable.traverse(
         FoldingApplicativeMap{}, [](int x) { return boxed<int>{x + 1}; },
         std::vector<int>{1, 2, 3, 4});
@@ -210,7 +212,7 @@ TEST_CASE("collect hook: an object without collect takes the pairwise fold") {
 TEST_CASE("collect hook: an object with collect is preferred, once") {
     composition_counts::reset();
 
-    const auto &traversable = bt::traversable_typeclass<std::vector<int>>;
+    const auto &traversable = bt::traversable<std::vector<int>>;
     auto result = traversable.traverse(
         CollectingApplicativeMap{}, [](int x) { return boxed<int>{x + 1}; },
         std::vector<int>{1, 2, 3, 4});
@@ -226,7 +228,7 @@ TEST_CASE("collect hook: an object with collect is preferred, once") {
 TEST_CASE("collect hook: both traverse overloads prefer collect") {
     // The rvalue overload is a separate definition with its own body, so the
     // preference has to be established twice or it is established once.
-    const auto &traversable = bt::traversable_typeclass<std::vector<int>>;
+    const auto &traversable = bt::traversable<std::vector<int>>;
     const std::vector<int> values{1, 2, 3};
 
     composition_counts::reset();
@@ -252,7 +254,7 @@ TEST_CASE("collect hook: the empty structure reaches collect too") {
     // invisible in the result. Pin it.
     composition_counts::reset();
 
-    const auto &traversable = bt::traversable_typeclass<std::vector<int>>;
+    const auto &traversable = bt::traversable<std::vector<int>>;
     auto result = traversable.traverse(
         CollectingApplicativeMap{}, [](int x) { return boxed<int>{x}; },
         std::vector<int>{});

@@ -38,7 +38,7 @@ struct MarkerLengthImpl {
     }
 };
 
-struct MarkerLengthMap : bt::Foldable<MarkerLengthImpl> {};
+struct MarkerLengthMap : bt::derive_foldable<MarkerLengthImpl> {};
 
 // An Impl with a fold_map over std::vector<V>, and a native to_vector for
 // std::vector<int> only -- a marker the fold_map derivation could never
@@ -72,7 +72,7 @@ struct PerInstantiationToVectorImpl {
 
 template <class V>
 struct PerInstantiationToVectorMap
-    : bt::Foldable<PerInstantiationToVectorImpl<V>> {};
+    : bt::derive_foldable<PerInstantiationToVectorImpl<V>> {};
 
 // The hazard this step closes: an Impl providing only fold_right +
 // element_type, no fold_map at all, registered through a Map with no
@@ -100,7 +100,7 @@ struct FoldRightOnlyImpl {
     }
 };
 
-struct FoldRightOnlyMap : bt::Foldable<FoldRightOnlyImpl> {};
+struct FoldRightOnlyMap : bt::derive_foldable<FoldRightOnlyImpl> {};
 
 } // namespace
 
@@ -141,7 +141,7 @@ TEST_CASE("fold: fold_map derives from a fold_right + element_type Impl, "
 
 TEST_CASE("fold: fold_map does not exist when Impl provides neither basis") {
     struct NoBasisImpl {};
-    struct NoBasisMap : bt::Foldable<NoBasisImpl> {};
+    struct NoBasisMap : bt::derive_foldable<NoBasisImpl> {};
 
     static_assert(!has_fold_map<NoBasisMap, decltype([](int x) { return x; }),
                                 std::vector<int>>);
@@ -191,14 +191,14 @@ TEST_CASE("fold: a fold over a type with several monoids names its instance") {
 }
 
 TEST_CASE("fold: length and to_vector over Sequence") {
-    const auto &f = bt::foldable_typeclass<bt::test::Sequence<int>>;
+    const auto &f = bt::foldable<bt::test::Sequence<int>>;
     bt::test::Sequence<int> seq{{10, 20, 30}};
     REQUIRE(f.length(seq) == 3);
     REQUIRE(f.to_vector(seq) == std::vector<int>{10, 20, 30});
 }
 
 TEST_CASE("fold: fold_left and fold_right accumulate") {
-    const auto &f = bt::foldable_typeclass<bt::test::Sequence<int>>;
+    const auto &f = bt::foldable<bt::test::Sequence<int>>;
     bt::test::Sequence<int> seq{{1, 2, 3, 4}};
     REQUIRE(f.fold_left(seq, 0, [](int acc, int x) { return acc + x; }) == 10);
     REQUIRE(f.fold_right(seq, std::string{}, [](int x, std::string acc) {
@@ -207,7 +207,7 @@ TEST_CASE("fold: fold_left and fold_right accumulate") {
 }
 
 TEST_CASE("fold: any_of, all_of, find_first") {
-    const auto &f = bt::foldable_typeclass<bt::test::Sequence<int>>;
+    const auto &f = bt::foldable<bt::test::Sequence<int>>;
     bt::test::Sequence<int> seq{{2, 4, 6, 7}};
     REQUIRE(f.any_of(seq, [](int x) { return x % 2 == 1; }));
     REQUIRE_FALSE(f.all_of(seq, [](int x) { return x % 2 == 0; }));

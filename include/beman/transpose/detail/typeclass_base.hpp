@@ -12,7 +12,7 @@
 namespace beman::transpose {
 
 // Design invariants for the typeclass object pattern:
-// - Per-concept lookup objects (for example *_typeclass<T>) are the
+// - Per-concept lookup objects (for example functor<T>) are the
 //   customization lookup points for typeclass dispatch.
 // - Generic algorithms call through looked-up typeclass objects.
 // - New concepts should keep lookup static and explicit.
@@ -49,6 +49,22 @@ template <class IMPL, class SELF>
 using impl_ref_t =
     std::conditional_t<std::is_const_v<std::remove_reference_t<SELF>>,
                        const IMPL, IMPL> &;
+
+/** True when a typeclass lookup variable has been specialized away from its
+ * `std::false_type` default, i.e. the type has an instance of that typeclass.
+ *
+ * Pass `decltype(functor<T>)` or a sibling lookup; the reference and
+ * cv-qualification a `const auto &` NTTP picks up are stripped here.
+ *
+ * The customization-point objects use this to fail with a diagnostic that
+ * names the missing specialization. Without it, an unregistered type reaches
+ * the operation as `std::false_type{}` and the error is a bare "no member
+ * named 'traverse' in 'std::false_type'", pointing at library internals
+ * rather than at the specialization the caller has to write.
+ */
+template <class LOOKUP_RESULT>
+inline constexpr bool has_instance_v =
+    !std::is_same_v<std::remove_cvref_t<LOOKUP_RESULT>, std::false_type>;
 
 /** Trait that extracts the element type from an applicative container.
  * Primary template uses the nested `value_type` alias when present.

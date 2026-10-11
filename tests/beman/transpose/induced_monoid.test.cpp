@@ -20,8 +20,8 @@ namespace {
 // themselves gain a registered Monoid. An induced monoid is an instance the
 // caller passes, never a registration on the context type; operationally,
 // this concept stays false for the context.
-// Probed on the specialization itself, never through monoid_v: naming
-// monoid_v<T> declares a variable of the undefined type Monoid<T>, and that
+// Probed on the specialization itself, never through monoid<T>: naming
+// monoid<T> declares a variable of the undefined type Monoid<T>, and that
 // failure is outside the requires-expression's immediate context -- a hard
 // error, not `false` (same shape as the sentinel in monoid.test.cpp).
 template <class T>

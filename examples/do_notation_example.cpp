@@ -41,7 +41,7 @@
 // Everything left standing is Monad, not Applicative: the continuations
 // handed to >>= use the values bound by earlier statements, which is
 // exactly the dependency Applicative cannot express. So the translation
-// below targets monad_typeclass, and the pieces map as
+// below targets monad, and the pieces map as
 //
 //   >>=            bind        (the typeclass basis; mbind at call sites)
 //   >>             then        (m >> k  =  m >>= \_ -> k, its default
@@ -103,7 +103,7 @@ struct IOMonadImpl {
 };
 
 template <class VALUE_TYPE>
-struct IOMonadMap : beman::transpose::Monad<IOMonadImpl<VALUE_TYPE>> {
+struct IOMonadMap : beman::transpose::derive_monad<IOMonadImpl<VALUE_TYPE>> {
     using IOMonadImpl<VALUE_TYPE>::bind;
     using IOMonadImpl<VALUE_TYPE>::pure;
 };
@@ -113,8 +113,7 @@ struct IOMonadMap : beman::transpose::Monad<IOMonadImpl<VALUE_TYPE>> {
 namespace beman::transpose {
 /// Register the instance so mbind and the generic machinery find it.
 template <class VALUE_TYPE>
-inline constexpr auto monad_typeclass<IO<VALUE_TYPE>> =
-    IOMonadMap<VALUE_TYPE>{};
+inline constexpr auto monad<IO<VALUE_TYPE>> = IOMonadMap<VALUE_TYPE>{};
 } // namespace beman::transpose
 
 namespace {
@@ -150,7 +149,7 @@ IO<std::string> getLine() {
 /// Haskell's return.
 template <class VALUE>
 IO<VALUE> pure(VALUE value) {
-    return bt::monad_typeclass<IO<VALUE>>.pure(std::move(value));
+    return bt::monad<IO<VALUE>>.pure(std::move(value));
 }
 
 /// (>>): sequence two actions, discarding the first result.

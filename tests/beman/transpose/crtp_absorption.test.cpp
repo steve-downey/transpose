@@ -83,13 +83,14 @@ struct BoxedApplicativeImpl {
 };
 
 template <class VALUE_TYPE>
-struct BoxedApplicativeMap : Applicative<BoxedApplicativeImpl<VALUE_TYPE>> {
+struct BoxedApplicativeMap
+    : derive_applicative<BoxedApplicativeImpl<VALUE_TYPE>> {
     using BoxedApplicativeImpl<VALUE_TYPE>::invoke;
     using BoxedApplicativeImpl<VALUE_TYPE>::pure;
 };
 
 template <class VALUE_TYPE>
-inline constexpr auto applicative_typeclass<boxed<VALUE_TYPE>> =
+inline constexpr auto applicative<boxed<VALUE_TYPE>> =
     BoxedApplicativeMap<VALUE_TYPE>{};
 
 } // namespace beman::transpose
@@ -157,7 +158,7 @@ static_assert(std::is_same_v<decltype(bt::grade_subsume<bt::error_set<>>(
 } // namespace
 
 TEST_CASE("crtp-absorption: a two-function registration needs no grade code") {
-    const auto &app = bt::applicative_typeclass<boxed<int>>;
+    const auto &app = bt::applicative<boxed<int>>;
 
     REQUIRE(app.pure(4) == boxed<int>{4});
     REQUIRE(app.invoke([](int a, int b) { return a + b; }, boxed<int>{2},
@@ -193,7 +194,7 @@ TEST_CASE("crtp-absorption: promotion of a bare value at the empty grade") {
 }
 
 TEST_CASE("crtp-absorption: ap derived from the bind basis") {
-    const auto &monad = bt::monad_typeclass<std::optional<int>>;
+    const auto &monad = bt::monad<std::optional<int>>;
 
     auto doubler = [](const int &x) { return x * 2; };
     std::optional<decltype(doubler)> callable{doubler};
@@ -207,8 +208,8 @@ TEST_CASE("crtp-absorption: ap derived from the bind basis") {
 }
 
 TEST_CASE("crtp-absorption: derived ap agrees with the applicative's own") {
-    const auto &monad = bt::monad_typeclass<std::optional<int>>;
-    const auto &applicative = bt::applicative_typeclass<std::optional<int>>;
+    const auto &monad = bt::monad<std::optional<int>>;
+    const auto &applicative = bt::applicative<std::optional<int>>;
 
     auto doubler = [](const int &x) { return x * 2; };
     std::optional<decltype(doubler)> callable{doubler};

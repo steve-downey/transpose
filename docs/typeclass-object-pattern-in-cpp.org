@@ -57,7 +57,7 @@ From [[file:../include/beman/transpose/fold.hpp][=include/beman/transpose/fold.h
 
 #+begin_src cpp
 template <class T>
-inline constexpr auto foldable_typeclass = std::false_type{};
+inline constexpr auto foldable = std::false_type{};
 #+end_src
 
 Default: no instance.
@@ -67,7 +67,7 @@ From [[file:../examples/binary_tree.hpp][=examples/binary_tree.hpp=]]:
 
 #+begin_src cpp
 template <>
-inline constexpr auto foldable_typeclass<example::BinaryTree<int>> =
+inline constexpr auto foldable<example::BinaryTree<int>> =
     BinaryTreeFoldableMap{};
 #+end_src
 
@@ -114,13 +114,13 @@ It preserves value category and constness without boilerplate overload sets.
 ** Layer 2: The CRTP Base
 
 The CRTP base provides derived operations.
-~Functor<Impl>~ inherits from the Impl and adds ~replace~, defined in terms of ~fmap~:
+~derive_functor<Impl>~ inherits from the Impl and adds ~replace~, defined in terms of ~fmap~:
 
 From [[file:../include/beman/transpose/functor.hpp][=include/beman/transpose/functor.hpp=]]:
 
 #+begin_src cpp
 template <class Impl>
-struct Functor : protected Impl {
+struct derive_functor : protected Impl {
     using Impl::fmap;
 
     template <class T, class U>
@@ -145,7 +145,7 @@ The Map struct connects the Impl to the CRTP base, and a ~using~ declaration sel
 
 #+begin_src cpp
 template <class VALUE_TYPE>
-struct OptionalFunctorMap : Functor<OptionalFunctorImpl<VALUE_TYPE>> {
+struct OptionalFunctorMap : derive_functor<OptionalFunctorImpl<VALUE_TYPE>> {
     using OptionalFunctorImpl<VALUE_TYPE>::fmap;
 };
 #+end_src
@@ -154,7 +154,7 @@ The variable template specialization registers it:
 
 #+begin_src cpp
 template <class VALUE_TYPE>
-inline constexpr auto functor_typeclass<std::optional<VALUE_TYPE>> =
+inline constexpr auto functor<std::optional<VALUE_TYPE>> =
     OptionalFunctorMap<VALUE_TYPE>{};
 #+end_src
 
@@ -164,11 +164,11 @@ No macro.
 No ~friend~ declaration.
 The variable template lives in the ~beman::transpose~ namespace; the type it adapts is in ~std~.
 
-* Three Lookup Modes
+* Four Lookup Modes
 
 This is what distinguishes the pattern from a plain specialization.
 The looked-up object is a /value/.
-You can use it three ways.
+You can use it three ways, and there's a fourth that doesn't use it at all.
 
 ** Implicit Lookup
 
@@ -176,7 +176,7 @@ The most common form.
 Look up the typeclass object by type, call operations on it.
 
 #+begin_src cpp
-const auto& functor = beman::transpose::functor_typeclass<std::optional<int>>;
+const auto& functor = beman::transpose::functor<std::optional<int>>;
 auto mapped = functor.fmap([](int x) { return x + 1; }, value);
 #+end_src
 
@@ -206,7 +206,7 @@ From [[file:../tests/beman/transpose/fold.test.cpp][=tests/beman/transpose/fold.
 
 #+begin_src cpp
 template <class STRUCTURE,
-          const auto& FOLDABLE = beman::transpose::foldable_typeclass<STRUCTURE>>
+          const auto& FOLDABLE = beman::transpose::foldable<STRUCTURE>>
 auto sum_with_nttp_lookup(const STRUCTURE& structure) {
     return FOLDABLE.fold_map([](int x) { return x; }, structure);
 }
@@ -216,6 +216,33 @@ This matters in generic code.
 The lookup is bound once, at template instantiation.
 It does not depend on ADL, overload resolution, or the call site's namespace.
 If someone specializes the variable template later, existing instantiations are unaffected.
+
+** The Operation Object
+
+The three modes above all name the instance before they name the operation.
+That's the right order when the instance is the interesting part.
+Often it isn't.
+
+Every typeclass operation is also available as an object that does the lookup itself:
+
+#+begin_src cpp
+auto mapped = beman::transpose::fmap([](int x) { return x + 1; }, value);
+#+end_src
+
+~fmap~ deduces ~std::optional<int>~ from its second argument, resolves ~functor<std::optional<int>>~, and calls through it.
+The call site says what it wants done and says nothing about who does it.
+
+Two situations want that.
+Code where everything is local, and a container on the stack gets folded and traversed by one function with no other interest in the instances.
+And non-template callers: a plain function over concrete types has no template parameter list to hang mode 3 on, so before this it either opened with a block of lookup declarations or became a template for no reason of its own.
+
+The cost is mode 3 itself.
+An object takes no explicit template arguments, so there's nowhere to put the pin, and ~fmap<..., my_functor>(f, v)~ doesn't parse.
+Pinning falls back to the explicit object argument, which was shorter anyway.
+
+One thing these are not is customization points, whatever the shape suggests.
+Customization still happens once, at ~functor<T>~.
+There is no hook on ~fmap~, no ADL path into it, and nothing to specialize that would make it mean anything other than what the instance says.
 
 * How It Differs From Standard Approaches
 
@@ -233,7 +260,7 @@ The differences:
 - ~numeric_limits~ is a class template.  The typeclass object is a variable template, so specializations can have entirely unrelated types.
 
 The last point is important.
-~beman::transpose::foldable_typeclass<vector<int>>~ and ~beman::transpose::foldable_typeclass<example::BinaryTree<int>>~ can be completely different types, as long as they both provide ~fold_map~.
+~beman::transpose::foldable<vector<int>>~ and ~beman::transpose::foldable<example::BinaryTree<int>>~ can be completely different types, as long as they both provide ~fold_map~.
 A class template specialization must always instantiate the same class template.
 
 ** Type Traits: Predicates, Not Operations
@@ -242,7 +269,7 @@ A class template specialization must always instantiate the same class template.
 They do not provide operations.
 
 But the typeclass object answers questions /and/ provides the operations in one place.
-~beman::transpose::foldable_typeclass<T>~ both asserts "T is Foldable" (by existing) and gives you ~fold_map~, ~length~, ~to_vector~.
+~beman::transpose::foldable<T>~ both asserts "T is Foldable" (by existing) and gives you ~fold_map~, ~length~, ~to_vector~.
 
 ** CPOs: ADL, Not Objects
 
@@ -259,7 +286,7 @@ C++20 ~concept~ s constrain templates.
 They do not dispatch to implementations.
 
 The typeclass object dispatches.
-~beman::transpose::foldable_typeclass<T>.fold_map(f, value)~ finds and calls the right implementation for ~T~ at compile time.
+~beman::transpose::foldable<T>.fold_map(f, value)~ finds and calls the right implementation for ~T~ at compile time.
 
 C++0x Concepts had ~concept_map~ s that would have filled exactly this role.
 They were lost in the transition to Concepts Lite.
@@ -316,13 +343,13 @@ struct TestSequenceFoldableImpl {
 
 template <class VALUE_TYPE>
 struct TestSequenceFoldableMap
-    : Foldable<TestSequenceFoldableImpl<VALUE_TYPE>> {
+    : derive_foldable<TestSequenceFoldableImpl<VALUE_TYPE>> {
     using TestSequenceFoldableImpl<VALUE_TYPE>::fold_map;
 };
 #+end_src
 
 An alternate Impl can use ~fold_right~ as primitive instead.
-The CRTP base ~Foldable<Impl>~ detects this via the ~using~ declaration and derives ~fold_map~ from ~fold_right~ automatically.
+The CRTP base ~derive_foldable<Impl>~ detects this via the ~using~ declaration and derives ~fold_map~ from ~fold_right~ automatically.
 
 From [[file:../tests/beman/transpose/fold.test.cpp][=tests/beman/transpose/fold.test.cpp=]]:
 
@@ -344,7 +371,7 @@ struct RightFoldSequenceImpl {
 };
 
 template <class VALUE_TYPE>
-struct RightFoldSequenceMap : Foldable<RightFoldSequenceImpl<VALUE_TYPE>> {
+struct RightFoldSequenceMap : derive_foldable<RightFoldSequenceImpl<VALUE_TYPE>> {
     using RightFoldSequenceImpl<VALUE_TYPE>::fold_right;
 };
 #+end_src
@@ -353,7 +380,7 @@ Both produce identical results.
 The tests verify this:
 
 #+begin_src cpp
-const auto& fold_map_foldable = beman::transpose::foldable_typeclass<Sequence>;
+const auto& fold_map_foldable = beman::transpose::foldable<Sequence>;
 const auto& fold_right_foldable = right_fold_sequence_map<int>;
 
 CHECK(fold_map_foldable.length(seq) == fold_right_foldable.length(seq));
@@ -365,7 +392,7 @@ It is not decorative boilerplate.
 
 * Algorithm Objects: Inheriting from the Typeclass
 
-The three lookup modes above let generic code /call/ typeclass operations.
+The lookup modes above let generic code /call/ typeclass operations.
 But when I am writing an algorithm that /composes/ several operations --- checking a precondition with Foldable, then transforming via Traversable --- I want those names available without qualifying through a separate lookup object on every call.
 
 The solution is to inherit from the typeclass instance.
@@ -381,7 +408,7 @@ From [[file:../examples/algorithm_object_example.cpp][=examples/algorithm_object
 
 #+begin_src cpp
 template <class T,
-          const auto &TC = beman::transpose::traversable_typeclass<remove_cvref_t<T>>>
+          const auto &TC = beman::transpose::traversable<remove_cvref_t<T>>>
 struct validate_impl : remove_cvref_t<decltype(TC)> {
     template <class Pred>
     auto call(Pred &&pred, const T &value) const {
@@ -408,8 +435,8 @@ Both bases are empty, so there is no diamond and no ambiguity (the typeclass sur
 
 #+begin_src cpp
 template <class T,
-          const auto &FC = beman::transpose::foldable_typeclass<remove_cvref_t<T>>,
-          const auto &TC = beman::transpose::traversable_typeclass<remove_cvref_t<T>>>
+          const auto &FC = beman::transpose::foldable<remove_cvref_t<T>>,
+          const auto &TC = beman::transpose::traversable<remove_cvref_t<T>>>
 struct transform_if_large_impl
     : remove_cvref_t<decltype(FC)>,
       remove_cvref_t<decltype(TC)> {
@@ -517,7 +544,7 @@ In this repository, it dispatches for:
 
 See ~examples/binary_tree.hpp~ for a worked example adding ~BinaryTree<T>~ with Foldable, Applicative, and Traversable as a standalone example.
 
-Each type has its own ~foldable_typeclass~ and ~traversable_typeclass~ specialization in a separate header.
+Each type has its own ~foldable~ and ~traversable~ specialization in a separate header.
 The type definitions do not know about these typeclasses.
 The typeclasses do not know about each other.
 The call site does not change when the representation changes.

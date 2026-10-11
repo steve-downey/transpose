@@ -36,7 +36,7 @@ TEST_CASE("monad: join flattens nested optional") {
 }
 
 TEST_CASE("monad: invoke synthesized from bind and pure") {
-    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    const auto &m = bt::monad<std::optional<int>>;
     auto add3 = [](int a, int b, int c) { return a + b + c; };
 
     REQUIRE(m.invoke(add3, std::optional<int>{1}, std::optional<int>{2},
@@ -46,8 +46,8 @@ TEST_CASE("monad: invoke synthesized from bind and pure") {
 }
 
 TEST_CASE("monad: invoke coheres with the applicative invoke") {
-    const auto &monad = bt::monad_typeclass<std::optional<int>>;
-    const auto &applicative = bt::applicative_typeclass<std::optional<int>>;
+    const auto &monad = bt::monad<std::optional<int>>;
+    const auto &applicative = bt::applicative<std::optional<int>>;
     auto add = [](int a, int b) { return a + b; };
 
     REQUIRE(
@@ -59,7 +59,7 @@ TEST_CASE("monad: invoke coheres with the applicative invoke") {
 }
 
 TEST_CASE("monad: fmap is the Functor basis grounded in bind + pure") {
-    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    const auto &m = bt::monad<std::optional<int>>;
     auto increment = [](int x) { return x + 1; };
 
     REQUIRE(m.fmap(increment, std::optional<int>{41}) ==
@@ -68,7 +68,7 @@ TEST_CASE("monad: fmap is the Functor basis grounded in bind + pure") {
 }
 
 TEST_CASE("monad: fmap deduces a changed value type") {
-    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    const auto &m = bt::monad<std::optional<int>>;
     auto to_string = [](int x) { return std::to_string(x); };
 
     auto result = m.fmap(to_string, std::optional<int>{7});
@@ -80,7 +80,7 @@ TEST_CASE("monad: fmap is not callable with a mismatched function") {
     struct not_invocable_on_int {};
     using not_applicable_t = decltype([](not_invocable_on_int) { return 0; });
 
-    static_assert(!has_fmap<decltype(bt::monad_typeclass<std::optional<int>>),
+    static_assert(!has_fmap<decltype(bt::monad<std::optional<int>>),
                             not_applicable_t, std::optional<int>>);
 }
 
@@ -113,7 +113,7 @@ struct PerInstantiationJoinImpl {
     }
 };
 
-struct PerInstantiationJoinMap : bt::Monad<PerInstantiationJoinImpl> {};
+struct PerInstantiationJoinMap : bt::derive_monad<PerInstantiationJoinImpl> {};
 
 // An Impl with pure + bind, and a native `ap` that ignores both arguments
 // and returns a sentinel the bind + pure derivation could never produce.
@@ -140,7 +140,7 @@ struct MarkedApImpl {
     }
 };
 
-struct MarkedApMap : bt::Monad<MarkedApImpl> {};
+struct MarkedApMap : bt::derive_monad<MarkedApImpl> {};
 } // namespace
 
 TEST_CASE("monad: join native preference is per instantiation") {
@@ -168,7 +168,7 @@ TEST_CASE("monad: ap prefers a native Impl::ap") {
 }
 
 TEST_CASE("monad: ap falls back to the bind + pure derivation") {
-    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    const auto &m = bt::monad<std::optional<int>>;
     auto increment = [](int x) { return x + 1; };
 
     REQUIRE(m.ap(std::optional<decltype(increment)>{increment},
@@ -182,7 +182,7 @@ TEST_CASE("monad: ap falls back to the bind + pure derivation") {
 // ============================================================================
 
 TEST_CASE("monad: as_functor is usable in a constant expression and empty") {
-    constexpr auto &m = bt::monad_typeclass<std::optional<int>>;
+    constexpr auto &m = bt::monad<std::optional<int>>;
     constexpr auto f = m.as_functor();
     static_assert(std::is_empty_v<decltype(f)>);
     (void)f;
@@ -202,7 +202,7 @@ auto increment_via_functor_object(const OBJ &f, std::optional<int> value) {
 TEST_CASE(
     "monad: as_functor lets a functor_object-constrained algorithm accept "
     "an opaque monad object") {
-    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    const auto &m = bt::monad<std::optional<int>>;
 
     REQUIRE(
         increment_via_functor_object(m.as_functor(), std::optional<int>{41}) ==
@@ -213,7 +213,7 @@ TEST_CASE(
 
 TEST_CASE("monad: as_functor's fmap computes what the monad's own fmap "
           "computes") {
-    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    const auto &m = bt::monad<std::optional<int>>;
     auto f = m.as_functor();
     auto increment = [](int x) { return x + 1; };
 
@@ -226,7 +226,7 @@ TEST_CASE("monad: as_functor's fmap computes what the monad's own fmap "
 TEST_CASE(
     "monad: as_functor's replace is the fmap-derived answer when the monad "
     "supplies no native replace") {
-    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    const auto &m = bt::monad<std::optional<int>>;
     auto f = m.as_functor();
 
     REQUIRE(f.replace(std::optional<int>{5}, 9) == std::optional<int>{9});
@@ -237,8 +237,8 @@ namespace {
 // Map additionally supplies its own native `replace` -- distinguishable
 // from the fmap derivation by doubling the replacement, the same marker
 // shape as functor.test.cpp's MarkedReplaceImpl. as_functor() wraps this Map
-// as Functor<ThisMap>, so Functor::replace's native-preference probe lands
-// on the Map's own `replace`, not Monad's Impl.
+// as derive_functor<ThisMap>, so Functor::replace's native-preference probe
+// lands on the Map's own `replace`, not Monad's Impl.
 struct NativeReplaceMonadImpl {
     template <class VALUE>
     [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
@@ -257,7 +257,7 @@ struct NativeReplaceMonadImpl {
     }
 };
 
-struct NativeReplaceMonadMap : bt::Monad<NativeReplaceMonadImpl> {
+struct NativeReplaceMonadMap : bt::derive_monad<NativeReplaceMonadImpl> {
     template <class T, class U>
     auto replace(this auto &&, T &&, U &&replacement) -> std::optional<int> {
         return std::optional<int>{replacement + replacement};

@@ -15,7 +15,7 @@
 
 namespace beman::transpose {
 
-//! \remarks This concept is satisfied when `applicative_typeclass` names a
+//! \remarks This concept is satisfied when `applicative` names a
 //! conforming applicative object for `CONTEXT`. It is the requirement
 //! `transpose` and `transpose_with` state, spelled so that it can be an
 //! associated constraint: both operations look their applicative object up
@@ -26,8 +26,9 @@ namespace beman::transpose {
 //! simply does not match.
 //! \expos
 template <class CONTEXT>
-concept applicative_context = applicative_object<
-    std::remove_cvref_t<decltype(applicative_typeclass<CONTEXT>)>, CONTEXT>;
+concept applicative_context =
+    applicative_object<std::remove_cvref_t<decltype(applicative<CONTEXT>)>,
+                       CONTEXT>;
 
 //! \remarks This concept is satisfied when `OBJ` declares
 //! `consumes_rvalue_structure` to be `true`: a traversable object that, given
@@ -63,7 +64,7 @@ concept consuming_traversable_object =
 /// - transpose is a derived object operation implemented from
 ///   traverse(identity).
 /// - Dispatch happens through a provided object or
-///   traversable_typeclass<Concrete>.
+///   traversable<Concrete>.
 /// - Traversal must preserve container shape while transposing structure and
 ///   context.
 
@@ -80,10 +81,10 @@ concept consuming_traversable_object =
 /// style derivations (folding via traverse) remain possible as evidence,
 /// never a requirement.
 template <class Impl>
-struct Traversable : protected Impl {
+struct derive_traversable : protected Impl {
     static_assert(!std::is_same_v<Impl, std::false_type>,
-                  "No traversable_typeclass<T> specialization found. "
-                  "Specialize beman::transpose::traversable_typeclass<T> for "
+                  "No traversable<T> specialization found. "
+                  "Specialize beman::transpose::traversable<T> for "
                   "your type T, "
                   "provide traverse(applicative, F, T), and declare 'using "
                   "element_type = T;'.");
@@ -140,9 +141,9 @@ struct Traversable : protected Impl {
 //! program-defined structure. The primary template names no traversable
 //! object.
 template <class T>
-inline constexpr auto traversable_typeclass = std::false_type{};
+inline constexpr auto traversable = std::false_type{};
 
-/// The Traversable object `traversable_typeclass` names for a structure
+/// The Traversable object `traversable` names for a structure
 /// type, and that object's element type. Exposition-only spellings, so that
 /// `transpose`'s constraint and `traverse`'s inferred context can be written
 /// once rather than nested three deep. `structure_element_t` is ill-formed
@@ -150,8 +151,8 @@ inline constexpr auto traversable_typeclass = std::false_type{};
 /// constraints below evaluate false for such a type instead of diagnosing.
 //! \expos
 template <class T>
-using traversable_object_t = std::remove_cvref_t<
-    decltype(traversable_typeclass<std::remove_cvref_t<T>>)>;
+using traversable_object_t =
+    std::remove_cvref_t<decltype(traversable<std::remove_cvref_t<T>>)>;
 
 //! \expos
 template <class T>
@@ -213,8 +214,8 @@ template <class F, class T>
 using traverse_context_t =
     std::remove_cvref_t<std::invoke_result_t<F &, traverse_element_t<T>>>;
 
-//! \remarks This concept is satisfied when `traversable_typeclass` names a
-//! traversable object for `T` and `applicative_typeclass` names an
+//! \remarks This concept is satisfied when `traversable` names a
+//! traversable object for `T` and `applicative` names an
 //! applicative object for that object's element type -- the requirement
 //! `transpose`'s Constraints states.
 //!
@@ -314,18 +315,18 @@ template <class IMPL, class STRUCTURE>
 concept traversable_impl =
     requires(const IMPL &impl, const STRUCTURE &structure) {
         typename IMPL::element_type;
-        impl.traverse(applicative_typeclass<
-                          std::optional<applicative_value_t<STRUCTURE>>>,
-                      detail::probe_witness<
-                          std::optional<applicative_value_t<STRUCTURE>>>{},
-                      structure);
+        impl.traverse(
+            applicative<std::optional<applicative_value_t<STRUCTURE>>>,
+            detail::probe_witness<
+                std::optional<applicative_value_t<STRUCTURE>>>{},
+            structure);
     } && (!consuming_traversable_object<IMPL> || requires(const IMPL &impl) {
-        impl.traverse(applicative_typeclass<
-                          std::optional<applicative_value_t<STRUCTURE>>>,
-                      detail::consuming_probe_witness<
-                          applicative_value_t<STRUCTURE>,
-                          std::optional<applicative_value_t<STRUCTURE>>>{},
-                      std::declval<STRUCTURE>());
+        impl.traverse(
+            applicative<std::optional<applicative_value_t<STRUCTURE>>>,
+            detail::consuming_probe_witness<
+                applicative_value_t<STRUCTURE>,
+                std::optional<applicative_value_t<STRUCTURE>>>{},
+            std::declval<STRUCTURE>());
     });
 
 //! \remarks This concept is satisfied when `OBJ` provides the full
@@ -335,7 +336,7 @@ concept traversable_impl =
 //! context, for any element type). `transpose` and `transpose_with` are
 //! required only where `OBJ::element_type` itself names a registered
 //! applicative context: both are hard-wired to
-//! `applicative_typeclass<element_type>`, which names no applicative object
+//! `applicative<element_type>`, which names no applicative object
 //! for a structure like `std::vector<int>` whose elements are not
 //! themselves an applicative context -- transposing such a structure is not
 //! a meaningful operation, not a missing one, so this concept treats
@@ -354,8 +355,7 @@ concept traversable_impl =
 template <class OBJ, class STRUCTURE>
 concept traversable_object =
     requires(const OBJ &obj, const STRUCTURE &structure) {
-        obj.traverse(applicative_typeclass<
-                         std::optional<applicative_value_t<STRUCTURE>>>,
+        obj.traverse(applicative<std::optional<applicative_value_t<STRUCTURE>>>,
                      detail::probe_witness<
                          std::optional<applicative_value_t<STRUCTURE>>>{},
                      structure);
@@ -369,12 +369,12 @@ concept traversable_object =
     } &&
     (!consuming_traversable_object<OBJ> ||
      requires(const OBJ &obj) {
-         obj.traverse(applicative_typeclass<
-                          std::optional<applicative_value_t<STRUCTURE>>>,
-                      detail::consuming_probe_witness<
-                          applicative_value_t<STRUCTURE>,
-                          std::optional<applicative_value_t<STRUCTURE>>>{},
-                      std::declval<STRUCTURE>());
+         obj.traverse(
+             applicative<std::optional<applicative_value_t<STRUCTURE>>>,
+             detail::consuming_probe_witness<
+                 applicative_value_t<STRUCTURE>,
+                 std::optional<applicative_value_t<STRUCTURE>>>{},
+             std::declval<STRUCTURE>());
      }) &&
     (!transposing_object<OBJ> ||
      requires(const OBJ &obj, const STRUCTURE &structure) {
@@ -386,23 +386,24 @@ concept traversable_object =
 
 //! \effects Applies `function` to each element of `value` and transposes the
 //! resulting contextual values, preserving the shape of `value`. The
-//! applicative object is the one `applicative_typeclass` names for the
+//! applicative object is the one `applicative` names for the
 //! context `function` returns.
 //! \returns The shape of `value` held in that single context.
 //! \complexity Exactly one application of `function` per element of `value`.
 //! \remarks Elements are visited in the structure's iteration order.
 template <class Impl>
 template <class T, class F>
-auto Traversable<Impl>::for_each(this auto &&self, T &&value, F &&function) {
+auto derive_traversable<Impl>::for_each(this auto &&self, T &&value,
+                                        F &&function) {
     using Context = std::remove_cvref_t<std::invoke_result_t<
         F &, detail::traversal_argument_t<decltype(self), T>>>;
-    const auto &applicative = applicative_typeclass<Context>;
-    return self.traverse(applicative, std::forward<F>(function),
+    const auto &applicative_map = applicative<Context>;
+    return self.traverse(applicative_map, std::forward<F>(function),
                          std::forward<T>(value));
 }
 
 //! \constraints `element_type` is a context for which
-//! `applicative_typeclass` names an applicative object.
+//! `applicative` names an applicative object.
 //! \effects Equivalent to traversing `value` with the identity function: a
 //! structure of contextual values becomes a single contextual value of the
 //! structure, preserving shape.
@@ -415,11 +416,11 @@ auto Traversable<Impl>::for_each(this auto &&self, T &&value, F &&function) {
 template <class Impl>
 template <class T>
     requires applicative_context<typename Impl::element_type>
-auto Traversable<Impl>::transpose(this auto &&self, T &&value) {
+auto derive_traversable<Impl>::transpose(this auto &&self, T &&value) {
     using Context = element_type;
-    const auto &applicative = applicative_typeclass<Context>;
+    const auto &applicative_map = applicative<Context>;
     return self.traverse(
-        applicative, [](auto &&x) { return std::forward<decltype(x)>(x); },
+        applicative_map, [](auto &&x) { return std::forward<decltype(x)>(x); },
         std::forward<T>(value));
 }
 
@@ -427,27 +428,26 @@ auto Traversable<Impl>::transpose(this auto &&self, T &&value) {
 
 //! \effects Traverses `value` using the traversable object
 //! `traversable_map` rather than `*this`. The applicative object is the one
-//! `applicative_typeclass` names for the context `function` returns.
+//! `applicative` names for the context `function` returns.
 //! \returns The result of that traversal.
 template <class Impl>
 template <class TRAVERSABLE_MAP, class T, class F>
-auto Traversable<Impl>::traverse_with(this auto &&,
-                                      const TRAVERSABLE_MAP &traversable_map,
-                                      F &&function, T &&value) {
+auto derive_traversable<Impl>::traverse_with(
+    this auto &&, const TRAVERSABLE_MAP &traversable_map, F &&function,
+    T &&value) {
     using Context = std::remove_cvref_t<std::invoke_result_t<
         F &, detail::traversal_argument_t<TRAVERSABLE_MAP, T>>>;
-    const auto &applicative = applicative_typeclass<Context>;
-    return traversable_map.traverse(applicative, std::forward<F>(function),
+    const auto &applicative_map = applicative<Context>;
+    return traversable_map.traverse(applicative_map, std::forward<F>(function),
                                     std::forward<T>(value));
 }
 
 //! \effects-equiv
 template <class Impl>
 template <class TRAVERSABLE_MAP, class APPLICATIVE_MAP, class T, class F>
-auto Traversable<Impl>::traverse_with(this auto &&,
-                                      const TRAVERSABLE_MAP &traversable_map,
-                                      const APPLICATIVE_MAP &applicative_map,
-                                      F &&function, T &&value) {
+auto derive_traversable<Impl>::traverse_with(
+    this auto &&, const TRAVERSABLE_MAP &traversable_map,
+    const APPLICATIVE_MAP &applicative_map, F &&function, T &&value) {
     return traversable_map.traverse(applicative_map, std::forward<F>(function),
                                     std::forward<T>(value));
 }
@@ -457,49 +457,76 @@ template <class Impl>
 template <class TRAVERSABLE_MAP, class T>
     requires applicative_context<
         typename std::remove_cvref_t<TRAVERSABLE_MAP>::element_type>
-auto Traversable<Impl>::transpose_with(this auto &&self,
-                                       const TRAVERSABLE_MAP &traversable_map,
-                                       T &&value) {
+auto derive_traversable<Impl>::transpose_with(
+    this auto &&self, const TRAVERSABLE_MAP &traversable_map, T &&value) {
     return self.traverse_with(
         traversable_map, [](auto &&x) { return std::forward<decltype(x)>(x); },
         std::forward<T>(value));
 }
 
+// -- Operation objects --
+//
+// See functor.hpp for the shape and the motivation. `traverse` was a free
+// function template doing this lookup-and-call; as an object it is not found
+// by argument-dependent lookup and cannot be overloaded, which is the
+// property that makes a lookup-based verb predictable. Its constraints are
+// the ones the function template carried, so a structure or context with no
+// instance is still a constraint that does not match rather than a
+// diagnostic from inside the body.
+
+/// The type of the `traverse` operation object.
+//! \omit
+struct traverse_fn {
+    template <class F, class T,
+              class POLICY = std::remove_cvref_t<
+                  decltype(applicative<traverse_context_t<F, T>>)>>
+        requires applicative_object_for<POLICY, traverse_context_t<F, T>>
+    constexpr auto operator()(F &&function, T &&value,
+                              POLICY policy = POLICY{}) const {
+        const auto &map = traversable<std::remove_cvref_t<T>>;
+        return map.traverse(policy, std::forward<F>(function),
+                            std::forward<T>(value));
+    }
+};
+
+// `for_each` gets no operation object. The derived operation is `traverse`
+// with the arguments the other way round, and `for_each` at namespace scope
+// would sit next to std::for_each / std::ranges::for_each with a different
+// return contract -- one name, two meanings, is worse than one spelling.
+
 // \rSec3[transpose.alg.traverse]{traverse}
 
-//! \constraints `POLICY` satisfies `applicative_object_for` for the context
-//! that applying `function` to an element of `value` yields.
-//! \effects Applies `function` to each element of `value` and composes the
-//! resulting contextual values with `policy`, preserving the shape of
-//! `value`. Elements are visited in the structure's iteration order, and the
-//! contextual values are composed in that same order.
+//! \seebelow
+//! \constraints For a call `traverse(function, value, policy)`, let `F` be
+//! `decltype((function))` and `T` be `decltype((value))`. The type of
+//! `policy` satisfies `applicative_object_for` for the context that applying
+//! `function` to an argument of type `$traverse-element-t$<T>` yields.
+//! `policy` may be omitted; see below.
+//! \effects Applies `function` to each element of `value`, presenting that
+//! element through `$traverse-element-t$<T>`, and composes the resulting
+//! contextual values with `policy`, preserving the shape of `value`. Elements
+//! are visited in the structure's iteration order, and the contextual values
+//! are composed in that same order.
 //! \returns The shape of `value` held in the single context `policy`
 //! composes into.
 //! \complexity Exactly one application of `function` per element of `value`.
-//! \remarks Let CONTEXT be the type that applying `function` to an element
-//! of `value` yields. `POLICY` defaults to the type of the applicative
-//! object `applicative_typeclass<CONTEXT>` names, which retains the first
-//! failure and discards the rest, and the constraint is
-//! `applicative_object_for<POLICY, CONTEXT>`. Passing the object
-//! `accumulating_applicative_typeclass<CONTEXT>` names instead composes
-//! every element's evidence. The two differ in what the result carries, not
-//! in what runs: under either, `function` is applied to every element, as
-//! the Complexity clause above says, and it is only the reconstruction of
-//! the value in context that stops. No element's context depends on another
-//! element's value, so this is independent contextual composition rather
-//! than sequential dependence -- which is also why retaining the first
-//! failure is as far as the default policy can go. There is nothing for a
-//! composition to decline to produce: by the time it sees an element's
-//! context, that context has already been computed.
-template <class F, class T,
-          class POLICY = std::remove_cvref_t<
-              decltype(applicative_typeclass<traverse_context_t<F, T>>)>>
-    requires applicative_object_for<POLICY, traverse_context_t<F, T>>
-auto traverse(F &&function, T &&value, POLICY policy = POLICY{}) {
-    const auto &map = traversable_typeclass<std::remove_cvref_t<T>>;
-    return map.traverse(policy, std::forward<F>(function),
-                        std::forward<T>(value));
-}
+//! \remarks The name `traverse` denotes an operation object: it is not found
+//! by argument-dependent lookup, and no explicit template argument list may
+//! be given in a call to it. Let CONTEXT be `$traverse-context-t$<F, T>`. When
+//! `policy` is omitted, it is a
+//! value-initialized object of the type of the applicative object
+//! `applicative<CONTEXT>` names, which retains the first failure and
+//! discards the rest. Passing the object `accumulating_applicative<CONTEXT>`
+//! names instead composes every element's evidence. The two differ in what
+//! the result carries, not in what runs: under either, `function` is applied
+//! to every element, as the Complexity clause above says, and it is only the
+//! reconstruction of the value in context that stops. No element's context
+//! depends on another element's value, so this is independent contextual
+//! composition rather than sequential dependence -- which is also why
+//! retaining the first failure is as far as the default policy can go. There
+//! is nothing for a composition to decline to produce: by the time it sees
+//! an element's context, that context has already been computed.
+inline constexpr traverse_fn traverse{};
 
 } // namespace beman::transpose
 

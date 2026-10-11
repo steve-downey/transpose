@@ -32,10 +32,10 @@ namespace beman::transpose {
  * applicative operation once `invoke` is synthesized from `bind` + `pure`.
  */
 template <class Impl>
-struct Monad : protected Impl {
+struct derive_monad : protected Impl {
     static_assert(!std::is_same_v<Impl, std::false_type>,
-                  "No monad_typeclass<T> specialization found. "
-                  "Specialize beman::transpose::monad_typeclass<T> for your "
+                  "No monad<T> specialization found. "
+                  "Specialize beman::transpose::monad<T> for your "
                   "type T and provide pure(...) and bind(...) operations.");
 
     using Impl::bind;
@@ -49,8 +49,8 @@ struct Monad : protected Impl {
      * rather than as a superclass constraint. Prefers a native Impl::fmap
      * when the instance supplies one -- an instance that can map without
      * sequencing usually should. The full Functor instance is spelled at the
-     * registration site as Functor<ThisMap>{}; Monad grows the Functor BASIS
-     * only, so Functor's derived surface stays Functor's.
+     * registration site as derive_functor<ThisMap>{}; Monad grows the Functor
+     * BASIS only, so Functor's derived surface stays Functor's.
      */
     template <class FUNCTION, class MA>
     auto fmap(this auto &&self, FUNCTION &&function, MA &&ma)
@@ -248,11 +248,11 @@ struct Monad : protected Impl {
      *
      * The functor it returns is the one derived from the object in hand,
      * law-compatible with that object's bind by construction. It
-     * deliberately does NOT consult functor_typeclass<T>: a caller who
+     * deliberately does NOT consult functor<T>: a caller who
      * wants the registered default says so by looking it up.
      */
     constexpr auto as_functor(this auto &&self) {
-        return Functor<std::remove_cvref_t<decltype(self)>>{};
+        return derive_functor<std::remove_cvref_t<decltype(self)>>{};
     }
 
   private:
@@ -265,7 +265,7 @@ struct Monad : protected Impl {
 
 /** Typeclass lookup variable for Monad; specialize for each type. */
 template <class T>
-inline constexpr auto monad_typeclass = std::false_type{};
+inline constexpr auto monad = std::false_type{};
 
 /** Restricted `Impl` concept for Monad: satisfied when `IMPL` supplies the
  * one minimal complete basis the `Monad` CRTP base admits today -- `pure`
@@ -290,8 +290,8 @@ concept monad_impl = requires(const IMPL &impl, const CONTEXT &context,
  * `applicative_object`'s treatment.
  *
  * `kleisli` is probed for existence -- the class surface names it -- but its
- * presence is never load-bearing evidence here: `Monad<Impl>::kleisli`'s own
- * condition is `impl.kleisli(f, g) || true`, genuinely unconstrained,
+ * presence is never load-bearing evidence here: `derive_monad<Impl>::kleisli`'s
+ * own condition is `impl.kleisli(f, g) || true`, genuinely unconstrained,
  * because its `bind` call lives inside a returned closure whose argument
  * type is unknown until the closure is invoked. It is `bind` and `join`
  * (and `fmap`, `invoke`) that carry a real either-basis condition and do the
@@ -321,7 +321,7 @@ concept monad_object =
      });
 
 // -- std::optional monad instance --
-// Delegates pure to the existing applicative_typeclass.
+// Delegates pure to the existing applicative.
 
 template <class VALUE_TYPE>
 struct OptionalMonadImpl {
@@ -330,7 +330,7 @@ struct OptionalMonadImpl {
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
         -> std::optional<std::remove_cvref_t<VALUE>> {
-        return applicative_typeclass<std::optional<VALUE_TYPE>>.pure(
+        return applicative<std::optional<VALUE_TYPE>>.pure(
             std::forward<VALUE>(value));
     }
 
@@ -345,30 +345,106 @@ struct OptionalMonadImpl {
 };
 
 template <class VALUE_TYPE>
-struct OptionalMonadMap : Monad<OptionalMonadImpl<VALUE_TYPE>> {
+struct OptionalMonadMap : derive_monad<OptionalMonadImpl<VALUE_TYPE>> {
     using OptionalMonadImpl<VALUE_TYPE>::bind;
     using OptionalMonadImpl<VALUE_TYPE>::pure;
 };
 
 /** Monad instance for `std::optional<VALUE_TYPE>`. */
 template <class VALUE_TYPE>
-inline constexpr auto monad_typeclass<std::optional<VALUE_TYPE>> =
+inline constexpr auto monad<std::optional<VALUE_TYPE>> =
     OptionalMonadMap<VALUE_TYPE>{};
+
+// -- Operation objects --
+//
+// See functor.hpp for the shape, the motivation, and why the namespace is
+// nested. Still evidence, not proposed wording -- but evidence of one more
+// thing now: that the operation-object layer is uniform across the whole
+// typeclass family, including the member nobody is proposing. If the spelling
+// only worked for the operations D3200R0 happens to propose, that would say
+// it had been fitted to those operations instead of to the mechanism.
+//
+// It also settles a naming question the free-function API had ducked. `bind`
+// could not be a function template here without reading as a competitor to
+// std::bind; the old spelling was `mbind`, a wart adopted to dodge exactly
+// that. An object needs no such dodge: `bind` is a variable, it is
+// never found by ADL, and it never enters overload resolution with std::bind.
+// The typeclass operation gets its real name.
+
+/** Operation object for Monad's `bind` primitive.
+ *
+ * The context keys the lookup and is deduced from the first argument.
+ */
+struct bind_fn {
+    /** Sequences a monadic value `ma` through `f` (Haskell's `>>=`).
+     *
+     * @tparam TC  The Monad instance, from the lookup for the keying argument.
+     * Not for callers to supply; pin with mode 2.
+     */
+    template <class MA, class F,
+              const auto &TC = monad<std::remove_cvref_t<MA>>>
+    constexpr auto operator()(MA &&ma, F &&f) const {
+        static_assert(has_instance_v<decltype(TC)>,
+                      "No Monad instance for this type. Specialize "
+                      "beman::transpose::monad<T> with an object "
+                      "providing pure(...) and bind(ma, f).");
+        return TC.bind(std::forward<MA>(ma), std::forward<F>(f));
+    }
+};
+
+/** Sequential composition: `bind(ma, f)`. */
+inline constexpr bind_fn bind{};
+
+/** Operation object for Monad's derived `join`. */
+struct join_fn {
+    /** Flattens a nested monadic value; equivalent to `bind(mma, id)`. */
+    template <class MMA, const auto &TC = monad<std::remove_cvref_t<MMA>>>
+    constexpr auto operator()(MMA &&mma) const {
+        static_assert(has_instance_v<decltype(TC)>,
+                      "No Monad instance for this type. Specialize "
+                      "beman::transpose::monad<T> with an object "
+                      "providing pure(...) and bind(ma, f).");
+        return TC.join(std::forward<MMA>(mma));
+    }
+};
+
+/** Flattens one level of nesting: `join(mma)`. */
+inline constexpr join_fn join{};
+
+/** Operation object for Monad's derived `kleisli` composition.
+ *
+ * Neither argument is in-context -- both are functions returning a monadic
+ * value -- so, like `pure`, the context cannot be deduced and is named:
+ * `kleisli<std::optional<int>>(f, g)`. Two of the family's operations fall
+ * out of the deducing pattern this way, and they are exactly the two that
+ * produce a context instead of consuming one.
+ */
+template <class CONTEXT, const auto &TC = monad<std::remove_cvref_t<CONTEXT>>>
+struct kleisli_fn {
+    /** Forward Kleisli composition: `(f >=> g) a = f a >>= g`. */
+    template <class F, class G>
+    constexpr auto operator()(F &&f, G &&g) const {
+        static_assert(has_instance_v<decltype(TC)>,
+                      "No Monad instance for this type. Specialize "
+                      "beman::transpose::monad<T> with an object "
+                      "providing pure(...) and bind(ma, f).");
+        return TC.kleisli(std::forward<F>(f), std::forward<G>(g));
+    }
+};
+
+/** Kleisli composition in a named context: `kleisli<C>(f, g)`. */
+template <class CONTEXT>
+inline constexpr kleisli_fn<CONTEXT> kleisli{};
 
 // -- Free-function API --
 
-/** Sequences a monadic value `ma` through function `f` (Haskell's `>>=`). */
+/** Sequences a monadic value `ma` through function `f` (Haskell's `>>=`).
+ *
+ * Retained for source compatibility; `bind` is the spelling to use.
+ */
 template <class MA, class F>
 auto mbind(MA &&ma, F &&f) {
-    const auto &map = monad_typeclass<std::remove_cvref_t<MA>>;
-    return map.bind(std::forward<MA>(ma), std::forward<F>(f));
-}
-
-/** Flattens a nested monadic value; equivalent to `bind(mma, id)`. */
-template <class MMA>
-auto join(MMA &&mma) {
-    const auto &map = monad_typeclass<std::remove_cvref_t<MMA>>;
-    return map.join(std::forward<MMA>(mma));
+    return bind(std::forward<MA>(ma), std::forward<F>(f));
 }
 
 } // namespace beman::transpose

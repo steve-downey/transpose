@@ -70,12 +70,12 @@ struct ApOnlyImpl {
     }
 };
 
-struct ApOnlyMap : bt::Applicative<ApOnlyImpl> {};
+struct ApOnlyMap : bt::derive_applicative<ApOnlyImpl> {};
 
 // -- The shallow gate, made deeper: a hand-rolled object with pure and
 // -- nothing else. Structural conformance lets a program hand-implement a
 // -- typeclass object without ever touching the CRTP base, so this is not
-// -- derived from Applicative<> at all -- it is exactly the object the
+// -- derived from derive_applicative<> at all -- it is exactly the object the
 // -- library's structural-conformance promise has to reckon with, and the
 // -- whole point of this step: this object satisfies the old, shallow
 // -- applicative_object_for gate (it has a conforming pure) and must fail
@@ -130,24 +130,21 @@ static_assert(bt::functor_object<bt::VectorFunctorMap<int>, std::vector<int>>);
 static_assert(bt::applicative_object<bt::OptionalApplicativeMap<int>,
                                      std::optional<int>>);
 static_assert(bt::applicative_object<
-              std::remove_cvref_t<
-                  decltype(bt::applicative_typeclass<bt::zip_list<int>>)>,
+              std::remove_cvref_t<decltype(bt::applicative<bt::zip_list<int>>)>,
               bt::zip_list<int>>);
 static_assert(bt::applicative_object<bt::ArrayApplicativeMap<int, 3>,
                                      std::array<int, 3>>);
 static_assert(bt::applicative_object<
-              std::remove_cvref_t<
-                  decltype(bt::applicative_typeclass<bt::sender<int>>)>,
+              std::remove_cvref_t<decltype(bt::applicative<bt::sender<int>>)>,
               bt::sender<int>>);
 static_assert(bt::applicative_object<
-              std::remove_cvref_t<decltype(bt::applicative_typeclass<
+              std::remove_cvref_t<
+                  decltype(bt::applicative<std::expected<int, std::string>>)>,
+              std::expected<int, std::string>>);
+static_assert(bt::applicative_object<
+              std::remove_cvref_t<decltype(bt::accumulating_applicative<
                                            std::expected<int, std::string>>)>,
               std::expected<int, std::string>>);
-static_assert(
-    bt::applicative_object<
-        std::remove_cvref_t<decltype(bt::accumulating_applicative_typeclass<
-                                     std::expected<int, std::string>>)>,
-        std::expected<int, std::string>>);
 
 static_assert(bt::monad_object<bt::OptionalMonadMap<int>, std::optional<int>>);
 
@@ -202,20 +199,19 @@ static_assert(
 // (replace), so it correctly fails functor_object. This is expected, not a
 // bug: the remedy is docs/decisions.md#typeclass-conformance-depth's
 // forward pointer to as-functor-presentation, which gives Monad a member
-// naming the same Functor<> wrapping the next assertion spells by hand.
+// naming the same derive_functor<> wrapping the next assertion spells by hand.
 static_assert(
     !bt::functor_object<bt::OptionalMonadMap<int>, std::optional<int>>);
 
 // -- The layered instance satisfies it --
-static_assert(bt::functor_object<bt::Functor<bt::OptionalMonadMap<int>>,
+static_assert(bt::functor_object<bt::derive_functor<bt::OptionalMonadMap<int>>,
                                  std::optional<int>>);
 
 // -- as_functor() names the same wrapping --
-static_assert(
-    bt::functor_object<
-        std::remove_cvref_t<
-            decltype(bt::monad_typeclass<std::optional<int>>.as_functor())>,
-        std::optional<int>>);
+static_assert(bt::functor_object<
+              std::remove_cvref_t<
+                  decltype(bt::monad<std::optional<int>>.as_functor())>,
+              std::optional<int>>);
 
 // ============================================================================
 // typeclass-impl-concepts: the restricted Impl concepts, one per class,
@@ -320,8 +316,7 @@ static_assert(!bt::applicative_object<bt::ArrayApplicativeMap<int, 3>,
 static_assert(!bt::applicative_object<bt::SimdLanesApplicativeMap<int, 4>,
                                       std::optional<int>>);
 static_assert(!bt::applicative_object<
-              std::remove_cvref_t<
-                  decltype(bt::applicative_typeclass<bt::zip_list<int>>)>,
+              std::remove_cvref_t<decltype(bt::applicative<bt::zip_list<int>>)>,
               std::optional<int>>);
 
 // -- A fixed-extent object composes only operands of that extent --
@@ -384,8 +379,7 @@ struct HalfApplicativeObject {
 } // namespace
 
 template <>
-inline constexpr auto bt::applicative_typeclass<half_context> =
-    HalfApplicativeObject{};
+inline constexpr auto bt::applicative<half_context> = HalfApplicativeObject{};
 
 static_assert(!bt::applicative_context<half_context>);
 static_assert(!bt::transposing_object<bt::VectorTraversableMap<half_context>>);
@@ -393,7 +387,7 @@ static_assert(!bt::transposing_object<bt::VectorTraversableMap<half_context>>);
 // The weaker question answers yes for this element type, which is what
 // pins the two spellings apart rather than merely restating one of them.
 static_assert(requires {
-    bt::applicative_typeclass<half_context>.pure(std::declval<half_context>());
+    bt::applicative<half_context>.pure(std::declval<half_context>());
 });
 
 static_assert(bt::traversable_object<bt::VectorTraversableMap<half_context>,

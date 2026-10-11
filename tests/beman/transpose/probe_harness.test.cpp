@@ -30,15 +30,15 @@
 //
 //   harness             library
 //   pure<G>(a)          std::expected<A, G>{a}
-//   transform(x, f)     applicative_typeclass<X>.map(f, x)
-//   apply(f, x)         applicative_typeclass<F>.ap(f, x)
-//   map2(k, x, y)       applicative_typeclass<X>.invoke(k, x, y)
+//   transform(x, f)     applicative<X>.map(f, x)
+//   apply(f, x)         applicative<F>.ap(f, x)
+//   map2(k, x, y)       applicative<X>.invoke(k, x, y)
 //   and_then(x, f)      mbind(x, f)
 //   widen<G>(x)         grade_subsume<G>(x)
 //   flatten(x)          join(x)
 //   traverse(f, xs)     traverse(f, xs)            (short-circuit policy)
 //   traverse_accumulating(f, xs)
-//                       traverse(f, xs, accumulating_applicative_typeclass<C>)
+//                       traverse(f, xs, accumulating_applicative<C>)
 //   transform_error(x, phi)
 //                       x.transform_error(phi)     (std::expected's own)
 //
@@ -173,19 +173,19 @@ auto pure(VALUE value) -> at<VALUE, GRADE> {
 
 template <class CONTEXT, class FUNCTION>
 auto transform(const CONTEXT &context, FUNCTION function) {
-    return bt::applicative_typeclass<CONTEXT>.map(function, context);
+    return bt::applicative<CONTEXT>.map(function, context);
 }
 
 template <class FUNCTIONS, class ARGUMENTS>
 auto apply(const FUNCTIONS &functions, const ARGUMENTS &arguments) {
-    return bt::applicative_typeclass<FUNCTIONS>.ap(functions, arguments);
+    return bt::applicative<FUNCTIONS>.ap(functions, arguments);
 }
 
 /** The same application with the operands examined in the other order:
  * the argument's effect first, then the function's. */
 template <class FUNCTIONS, class ARGUMENTS>
 auto apply_flipped(const FUNCTIONS &functions, const ARGUMENTS &arguments) {
-    return bt::applicative_typeclass<FUNCTIONS>.invoke(
+    return bt::applicative<FUNCTIONS>.invoke(
         [](const auto &argument, const auto &function) {
             return std::invoke(function, argument);
         },
@@ -195,13 +195,12 @@ auto apply_flipped(const FUNCTIONS &functions, const ARGUMENTS &arguments) {
 template <class FUNCTIONS, class ARGUMENTS>
 auto apply_accumulating(const FUNCTIONS &functions,
                         const ARGUMENTS &arguments) {
-    return bt::accumulating_applicative_typeclass<FUNCTIONS>.ap(functions,
-                                                                arguments);
+    return bt::accumulating_applicative<FUNCTIONS>.ap(functions, arguments);
 }
 
 template <class FUNCTION, class FIRST, class SECOND>
 auto map2(FUNCTION function, const FIRST &first, const SECOND &second) {
-    return bt::applicative_typeclass<FIRST>.invoke(function, first, second);
+    return bt::applicative<FIRST>.invoke(function, first, second);
 }
 
 template <class CONTEXT, class FUNCTION>
@@ -229,7 +228,7 @@ auto traverse_accumulating(FUNCTION function,
                            const std::vector<VALUE> &values) {
     using Context = std::invoke_result_t<FUNCTION, const VALUE &>;
     return bt::traverse(function, values,
-                        bt::accumulating_applicative_typeclass<Context>);
+                        bt::accumulating_applicative<Context>);
 }
 
 template <class CONTEXT, class RENAMING>
@@ -1374,8 +1373,7 @@ TEST_CASE("probe-harness: Tuple.sequence_cons") {
     };
     auto check = [&](const at<int, set_p> &x, const at<int, set_r> &y,
                      const at<int, set_i> &z) {
-        auto left =
-            bt::applicative_typeclass<at<int, set_p>>.invoke(tuple_of, x, y, z);
+        auto left = bt::applicative<at<int, set_p>>.invoke(tuple_of, x, y, z);
         auto right =
             harness::map2(tuple_cons, x, harness::map2(tuple_of, y, z));
         static_assert(std::same_as<decltype(left), decltype(right)>);

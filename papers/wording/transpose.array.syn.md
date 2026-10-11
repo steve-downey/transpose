@@ -30,7 +30,7 @@ struct ArrayApplicativeImpl {
 
 ```cpp
 template<class T, size_t N>
-struct ArrayApplicativeMap : Applicative<ArrayApplicativeImpl<T, N>> {
+struct ArrayApplicativeMap : derive_applicative<ArrayApplicativeImpl<T, N>> {
   using ArrayApplicativeImpl<T, N>::invoke;
   using ArrayApplicativeImpl<T, N>::pure;
 };

@@ -98,7 +98,7 @@ struct ExpectedApplicativeImpl {
 ```cpp
 template<class VALUE_TYPE, class ERROR_TYPE>
 struct ExpectedApplicativeMap
-    : Applicative<ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
+    : derive_applicative<ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
   using ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke;
   using ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure;
 };
@@ -145,7 +145,7 @@ struct AccumulatingExpectedApplicativeImpl {
 ```cpp
 template<class VALUE_TYPE, class ERROR_TYPE>
 struct AccumulatingExpectedApplicativeMap
-    : Applicative<AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
+    : derive_applicative<AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
   using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke;
   using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure;
 };

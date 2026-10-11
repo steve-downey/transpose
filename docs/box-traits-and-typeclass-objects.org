@@ -50,7 +50,7 @@ Two libraries address this independently.
 ~beman.monadics~ proposes ~box_traits<T>~ --- a traits struct specialized per type, providing static functions (~has_value~, ~value~, ~error~, ~make~, ~make_error~).
 The four monadic operations become free functions that work for any adapted type.
 
-The typeclass-object pattern in this repository uses ~*_typeclass<T>~ --- a variable template specialized per type, producing an object with member functions (~fold_map~, ~traverse~, ~invoke~).
+The typeclass-object pattern in this repository uses a per-concept variable template --- ~foldable<T>~, ~traversable<T>~, ~applicative<T>~ --- specialized per type, producing an object with member functions (~fold_map~, ~traverse~, ~invoke~).
 A CRTP base derives many operations from one or two primitives.
 
 Same impulse.
@@ -118,22 +118,23 @@ struct BinaryTreeFoldableImpl {
                   const example::BinaryTree<T>& t) { /* ... */ }
 };
 
-struct BinaryTreeFoldableMap : Foldable<BinaryTreeFoldableImpl> {
+struct BinaryTreeFoldableMap : derive_foldable<BinaryTreeFoldableImpl> {
     using BinaryTreeFoldableImpl::fold_map;
 };
 
 template <class T>
-inline constexpr auto beman::transpose::foldable_typeclass<example::BinaryTree<T>> =
+inline constexpr auto beman::transpose::foldable<example::BinaryTree<T>> =
     BinaryTreeFoldableMap{};
 #+end_src
 
-From that single ~fold_map~, the CRTP base ~Foldable<Impl>~ derives: ~length~, ~to_vector~, ~fold_left~, ~fold_right~, ~any_of~, ~all_of~, ~empty~, ~find_first~, ~combine_all~, and ~fold~.
+From that single ~fold_map~, the CRTP base ~derive_foldable<Impl>~ derives: ~length~, ~to_vector~, ~fold_left~, ~fold_right~, ~any_of~, ~all_of~, ~empty~, ~find_first~, ~combine_all~, and ~fold~.
 
 One hook.
 Ten derived operations.
 
 The looked-up object is a value.
-It can be used implicitly, passed as an explicit argument, or bound as an NTTP default --- three lookup modes.
+It can be used implicitly, passed as an explicit argument, or bound as an NTTP default.
+A fourth mode skips naming it: ~beman::transpose::length(tree)~ is an operation object that does the lookup itself, for calls where the instance isn't the interesting part.
 
 * Where They Agree
 
@@ -142,7 +143,7 @@ Both require explicit opt-in.
 Both use static dispatch with no virtual calls and no type erasure.
 
 ~box_traits~ defaults to an undefined primary template --- you must specialize.
-~beman::transpose::foldable_typeclass~ defaults to ~std::false_type~ --- you must specialize.
+~beman::transpose::foldable~ defaults to ~std::false_type~ --- you must specialize.
 
 Neither silently adopts types that happen to have the right member names.
 This is deliberate.
@@ -166,7 +167,7 @@ A class template specialization must always produce an instance of the same clas
 ~box_traits<optional<int>>~ and ~box_traits<expected<int, string>>~ are both ~box_traits~ specializations.
 
 A variable template specialization can produce any type.
-~beman::transpose::foldable_typeclass<vector<int>>~ and ~beman::transpose::foldable_typeclass<example::BinaryTree<T>>~ can be completely different types.
+~beman::transpose::foldable<vector<int>>~ and ~beman::transpose::foldable<example::BinaryTree<T>>~ can be completely different types.
 The only constraint is that they provide ~fold_map~.
 This is what enables the CRTP pattern --- each type gets its own Map class, inheriting from its own Impl, with its own ~using~ declarations selecting primitive operations.
 

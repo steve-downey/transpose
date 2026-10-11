@@ -78,10 +78,9 @@ static_assert(
         beman::transpose::applicative_value_t<ax::all_of_sender<just_int>>,
         std::vector<int>>);
 static_assert(
-    !std::is_same_v<
-        std::remove_const_t<decltype(beman::transpose::applicative_typeclass<
-                                     ax::all_of_sender<just_int>>)>,
-        std::false_type>);
+    !std::is_same_v<std::remove_const_t<decltype(beman::transpose::applicative<
+                                                 ax::all_of_sender<just_int>>)>,
+                    std::false_type>);
 
 // -- 2. Completion signatures, including the P3887R1 correction. ----------
 // The plan listed set_stopped_t() unconditionally. P3887R1 (LWG-approved

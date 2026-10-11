@@ -47,9 +47,9 @@ namespace beman::transpose {
  *
  * `combine` builds its own `MONAD_OBJECT{}` inside the stored lambda, at the
  * moment the lambda is called, rather than storing the result of
- * `MONAD_OBJECT{}.kleisli(...)` directly. `Monad<Impl>::kleisli`'s derived
- * branch returns a closure that captures `self` by reference; storing that
- * closure here would capture a reference to a `MONAD_OBJECT{}` temporary
+ * `MONAD_OBJECT{}.kleisli(...)` directly. `derive_monad<Impl>::kleisli`'s
+ * derived branch returns a closure that captures `self` by reference; storing
+ * that closure here would capture a reference to a `MONAD_OBJECT{}` temporary
  * that no longer exists once `combine` has returned. Constructing the
  * temporary and invoking `kleisli` on it in the same full expression that
  * calls the result keeps the temporary alive for exactly as long as it is

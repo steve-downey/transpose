@@ -23,7 +23,7 @@ namespace beman::transpose {
 //   `combine(lhs, rhs)` over one value type. `monoid_object<M, T>` is the
 //   concept.
 // - Monoid<T> is the registry: the one canonical instance for a type, where
-//   one exists (string and vector concatenation). monoid_v<T> is the lookup
+//   one exists (string and vector concatenation). monoid<T> is the lookup
 //   object generic algorithms default to when the caller passes nothing.
 // - Where a type carries more than one monoid -- numbers, booleans -- no
 //   instance is registered; the caller passes one (`sum_monoid<int>{}`,
@@ -46,7 +46,7 @@ struct Monoid;
 /** Canonical lookup object for Monoid<VALUE_TYPE>; used by generic algorithms.
  */
 template <class VALUE_TYPE>
-inline constexpr Monoid<VALUE_TYPE> monoid_v = Monoid<VALUE_TYPE>{};
+inline constexpr Monoid<VALUE_TYPE> monoid = Monoid<VALUE_TYPE>{};
 
 /** The value type a monoid instance `M` operates on: what its `identity()`
  * returns.
@@ -277,14 +277,14 @@ struct Monoid<std::vector<VALUE_TYPE>> {
 /** Returns the identity element of the registered Monoid of VALUE_TYPE. */
 template <class VALUE_TYPE>
 auto monoid_identity() -> VALUE_TYPE {
-    return monoid_v<VALUE_TYPE>.identity();
+    return monoid<VALUE_TYPE>.identity();
 }
 
 /** Combines two values using the registered Monoid of VALUE_TYPE. */
 template <class VALUE_TYPE>
 auto monoid_combine(const VALUE_TYPE &lhs, const VALUE_TYPE &rhs)
     -> VALUE_TYPE {
-    return monoid_v<VALUE_TYPE>.combine(lhs, rhs);
+    return monoid<VALUE_TYPE>.combine(lhs, rhs);
 }
 
 } // namespace beman::transpose

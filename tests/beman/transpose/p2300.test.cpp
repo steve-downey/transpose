@@ -154,14 +154,14 @@ static_assert(single_value_sender<
 // value_types_of_t with a non-variadic Tuple for a two-argument sender is
 // ill-formed. Ill-formed inside a requires-expression is a constraint
 // failure. This is what lets an unregistered sender reach the framework's
-// own "No applicative_typeclass<T>" message instead of a template backtrace
+// own "No applicative<T>" message instead of a template backtrace
 // from inside the constraint.
 
 // -- 2. Registration is by concept, and there is ONE object. --------------
 
 template <class T>
 concept applicative_registered =
-    !std::is_same_v<std::remove_const_t<decltype(bt::applicative_typeclass<T>)>,
+    !std::is_same_v<std::remove_const_t<decltype(bt::applicative<T>)>,
                     std::false_type>;
 
 static_assert(applicative_registered<just_int>);
@@ -173,16 +173,14 @@ static_assert(!applicative_registered<decltype(ex::just_stopped())>);
 // different value types, different adaptors -- find the SAME object type.
 // That is what lets pure(x) return just(x), a different sender type from
 // whatever S the object was found under, without the object knowing it.
+static_assert(std::is_same_v<
+              std::remove_const_t<decltype(bt::applicative<just_int>)>,
+              std::remove_const_t<decltype(bt::applicative<then_adapted>)>>);
 static_assert(
     std::is_same_v<
-        std::remove_const_t<decltype(bt::applicative_typeclass<just_int>)>,
+        std::remove_const_t<decltype(bt::applicative<just_int>)>,
         std::remove_const_t<
-            decltype(bt::applicative_typeclass<then_adapted>)>>);
-static_assert(
-    std::is_same_v<
-        std::remove_const_t<decltype(bt::applicative_typeclass<just_int>)>,
-        std::remove_const_t<decltype(bt::applicative_typeclass<
-                                     decltype(ex::just(std::string{}))>)>>);
+            decltype(bt::applicative<decltype(ex::just(std::string{}))>)>>);
 
 // pure DOES return a different type than the S it was found under. Pinned
 // because it is the reason the object cannot be templated on S: an object
@@ -232,12 +230,10 @@ static_assert(
 
 static_assert(
     bt::applicative_object<
-        std::remove_const_t<decltype(bt::applicative_typeclass<just_int>)>,
-        just_int>);
-static_assert(
-    bt::applicative_object<
-        std::remove_const_t<decltype(bt::applicative_typeclass<then_adapted>)>,
-        then_adapted>);
+        std::remove_const_t<decltype(bt::applicative<just_int>)>, just_int>);
+static_assert(bt::applicative_object<
+              std::remove_const_t<decltype(bt::applicative<then_adapted>)>,
+              then_adapted>);
 
 /** Observe a sender by running it.
  *
@@ -357,7 +353,7 @@ TEST_CASE("p2300: a move-only payload survives registration and the basis") {
 
 namespace {
 template <class S>
-using object_for_ = std::remove_const_t<decltype(bt::applicative_typeclass<S>)>;
+using object_for_ = std::remove_const_t<decltype(bt::applicative<S>)>;
 
 using whenall_then = decltype(ex::when_all(ex::just(1), ex::just(2)) |
                               ex::then([](int a, int b) { return a + b; }));

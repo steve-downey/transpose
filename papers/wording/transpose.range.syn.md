@@ -25,7 +25,7 @@ struct VectorTraversableImpl {
 
 ```cpp
 template<class VALUE_TYPE>
-struct VectorTraversableMap : Traversable<VectorTraversableImpl<VALUE_TYPE>> {
+struct VectorTraversableMap : derive_traversable<VectorTraversableImpl<VALUE_TYPE>> {
   using VectorTraversableImpl<VALUE_TYPE>::traverse;
 };
 ```

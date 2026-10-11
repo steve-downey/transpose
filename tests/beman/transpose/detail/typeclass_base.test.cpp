@@ -50,7 +50,7 @@ struct Inner : protected Impl {
 struct InnerMap : Inner<Probe> {};
 
 // A second CRTP base wrapping `InnerMap` -- standing in for
-// `Functor<SomeMonadMap>`. `derived` is exposed as Outer's own member,
+// `derive_functor<SomeMonadMap>`. `derived` is exposed as Outer's own member,
 // forwarding through Outer's own `impl_of`, never as `using
 // Impl::derived;`. That is the own-member rule
 // (docs/decisions.md#impl-access-through-bases): a `using`-declaration here

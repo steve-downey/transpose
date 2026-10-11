@@ -144,7 +144,7 @@ struct BinaryTreeFoldableImpl {
 /** Foldable map that exposes the fold family for BinaryTree<T>. */
 template <class T>
 struct BinaryTreeFoldableMap
-    : beman::transpose::Foldable<BinaryTreeFoldableImpl<T>> {};
+    : beman::transpose::derive_foldable<BinaryTreeFoldableImpl<T>> {};
 
 // ---------------------------------------------------------------------------
 // Applicative instance for BinaryTree<T>
@@ -242,7 +242,7 @@ struct BinaryTreeApplicativeImpl {
  * user-facing n-ary invoke. */
 template <class T>
 struct BinaryTreeApplicativeMap
-    : beman::transpose::Applicative<BinaryTreeApplicativeImpl<T>> {
+    : beman::transpose::derive_applicative<BinaryTreeApplicativeImpl<T>> {
     using BinaryTreeApplicativeImpl<T>::ap;
     using BinaryTreeApplicativeImpl<T>::pure;
 };
@@ -359,7 +359,7 @@ struct BinaryTreeTraversableImpl {
 /** Traversable map that exposes traverse for BinaryTree<T>. */
 template <class T>
 struct BinaryTreeTraversableMap
-    : beman::transpose::Traversable<BinaryTreeTraversableImpl<T>> {
+    : beman::transpose::derive_traversable<BinaryTreeTraversableImpl<T>> {
     using BinaryTreeTraversableImpl<T>::traverse;
 };
 
@@ -374,19 +374,19 @@ namespace beman::transpose {
 /** Registers BinaryTreeFoldableMap as the Foldable instance for
  * example::BinaryTree<T>. */
 template <class T>
-inline constexpr auto foldable_typeclass<example::BinaryTree<T>> =
+inline constexpr auto foldable<example::BinaryTree<T>> =
     example::BinaryTreeFoldableMap<T>{};
 
 /** Registers BinaryTreeApplicativeMap as the Applicative instance for
  * example::BinaryTree<T>. */
 template <class T>
-inline constexpr auto applicative_typeclass<example::BinaryTree<T>> =
+inline constexpr auto applicative<example::BinaryTree<T>> =
     example::BinaryTreeApplicativeMap<T>{};
 
 /** Registers BinaryTreeTraversableMap as the Traversable instance for
  * example::BinaryTree<T>. */
 template <class T>
-inline constexpr auto traversable_typeclass<example::BinaryTree<T>> =
+inline constexpr auto traversable<example::BinaryTree<T>> =
     example::BinaryTreeTraversableMap<T>{};
 
 } // namespace beman::transpose

@@ -14,6 +14,7 @@ set(ALL_EXAMPLES
     transpose_post_example
     traverse_post_example
     do_notation_example
+    operation_objects_example
 )
 
 include(CheckIncludeFileCXX)

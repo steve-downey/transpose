@@ -51,7 +51,7 @@ void mixing() {
     using exp_sys = std::expected<int, std::errc>;
     using exp_io = std::expected<int, std::io_errc>;
 
-    const auto &app = bt::applicative_typeclass<exp_sys>;
+    const auto &app = bt::applicative<exp_sys>;
     auto add = [](int a, int b) { return a + b; };
 
     // Two operands, two DIFFERENT error types. Before grading this call was
@@ -76,7 +76,7 @@ void mixing() {
 void lazy_join() {
     // a1b0528a-16f7-4a62-9ae8-684b05fbc8ed
     using exp_sys = std::expected<int, std::errc>;
-    const auto &app = bt::applicative_typeclass<exp_sys>;
+    const auto &app = bt::applicative<exp_sys>;
     auto add = [](int a, int b) { return a + b; };
 
     // A bare int is empty-graded: joining with the empty set is a no-op, so
@@ -118,7 +118,7 @@ void accumulate() {
     // 045991c1-1dd4-4f93-af8a-b3ac53ce7702
     // The default object short-circuits: the leftmost failure wins and the
     // rest are never examined.
-    const auto &short_circuit = bt::applicative_typeclass<exp_mixed>;
+    const auto &short_circuit = bt::applicative<exp_mixed>;
     auto first_only = short_circuit.invoke(add, bad_parse(12), bad_range(99));
     std::cout << "short-circuit: holds<parse_error> = " << std::boolalpha
               << first_only.error().holds<parse_error>()
@@ -127,8 +127,7 @@ void accumulate() {
 
     // The accumulating object visits every operand and keeps one witness per
     // distinct error type: the error_set VALUE is the evidence.
-    const auto &accumulating =
-        bt::accumulating_applicative_typeclass<exp_mixed>;
+    const auto &accumulating = bt::accumulating_applicative<exp_mixed>;
     auto both = accumulating.invoke(add, bad_parse(12), bad_range(99));
     std::cout << "accumulating:  witness_count = "
               << both.error().witness_count() << '\n';
@@ -141,8 +140,7 @@ void accumulate() {
 
 void recover() {
     auto add = [](int a, int b) { return a + b; };
-    const auto &accumulating =
-        bt::accumulating_applicative_typeclass<exp_mixed>;
+    const auto &accumulating = bt::accumulating_applicative<exp_mixed>;
     auto both = accumulating.invoke(add, bad_parse(12), bad_range(99));
 
     // fb4194b2-a5cf-43eb-bed8-d50c09601efd
@@ -194,9 +192,8 @@ void traverse() {
     // The trailing policy argument swaps in the accumulating object; the
     // call site is otherwise identical, and now every distinct failure in
     // the traversal is collected.
-    auto collected =
-        bt::traverse(classify, std::vector<int>{1, -7, 500, 3},
-                     bt::accumulating_applicative_typeclass<exp_mixed>);
+    auto collected = bt::traverse(classify, std::vector<int>{1, -7, 500, 3},
+                                  bt::accumulating_applicative<exp_mixed>);
     std::cout << "accumulated over the traversal: witness_count = "
               << collected.error().witness_count() << '\n';
     std::cout << "  parse_error at position "

@@ -53,22 +53,22 @@ namespace {
 
 template <class T>
 concept applicative_registered =
-    !std::is_same_v<std::remove_const_t<decltype(bt::applicative_typeclass<T>)>,
+    !std::is_same_v<std::remove_const_t<decltype(bt::applicative<T>)>,
                     std::false_type>;
 
 template <class T>
 concept monad_registered =
-    !std::is_same_v<std::remove_const_t<decltype(bt::monad_typeclass<T>)>,
+    !std::is_same_v<std::remove_const_t<decltype(bt::monad<T>)>,
                     std::false_type>;
 
 template <class T>
 concept functor_registered =
-    !std::is_same_v<std::remove_const_t<decltype(bt::functor_typeclass<T>)>,
+    !std::is_same_v<std::remove_const_t<decltype(bt::functor<T>)>,
                     std::false_type>;
 
 template <class T>
 concept traversable_registered =
-    !std::is_same_v<std::remove_const_t<decltype(bt::traversable_typeclass<T>)>,
+    !std::is_same_v<std::remove_const_t<decltype(bt::traversable<T>)>,
                     std::false_type>;
 
 // -- Probe callables -------------------------------------------------------
@@ -115,7 +115,7 @@ using vec_int = std::vector<int>;
 // 1. Applicative over std::optional -- the flagship invoke-native instance.
 // =========================================================================
 
-inline constexpr const auto &opt_app = bt::applicative_typeclass<opt_int>;
+inline constexpr const auto &opt_app = bt::applicative<opt_int>;
 
 static_assert(std::is_same_v<decltype(opt_app.pure(std::declval<int>())),
                              std::optional<int>>);
@@ -152,7 +152,7 @@ static_assert(std::is_same_v<decltype(opt_app.ap(
 // 2. Monad over std::optional -- bind basis, invoke synthesized.
 // =========================================================================
 
-inline constexpr const auto &opt_monad = bt::monad_typeclass<opt_int>;
+inline constexpr const auto &opt_monad = bt::monad<opt_int>;
 
 static_assert(
     std::is_same_v<decltype(opt_monad.bind(std::declval<const opt_int &>(),
@@ -174,13 +174,13 @@ static_assert(
 // 3. Functor over std::optional and std::vector.
 // =========================================================================
 
-static_assert(std::is_same_v<decltype(bt::functor_typeclass<opt_int>.fmap(
+static_assert(std::is_same_v<decltype(bt::functor<opt_int>.fmap(
                                  to_double, std::declval<const opt_int &>())),
                              std::optional<double>>);
-static_assert(std::is_same_v<decltype(bt::functor_typeclass<vec_int>.fmap(
+static_assert(std::is_same_v<decltype(bt::functor<vec_int>.fmap(
                                  to_double, std::declval<const vec_int &>())),
                              std::vector<double>>);
-static_assert(std::is_same_v<decltype(bt::functor_typeclass<opt_int>.replace(
+static_assert(std::is_same_v<decltype(bt::functor<opt_int>.replace(
                                  std::declval<const opt_int &>(),
                                  std::declval<double>())),
                              std::optional<double>>);
@@ -216,10 +216,9 @@ static_assert(
                    bt::sender<std::vector<int>>>);
 
 // The derived object operations deduce identically to the free functions.
-static_assert(
-    std::is_same_v<decltype(bt::traversable_typeclass<vec_int>.for_each(
-                       std::declval<const vec_int &>(), opt_of)),
-                   std::optional<std::vector<int>>>);
+static_assert(std::is_same_v<decltype(bt::traversable<vec_int>.for_each(
+                                 std::declval<const vec_int &>(), opt_of)),
+                             std::optional<std::vector<int>>>);
 
 // =========================================================================
 // 5. Traversable over the test Identity context.
@@ -227,10 +226,9 @@ static_assert(
 
 using ident_int = bt::test::Identity<int>;
 
-static_assert(
-    std::is_same_v<decltype(bt::traversable_typeclass<ident_int>.for_each(
-                       std::declval<const ident_int &>(), opt_of)),
-                   std::optional<bt::test::Identity<int>>>);
+static_assert(std::is_same_v<decltype(bt::traversable<ident_int>.for_each(
+                                 std::declval<const ident_int &>(), opt_of)),
+                             std::optional<bt::test::Identity<int>>>);
 
 // =========================================================================
 // 6. Positional applicatives: std::array and the SoA/AoS tuple transpose.
@@ -238,7 +236,7 @@ static_assert(
 
 using arr3 = std::array<int, 3>;
 
-static_assert(std::is_same_v<decltype(bt::applicative_typeclass<arr3>.invoke(
+static_assert(std::is_same_v<decltype(bt::applicative<arr3>.invoke(
                                  add, std::declval<const arr3 &>(),
                                  std::declval<const arr3 &>())),
                              std::array<int, 3>>);
@@ -320,8 +318,8 @@ static_assert(functor_registered<vec_int>);
     return std::expected<double, std::errc>{static_cast<double>(x)};
 }
 
-inline constexpr const auto &exp_app = bt::applicative_typeclass<exp_int>;
-inline constexpr const auto &exp_monad = bt::monad_typeclass<exp_int>;
+inline constexpr const auto &exp_app = bt::applicative<exp_int>;
+inline constexpr const auto &exp_monad = bt::monad<exp_int>;
 
 static_assert(std::is_same_v<decltype(exp_app.pure(std::declval<int>())),
                              std::expected<int, std::errc>>);
@@ -397,12 +395,11 @@ static_assert(std::is_same_v<decltype(exp_monad.bind(
 // rather than nesting a set inside a set.
 static_assert(
     std::is_same_v<
-        decltype(bt::applicative_typeclass<
-                     std::expected<int, bt::error_set<std::errc>>>
-                     .invoke(add,
-                             std::declval<const std::expected<
-                                 int, bt::error_set<std::errc>> &>(),
-                             std::declval<const exp_io &>())),
+        decltype(bt::applicative<std::expected<int, bt::error_set<std::errc>>>.invoke(
+            add,
+            std::declval<
+                const std::expected<int, bt::error_set<std::errc>> &>(),
+            std::declval<const exp_io &>())),
         std::expected<int, mixed_errors>>);
 
 // LAZY JOIN. A bare operand is ∅-graded: it is promoted inside the framework
@@ -422,13 +419,12 @@ static_assert(
 // verbatim, not re-wrapped.
 static_assert(
     std::is_same_v<
-        decltype(bt::applicative_typeclass<
-                     std::expected<int, bt::error_set<std::errc>>>
-                     .invoke(add,
-                             std::declval<const std::expected<
-                                 int, bt::error_set<std::errc>> &>(),
-                             std::declval<const std::expected<
-                                 int, bt::error_set<std::errc>> &>())),
+        decltype(bt::applicative<std::expected<int, bt::error_set<std::errc>>>.invoke(
+            add,
+            std::declval<
+                const std::expected<int, bt::error_set<std::errc>> &>(),
+            std::declval<
+                const std::expected<int, bt::error_set<std::errc>> &>())),
         std::expected<int, bt::error_set<std::errc>>>);
 
 } // namespace

@@ -12,7 +12,7 @@
 // the short-circuit object, and each gets its own test group below:
 //
 //   1. It exists as a distinct object, reachable via
-//      `accumulating_applicative_typeclass<Context>` and as the explicit
+//      `accumulating_applicative<Context>` and as the explicit
 //      `traverse` policy (docs/decisions.md#traverse-policy-surface).
 //   2. Where short-circuit keeps only the FIRST failure's witness, it unions
 //      witnesses of DISTINCT types from every failing operand, examined in
@@ -87,12 +87,12 @@ auto fails_beta(int payload) -> exp_mixed {
 // 1. The object exists, distinctly from the short-circuit one.
 // =========================================================================
 
-static_assert(!std::is_same_v<
-              decltype(bt::applicative_typeclass<exp_mixed>),
-              decltype(bt::accumulating_applicative_typeclass<exp_mixed>)>);
+static_assert(
+    !std::is_same_v<decltype(bt::applicative<exp_mixed>),
+                    decltype(bt::accumulating_applicative<exp_mixed>)>);
 
 TEST_CASE("accumulating-object: invoke collects distinct-type failures") {
-    const auto &accumulate = bt::accumulating_applicative_typeclass<exp_mixed>;
+    const auto &accumulate = bt::accumulating_applicative<exp_mixed>;
     auto add = [](int a, int b) { return a + b; };
 
     auto both_fail = accumulate.invoke(add, fails_alpha(1), fails_beta(2));
@@ -106,7 +106,7 @@ TEST_CASE("accumulating-object: invoke collects distinct-type failures") {
 
 TEST_CASE("accumulating-object: the short-circuit object keeps only the "
           "first, by contrast") {
-    const auto &short_circuit = bt::applicative_typeclass<exp_mixed>;
+    const auto &short_circuit = bt::applicative<exp_mixed>;
     auto add = [](int a, int b) { return a + b; };
 
     auto both_fail = short_circuit.invoke(add, fails_alpha(1), fails_beta(2));
@@ -125,7 +125,7 @@ TEST_CASE("accumulating-object: the short-circuit object keeps only the "
 
 TEST_CASE("accumulating-object: two failures of the SAME type keep the "
           "leftmost witness") {
-    const auto &accumulate = bt::accumulating_applicative_typeclass<exp_mixed>;
+    const auto &accumulate = bt::accumulating_applicative<exp_mixed>;
     auto add = [](int a, int b) { return a + b; };
 
     auto result = accumulate.invoke(add, fails_alpha(10), fails_alpha(20));
@@ -136,7 +136,7 @@ TEST_CASE("accumulating-object: two failures of the SAME type keep the "
 }
 
 TEST_CASE("accumulating-object: order-observing probe over three operands") {
-    const auto &accumulate = bt::accumulating_applicative_typeclass<exp_mixed>;
+    const auto &accumulate = bt::accumulating_applicative<exp_mixed>;
     auto sum3 = [](int a, int b, int c) { return a + b + c; };
 
     // alpha at position 0, beta at position 1, alpha again at position 2:
@@ -189,9 +189,8 @@ TEST_CASE("accumulating-object: traverse collects every distinct error at "
         return ok(x);
     };
 
-    auto result =
-        bt::traverse(classify, std::vector<int>{0, 1, 2, 3},
-                     bt::accumulating_applicative_typeclass<exp_mixed>);
+    auto result = bt::traverse(classify, std::vector<int>{0, 1, 2, 3},
+                               bt::accumulating_applicative<exp_mixed>);
 
     REQUIRE_FALSE(result.has_value());
     REQUIRE(result.error().holds<alpha>());
@@ -204,9 +203,8 @@ TEST_CASE("accumulating-object: traverse succeeds when nothing fails, same "
           "as short-circuit") {
     auto classify = [](int x) -> exp_mixed { return ok(x * 2); };
 
-    auto result =
-        bt::traverse(classify, std::vector<int>{1, 2, 3},
-                     bt::accumulating_applicative_typeclass<exp_mixed>);
+    auto result = bt::traverse(classify, std::vector<int>{1, 2, 3},
+                               bt::accumulating_applicative<exp_mixed>);
 
     REQUIRE(result.has_value());
     REQUIRE(*result == std::vector<int>{2, 4, 6});
@@ -224,12 +222,11 @@ static_assert(
     !traverse_accepts_policy<classify_fn, std::vector<int>, std::vector<int>>);
 // The positive counterpart, so the negative cannot pass vacuously (e.g. by
 // `traverse` failing to be callable at all for unrelated reasons).
-static_assert(traverse_accepts_policy<
-              classify_fn, std::vector<int>,
-              decltype(bt::accumulating_applicative_typeclass<exp_mixed>)>);
 static_assert(
     traverse_accepts_policy<classify_fn, std::vector<int>,
-                            decltype(bt::applicative_typeclass<exp_mixed>)>);
+                            decltype(bt::accumulating_applicative<exp_mixed>)>);
+static_assert(traverse_accepts_policy<classify_fn, std::vector<int>,
+                                      decltype(bt::applicative<exp_mixed>)>);
 
 TEST_CASE("accumulating-object: a non-applicative third argument is "
           "rejected at the constraint, not silently accepted") {
@@ -250,7 +247,7 @@ TEST_CASE("accumulating-object: a non-applicative third argument is "
 //
 // Verified by hand instead, per the stage instructions: a scratch line
 //
-//   bt::accumulating_applicative_typeclass<exp_mixed>.bind(
+//   bt::accumulating_applicative<exp_mixed>.bind(
 //       ok(1), [](int) { return ok(2); });
 //
 // was added temporarily to this file, built, and confirmed to fail with the
@@ -261,14 +258,14 @@ TEST_CASE("accumulating-object: a non-applicative third argument is "
 // =========================================================================
 
 TEST_CASE("accumulating-object: no Monad instance is registered for it") {
-    // There is no monad_typeclass entry keyed by the accumulating object --
-    // only by carrier type, and the carrier's monad_typeclass is still the
+    // There is no monad entry keyed by the accumulating object --
+    // only by carrier type, and the carrier's monad is still the
     // short-circuit bind (docs/decisions.md#applicative-objects: bind
     // belongs to the short-circuit object only). This does not, by itself,
     // prove `.bind` is refused on the accumulating object -- that half is
     // the hand-verified static_assert documented above -- but it does pin
     // that grading never grew a second bind path.
-    static_assert(std::is_same_v<decltype(bt::monad_typeclass<exp_mixed>.bind(
+    static_assert(std::is_same_v<decltype(bt::monad<exp_mixed>.bind(
                                      ok(1), [](int x) { return ok(x); })),
                                  exp_mixed>);
     SUCCEED("carrier-level bind remains the short-circuit one only");
@@ -296,9 +293,8 @@ TEST_CASE("recover-narrowing: the consumer story -- inspect an accumulated "
         return ok(x);
     };
 
-    auto accumulated =
-        bt::traverse(classify, std::vector<int>{0, 1, 2, 3},
-                     bt::accumulating_applicative_typeclass<exp_mixed>);
+    auto accumulated = bt::traverse(classify, std::vector<int>{0, 1, 2, 3},
+                                    bt::accumulating_applicative<exp_mixed>);
     REQUIRE_FALSE(accumulated.has_value());
 
     // Inspection: witness_count() and witness<E>(), the two verbs
@@ -338,9 +334,8 @@ TEST_CASE("recover-narrowing: consuming every accumulated witness recovers "
         return ok(x);
     };
 
-    auto accumulated =
-        bt::traverse(classify, std::vector<int>{1, 2},
-                     bt::accumulating_applicative_typeclass<exp_mixed>);
+    auto accumulated = bt::traverse(classify, std::vector<int>{1, 2},
+                                    bt::accumulating_applicative<exp_mixed>);
     REQUIRE(accumulated.error().witness_count() == 2);
 
     auto recovered =

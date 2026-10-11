@@ -42,7 +42,7 @@ I have a typeclass object pattern where per-concept variable templates give me s
 Calling a single operation is clean:
 
 #+begin_src cpp
-const auto& foldable = beman::transpose::foldable_typeclass<Expr>;
+const auto& foldable = beman::transpose::foldable<Expr>;
 auto n = foldable.length(tree);
 #+end_src
 
@@ -51,10 +51,10 @@ But when I am writing an /algorithm/ --- something that checks a precondition wi
 #+begin_src cpp
 template <class T>
 auto validate_and_transform(auto&& pred, auto&& f, const T& tree) {
-    const auto& foldable = beman::transpose::foldable_typeclass<T>;
-    const auto& traversable = beman::transpose::traversable_typeclass<T>;
+    const auto& foldable = beman::transpose::foldable<T>;
+    const auto& traversable = beman::transpose::traversable<T>;
     const auto& applicative =
-        beman::transpose::applicative_typeclass<std::optional<double>>;
+        beman::transpose::applicative<std::optional<double>>;
 
     if (!foldable.any_of(tree, pred))
         return std::optional<T>{};
@@ -90,7 +90,7 @@ The algorithm implementation inherits from the typeclass, parameterized by an NT
 namespace detail {
 
 template <class T,
-          const auto& TC = beman::transpose::traversable_typeclass<remove_cvref_t<T>>>
+          const auto& TC = beman::transpose::traversable<remove_cvref_t<T>>>
 struct validate_impl : remove_cvref_t<decltype(TC)> {
     template <class Pred>
     auto call(Pred&& pred, const T& value) const {
@@ -149,8 +149,8 @@ From [[file:../examples/algorithm_object_example.cpp][=examples/algorithm_object
 
 #+begin_src cpp
 template <class T,
-          const auto& FC = beman::transpose::foldable_typeclass<remove_cvref_t<T>>,
-          const auto& TC = beman::transpose::traversable_typeclass<remove_cvref_t<T>>>
+          const auto& FC = beman::transpose::foldable<remove_cvref_t<T>>,
+          const auto& TC = beman::transpose::traversable<remove_cvref_t<T>>>
 struct transform_if_large_impl
     : remove_cvref_t<decltype(FC)>,
       remove_cvref_t<decltype(TC)> {
@@ -190,9 +190,9 @@ The disambiguation is slightly more verbose, but it carries information: which t
 In the lookup-object version, I need to trace back to which ~const auto&~ declaration ~foldable~ refers to.
 In the inheritance version, the base class name /is/ the provenance.
 
-* Why Not Just a Free Function?
+* Why Not Just One Operation Object?
 
-The existing ~beman::transpose::traverse(f, tree)~ is a free function template.
+The existing ~beman::transpose::traverse(f, tree)~ is an operation object.
 It deduces ~T~, looks up the typeclass, and calls through it.
 That works.
 
@@ -209,7 +209,7 @@ The inheriting CPO earns its keep when:
    The NTTP is overridable.
    I can instantiate ~validate_impl<T, my_custom_traversable>~ in tests without changing anything at the call site.
 
-For a trivial one-liner, a free function is simpler.
+For a trivial one-liner, a single operation object is simpler.
 This pattern is for when the algorithm grows past that.
 
 * The ~decltype~ Wrinkle

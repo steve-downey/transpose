@@ -104,7 +104,7 @@ void applicative_section() {
     // The applicative object is the whole interface traverse needs from a
     // context: pure lifts a plain value in, invoke applies a plain function
     // across contextual arguments.
-    const auto &app = bt::applicative_typeclass<std::optional<int>>;
+    const auto &app = bt::applicative<std::optional<int>>;
 
     auto lifted = app.pure(7);
     std::cout << "pure(7): " << *lifted << '\n';

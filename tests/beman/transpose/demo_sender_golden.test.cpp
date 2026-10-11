@@ -51,7 +51,7 @@ namespace {
 
 template <class T>
 concept applicative_registered =
-    !std::is_same_v<std::remove_const_t<decltype(bt::applicative_typeclass<T>)>,
+    !std::is_same_v<std::remove_const_t<decltype(bt::applicative<T>)>,
                     std::false_type>;
 
 static_assert(applicative_registered<bt::sender<int>>);
@@ -81,7 +81,7 @@ constexpr auto push_back = [](std::vector<int> soFar, int next) {
 };
 
 static_assert(
-    std::is_same_v<decltype(bt::applicative_typeclass<acc>.invoke(
+    std::is_same_v<decltype(bt::applicative<acc>.invoke(
                        push_back, std::declval<acc>(), std::declval<elem>())),
                    acc>);
 

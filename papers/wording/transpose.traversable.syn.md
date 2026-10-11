@@ -3,7 +3,7 @@
 ```cpp
 template<class CONTEXT>
 concept $applicative-context$ =
-    applicative_object<remove_cvref_t<decltype(applicative_typeclass<CONTEXT>)>,
+    applicative_object<remove_cvref_t<decltype(applicative<CONTEXT>)>,
                        CONTEXT>; // exposition only
 ```
 
@@ -23,7 +23,7 @@ concept $consuming-traversable-object$ =
 
 ```cpp
 template<class Impl>
-struct Traversable : protected Impl {
+struct derive_traversable : protected Impl {
   // Alternate-core: Impl::traverse is the primitive; transpose is derived
   // from it. A transpose-primitive Impl would shadow transpose instead.
   using Impl::traverse;
@@ -56,16 +56,16 @@ struct Traversable : protected Impl {
 
 ::: wording
 
-[x+2]{.pnum} A program that instantiates `Traversable<Impl>` is ill-formed unless `is_same_v<Impl, false_type>` is `false` and `requires { typename Impl::element_type; }` is `true`.
+[x+2]{.pnum} A program that instantiates `derive_traversable<Impl>` is ill-formed unless `is_same_v<Impl, false_type>` is `false` and `requires { typename Impl::element_type; }` is `true`.
 
-[x+3]{.pnum} `Traversable<Impl>::consumes_rvalue_structure` re-exports the capability declared by `Impl`. If `Impl` makes no declaration, its value is `false`.
+[x+3]{.pnum} `derive_traversable<Impl>::consumes_rvalue_structure` re-exports the capability declared by `Impl`. If `Impl` makes no declaration, its value is `false`.
 
 :::
 
 ::: wording
 
 ```cpp
-template<class T> inline constexpr auto traversable_typeclass = false_type{};
+template<class T> inline constexpr auto traversable = false_type{};
 ```
 
 [x+4]{.pnum} *Remarks*: This variable template is the lookup point for the Traversable object of a structure type. A program may specialize it for a program-defined structure. The primary template names no traversable object.
@@ -75,7 +75,7 @@ template<class T> inline constexpr auto traversable_typeclass = false_type{};
 ```cpp
 template<class T>
 using $traversable-object-t$ =
-    remove_cvref_t<decltype(traversable_typeclass<remove_cvref_t<T>>)>; // exposition
+    remove_cvref_t<decltype(traversable<remove_cvref_t<T>>)>; // exposition
                                                                         // only
 ```
 
@@ -157,12 +157,12 @@ concept traversable_impl =
     requires(const IMPL& impl, const STRUCTURE& structure) {
       typename IMPL::element_type;
       impl.traverse(
-          applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
+          applicative<optional<applicative_value_t<STRUCTURE>>>,
           $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{}, structure);
     } &&
     (!$consuming-traversable-object$<IMPL> || requires(const IMPL& impl) {
       impl.traverse(
-          applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
+          applicative<optional<applicative_value_t<STRUCTURE>>>,
           $consuming-probe-witness$<applicative_value_t<STRUCTURE>,
                                       optional<applicative_value_t<STRUCTURE>>>{},
           declval<STRUCTURE>());
@@ -180,7 +180,7 @@ template<class OBJ, class STRUCTURE>
 concept traversable_object =
     requires(const OBJ& obj, const STRUCTURE& structure) {
       obj.traverse(
-          applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
+          applicative<optional<applicative_value_t<STRUCTURE>>>,
           $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{}, structure);
       obj.for_each(
           structure, $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{});
@@ -189,7 +189,7 @@ concept traversable_object =
     } &&
     (!$consuming-traversable-object$<OBJ> || requires(const OBJ& obj) {
       obj.traverse(
-          applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
+          applicative<optional<applicative_value_t<STRUCTURE>>>,
           $consuming-probe-witness$<applicative_value_t<STRUCTURE>,
                                       optional<applicative_value_t<STRUCTURE>>>{},
           declval<STRUCTURE>());

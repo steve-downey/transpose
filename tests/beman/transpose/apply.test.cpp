@@ -50,7 +50,7 @@ struct MarkedMapImpl {
     }
 };
 
-struct MarkedMapMap : bt::Applicative<MarkedMapImpl> {};
+struct MarkedMapMap : bt::derive_applicative<MarkedMapImpl> {};
 
 // Native map is constrained to std::optional<int>, so a different element
 // type on the same Map still reaches the invoke derivation.
@@ -84,7 +84,8 @@ struct PerInstantiationMapImpl {
     }
 };
 
-struct PerInstantiationMapMap : bt::Applicative<PerInstantiationMapImpl> {};
+struct PerInstantiationMapMap
+    : bt::derive_applicative<PerInstantiationMapImpl> {};
 
 // An Impl with a native zip_with that ignores its arguments and returns a
 // sentinel the invoke derivation could never produce.
@@ -118,7 +119,7 @@ struct MarkedZipWithImpl {
     }
 };
 
-struct MarkedZipWithMap : bt::Applicative<MarkedZipWithImpl> {};
+struct MarkedZipWithMap : bt::derive_applicative<MarkedZipWithImpl> {};
 
 // An Impl with pure + invoke, and native lift/discard_first/discard_second
 // that each return a sentinel their pure/invoke derivations could never
@@ -164,7 +165,7 @@ struct AllNativeImpl {
     }
 };
 
-struct AllNativeMap : bt::Applicative<AllNativeImpl> {};
+struct AllNativeMap : bt::derive_applicative<AllNativeImpl> {};
 
 // An Impl with pure + ap and no invoke at all -- the mirror of AllNativeImpl,
 // leaning entirely on the base's synthesis rather than supplying any
@@ -196,7 +197,7 @@ struct ApOnlyImpl {
     }
 };
 
-struct ApOnlyMap : bt::Applicative<ApOnlyImpl> {};
+struct ApOnlyMap : bt::derive_applicative<ApOnlyImpl> {};
 
 template <class MAP, class F, class A>
 concept has_map =
@@ -218,7 +219,7 @@ struct StringOnlyCallable {
 } // namespace
 
 TEST_CASE("apply: optional invoke combines effectful arguments") {
-    const auto &app = bt::applicative_typeclass<std::optional<int>>;
+    const auto &app = bt::applicative<std::optional<int>>;
     auto add = [](int a, int b, int c) { return a + b + c; };
     REQUIRE(app.invoke(add, std::optional<int>{1}, std::optional<int>{2},
                        std::optional<int>{3}) == std::optional<int>{6});
@@ -230,7 +231,7 @@ TEST_CASE("apply: ap is a supported basis and secondary operation") {
     // invoke is the user-facing interface; ap -- one-step application of a
     // callable-in-context -- is the classic basis, derived here from
     // optional's invoke basis and available as a secondary operation.
-    const auto &app = bt::applicative_typeclass<std::optional<int>>;
+    const auto &app = bt::applicative<std::optional<int>>;
     auto lifted = app.pure([](int x) { return x * 10; });
     REQUIRE(app.ap(lifted, std::optional<int>{5}) == std::optional<int>{50});
     REQUIRE(app.ap(app.pure([](int x) { return x * 10; }),
@@ -289,8 +290,8 @@ TEST_CASE("apply: laws hold for the Identity context") {
 }
 
 TEST_CASE("apply: invoke_with delegates to another applicative map") {
-    const auto &optional_map = bt::applicative_typeclass<std::optional<int>>;
-    const auto &zip_map = bt::applicative_typeclass<bt::zip_list<int>>;
+    const auto &optional_map = bt::applicative<std::optional<int>>;
+    const auto &zip_map = bt::applicative<bt::zip_list<int>>;
     auto result = optional_map.invoke_with(
         zip_map, [](int a, int b) { return a + b; },
         bt::zip_list<int>{{1, 2, 3}}, bt::zip_list<int>{{10, 20, 30}});
@@ -304,7 +305,7 @@ TEST_CASE("apply: map prefers a native Impl::map") {
 }
 
 TEST_CASE("apply: map falls back to the invoke derivation") {
-    const auto &m = bt::applicative_typeclass<std::optional<int>>;
+    const auto &m = bt::applicative<std::optional<int>>;
     REQUIRE(m.map([](int x) { return x + 1; }, std::optional<int>{5}) ==
             std::optional<int>{6});
 }
@@ -333,7 +334,7 @@ TEST_CASE("apply: zip_with prefers a native Impl::zip_with") {
 }
 
 TEST_CASE("apply: zip_with falls back to the invoke derivation") {
-    const auto &m = bt::applicative_typeclass<std::optional<int>>;
+    const auto &m = bt::applicative<std::optional<int>>;
     REQUIRE(m.zip_with([](int a, int b) { return a + b; },
                        std::optional<int>{2},
                        std::optional<int>{3}) == std::optional<int>{5});
@@ -345,7 +346,7 @@ TEST_CASE("apply: lift prefers a native Impl::lift") {
 }
 
 TEST_CASE("apply: lift falls back to the pure derivation") {
-    const auto &m = bt::applicative_typeclass<std::optional<int>>;
+    const auto &m = bt::applicative<std::optional<int>>;
     REQUIRE(m.lift(7) == std::optional<int>{7});
 }
 
@@ -356,7 +357,7 @@ TEST_CASE("apply: discard_first prefers a native Impl::discard_first") {
 }
 
 TEST_CASE("apply: discard_first falls back to the invoke derivation") {
-    const auto &m = bt::applicative_typeclass<std::optional<int>>;
+    const auto &m = bt::applicative<std::optional<int>>;
     REQUIRE(m.discard_first(std::optional<int>{2}, std::optional<int>{3}) ==
             std::optional<int>{3});
 }
@@ -368,7 +369,7 @@ TEST_CASE("apply: discard_second prefers a native Impl::discard_second") {
 }
 
 TEST_CASE("apply: discard_second falls back to the invoke derivation") {
-    const auto &m = bt::applicative_typeclass<std::optional<int>>;
+    const auto &m = bt::applicative<std::optional<int>>;
     REQUIRE(m.discard_second(std::optional<int>{2}, std::optional<int>{3}) ==
             std::optional<int>{2});
 }
@@ -403,8 +404,8 @@ TEST_CASE("apply: an ap-only Impl still derives the full surface") {
 
 TEST_CASE("apply: an inapplicable callable still makes map and zip_with "
           "disappear, not hard-error") {
-    using Map = std::remove_cvref_t<
-        decltype(bt::applicative_typeclass<std::optional<int>>)>;
+    using Map =
+        std::remove_cvref_t<decltype(bt::applicative<std::optional<int>>)>;
     static_assert(!has_map<Map, StringOnlyCallable, std::optional<int>>);
     static_assert(!has_zip_with<Map, StringOnlyCallable, std::optional<int>,
                                 std::optional<int>>);
