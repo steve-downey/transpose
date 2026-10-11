@@ -117,7 +117,7 @@ Why this exists</h2>
 The surface in this repo</h2>
 <p>This repository uses one implementation surface:</p>
 <ul>
-<li>Per-concept variable templates (<code>functor_typeclass&lt;T&gt;</code>, <code>foldable_typeclass&lt;T&gt;</code>, <code>applicative_typeclass&lt;T&gt;</code>, <code>traversable_typeclass&lt;T&gt;</code>, <code>monad_typeclass&lt;T&gt;</code>) for lookup.</li>
+<li>Per-concept variable templates (<code>functor&lt;T&gt;</code>, <code>foldable&lt;T&gt;</code>, <code>applicative&lt;T&gt;</code>, <code>traversable&lt;T&gt;</code>, <code>monad&lt;T&gt;</code>) for lookup.</li>
 <li>Generic algorithms dispatch through those looked-up objects.</li>
 <li>Headers live under <code>include/beman/transpose/</code>.</li>
 <li>Tests live under <code>tests/beman/transpose/</code>.</li>
@@ -125,12 +125,12 @@ The surface in this repo</h2>
 </ul>
 <h2><a class="anchor" id="autotoc_md203"></a>
 Lookup modes (important)</h2>
-<p>The typeclass implementation object is, true to its name, an object — and should be usable in three ways:</p>
+<p>The typeclass implementation object is, true to its name, an object — and should be usable in four ways:</p>
 <ol type="1">
 <li>Implicit lookup by variable template.</li>
 </ol>
 <ul>
-<li>Example shape: <code>functor_typeclass&lt;T&gt;</code> in <code>include/beman/transpose/</code>.</li>
+<li>Example shape: <code>functor&lt;T&gt;</code> in <code>include/beman/transpose/</code>.</li>
 </ul>
 <ol type="1">
 <li>Explicit object argument.</li>
@@ -144,20 +144,30 @@ Lookup modes (important)</h2>
 <ul>
 <li>A generic function can bind the looked-up typeclass object as an NTTP default and use it directly.</li>
 </ul>
+<ol type="1">
+<li>The operation object, which names no instance at all.</li>
+</ol>
+<ul>
+<li><code>fmap(f, value)</code> deduces the type that keys the lookup, resolves <code>functor&lt;T&gt;</code>, and calls through it.</li>
+<li>Use it where the instance is not the interesting part of the call, and in non-template functions, which have no template parameter list to carry mode 3.</li>
+<li>It gives up mode 3 in exchange: an object takes no explicit template arguments. Pin with mode 2 instead, which is shorter.</li>
+<li>These are not customization points. Customization stays at <code>functor&lt;T&gt;</code> and its siblings; the operation object is a fixed spelling over a customizable bundle.</li>
+<li>See <a href="decisions.md#operation-objects">operation-objects</a>.</li>
+</ul>
 <p>This is not a cosmetic detail. It keeps instance selection explicit, testable, and overridable while preserving static dispatch.</p>
 <p>The NTTP style in practice:</p>
 <ul>
-<li><code>template &lt;typename P, const auto&amp; functor = beman::transpose::functor_typeclass&lt;P&gt;&gt;</code></li>
+<li><code>template &lt;typename P, const auto&amp; functor = beman::transpose::functor&lt;P&gt;&gt;</code></li>
 <li>See <code>examples/lookup_modes_example.cpp</code> for NTTP pinning examples.</li>
 </ul>
-<p>In <code>include/beman/transpose/</code>, preserve this spirit through <code>*_typeclass&lt;T&gt;</code> lookup objects. If additional wrapper APIs are introduced, they should keep explicit object override and NTTP pinning available for generic code.</p>
+<p>In <code>include/beman/transpose/</code>, preserve this spirit through the per-concept lookup objects (<code>functor&lt;T&gt;</code>, <code>foldable&lt;T&gt;</code>, and siblings). If additional wrapper APIs are introduced, they should keep explicit object override and NTTP pinning available for generic code.</p>
 <p>In the current typeclass headers this is exposed directly via helper APIs such as:</p>
 <ul>
 <li><code>invoke_with(map, ...)</code> and <code>invoke_with&lt;map&gt;(...)</code> in Applicative</li>
 <li><code>traverse_with(map, ...)</code> in Traversable</li>
 <li>NTTP-pinned helper templates in foldable tests and tree tests</li>
 </ul>
-<p>Current naming convention is <code>*_typeclass&lt;T&gt;</code> for implementation objects.</p>
+<p>The lookup objects take the plain concept name: <code>functor&lt;T&gt;</code>, <code>applicative&lt;T&gt;</code>, <code>foldable&lt;T&gt;</code>, <code>traversable&lt;T&gt;</code>, <code>monad&lt;T&gt;</code>. What collides with those names takes a longer, more descriptive one — the CRTP bases are <code>derive_functor&lt;Impl&gt;</code> and siblings, not <code>Functor&lt;Impl&gt;</code>. A local holding a looked-up instance therefore cannot be named for its concept; spell it <code>applicative_map</code>, matching the existing <code>traversable_map</code> and <code>monad_map</code> parameters. See <a href="decisions.md#lookup-variable-naming">lookup-variable-naming</a>.</p>
 <h2><a class="anchor" id="autotoc_md204"></a>
 Core mechanics</h2>
 <h3><a class="anchor" id="autotoc_md205"></a>
@@ -171,16 +181,16 @@ Concept side</h3>
 Type side</h3>
 <p>A type participates by specializing the per-concept lookup object:</p>
 <ul>
-<li>specialize <code>*_typeclass&lt;T&gt;</code> to an instance object</li>
+<li>specialize the concept's lookup variable (<code>functor&lt;T&gt;</code>, <code>foldable&lt;T&gt;</code>, …) to an instance object</li>
 </ul>
 <h3><a class="anchor" id="autotoc_md207"></a>
 Call side</h3>
 <p>Generic code calls through the looked-up typeclass object, not type members directly:</p>
 <ul>
-<li><code>functor_typeclass&lt;T&gt;.fmap(f, value)</code> — via looked-up object</li>
-<li><code>foldable_typeclass&lt;T&gt;.fold_map(f, value)</code> — via looked-up object</li>
-<li><code>applicative_typeclass&lt;T&gt;.invoke(fn, ax, ay)</code> — via looked-up object</li>
-<li><code>beman::transpose::traverse(f, container)</code> — free function entry point</li>
+<li><code>functor&lt;T&gt;.fmap(f, value)</code> — via looked-up object</li>
+<li><code>foldable&lt;T&gt;.fold_map(f, value)</code> — via looked-up object</li>
+<li><code>applicative&lt;T&gt;.invoke(fn, ax, ay)</code> — via looked-up object</li>
+<li><code>beman::transpose::traverse(f, container)</code> — operation object; deduces the instance from <code>container</code></li>
 </ul>
 <p>That call performs compile-time lookup to the right typeclass object specialization.</p>
 <h2><a class="anchor" id="autotoc_md208"></a>
@@ -189,7 +199,7 @@ How to add a new instance</h2>
 <li>Decide the concept and the concrete type or type family.</li>
 </ol>
 <ol type="1">
-<li>Implement the <code>*_typeclass&lt;T&gt;</code> specialization close to the type adapter header.</li>
+<li>Implement the lookup-variable specialization close to the type adapter header.</li>
 </ol>
 <ol type="1">
 <li>Keep operation names aligned with existing concept APIs.</li>
@@ -211,7 +221,7 @@ How to add a new concept</h2>
 <li>Add a new tag and generic entry-point API in <code>include/beman/transpose/&lt;concept&gt;.hpp</code>.</li>
 </ol>
 <ol type="1">
-<li>Add <code>*_typeclass&lt;T&gt;</code> specializations for at least one concrete type.</li>
+<li>Add lookup-variable specializations for at least one concrete type.</li>
 </ol>
 <ol type="1">
 <li>Add tests in <code>tests/beman/transpose/&lt;concept&gt;.test.cpp</code>.</li>
@@ -226,7 +236,7 @@ How to add a new concept</h2>
 Testing and build wiring expectations</h2>
 <ul>
 <li>Catch2 is the only test framework in active code paths.</li>
-<li>Typeclass-object behavior is tested in <code>tests/beman/transpose/*.test.cpp</code> and in example programs under <code>examples/</code> that instantiate and use <code>*_typeclass&lt;T&gt;</code> maps.</li>
+<li>Typeclass-object behavior is tested in <code>tests/beman/transpose/*.test.cpp</code> and in example programs under <code>examples/</code> that instantiate and use the looked-up instance maps.</li>
 <li>The compatibility shim used during migration has been removed.</li>
 <li>Tests should use native Catch2 includes and macros.</li>
 </ul>
@@ -239,7 +249,7 @@ Pattern</h3>
 <div class="fragment"><div class="line"><span class="keyword">namespace </span>detail {</div>
 <div class="line"> </div>
 <div class="line"><span class="keyword">template</span> &lt;<span class="keyword">class </span>T,</div>
-<div class="line">          <span class="keyword">const</span> <span class="keyword">auto</span>&amp; TC = beman::transpose::traversable_typeclass&lt;std::remove_cvref_t&lt;T&gt;&gt;&gt;</div>
+<div class="line">          <span class="keyword">const</span> <span class="keyword">auto</span>&amp; TC = beman::transpose::traversable&lt;std::remove_cvref_t&lt;T&gt;&gt;&gt;</div>
 <div class="line"><span class="keyword">struct </span>validate_impl : std::remove_cvref_t&lt;decltype(TC)&gt; {</div>
 <div class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> Pred&gt;</div>
 <div class="line">    <span class="keyword">auto</span> call(Pred&amp;&amp; pred, <span class="keyword">const</span> T&amp; value)<span class="keyword"> const </span>{</div>
@@ -266,8 +276,8 @@ Pattern</h3>
 Multi-typeclass composition</h3>
 <p>When an algorithm needs both Foldable and Traversable, inherit from both:</p>
 <div class="fragment"><div class="line"><span class="keyword">template</span> &lt;<span class="keyword">class </span>T,</div>
-<div class="line">          <span class="keyword">const</span> <span class="keyword">auto</span>&amp; FC = beman::transpose::foldable_typeclass&lt;std::remove_cvref_t&lt;T&gt;&gt;,</div>
-<div class="line">          <span class="keyword">const</span> <span class="keyword">auto</span>&amp; TC = beman::transpose::traversable_typeclass&lt;std::remove_cvref_t&lt;T&gt;&gt;&gt;</div>
+<div class="line">          <span class="keyword">const</span> <span class="keyword">auto</span>&amp; FC = beman::transpose::foldable&lt;std::remove_cvref_t&lt;T&gt;&gt;,</div>
+<div class="line">          <span class="keyword">const</span> <span class="keyword">auto</span>&amp; TC = beman::transpose::traversable&lt;std::remove_cvref_t&lt;T&gt;&gt;&gt;</div>
 <div class="line"><span class="keyword">struct </span>transform_if_large_impl</div>
 <div class="line">    : std::remove_cvref_t&lt;decltype(FC)&gt;,</div>
 <div class="line">      std::remove_cvref_t&lt;decltype(TC)&gt; {</div>
@@ -300,7 +310,7 @@ Applicative: Derived invoke via terminating partial application</h2>
 <p>Contract summary:</p>
 <ul>
 <li>Minimal required operations for Applicative impl are <code>pure</code> and <code>apply</code>.</li>
-<li><code>invoke</code> is provided by the base <code>Applicative&lt;Impl&gt;</code>.</li>
+<li><code>invoke</code> is provided by the base <code>derive_applicative&lt;Impl&gt;</code>.</li>
 <li>Implementations may still override <code>invoke</code> for custom semantics or performance, for example shape-aware structures.</li>
 </ul>
 <h2><a class="anchor" id="autotoc_md216"></a>
@@ -316,7 +326,7 @@ Traps and corrections from tree-instance implementation</h2>
 <li>Prefer explicit map lookup in tests for readability and diagnostics.</li>
 </ol>
 <ul>
-<li><code>const auto&amp; map = beman::transpose::traversable_typeclass&lt;Tree&gt;;</code> gives clearer compile errors than deeply nested generic calls.</li>
+<li><code>const auto&amp; map = beman::transpose::traversable&lt;Tree&gt;;</code> gives clearer compile errors than deeply nested generic calls.</li>
 <li>NTTP pinning earns its keep when proving lookup stability in generic helpers.</li>
 </ul>
 <ol type="1">
