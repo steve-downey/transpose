@@ -13,6 +13,7 @@ set(ALL_EXAMPLES
     graded_gadgets_example
     transpose_post_example
     traverse_post_example
+    do_notation_example
 )
 
 include(CheckIncludeFileCXX)
