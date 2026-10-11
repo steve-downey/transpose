@@ -65,8 +65,8 @@ static_assert(
 // instance (docs/decisions.md#monoid-selection). A future re-registration
 // of Monoid<int> (or long, size_t, bool) fails these static_asserts rather
 // than silently restoring an unnamed default.
-// Probed on the specialization itself, never through monoid_v: naming
-// monoid_v<T> declares a variable of the undefined type Monoid<T>, and that
+// Probed on the specialization itself, never through monoid<T>: naming
+// monoid<T> declares a variable of the undefined type Monoid<T>, and that
 // failure is outside the requires-expression's immediate context -- a hard
 // error, not `false`.
 template <class T>
