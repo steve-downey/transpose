@@ -2074,11 +2074,6 @@ promising it does.
   One thing is not fixed and is logged rather than buried: the free
   `traverse`'s policy concept still admits exactly one sender shape. See
   [collect-hook](#collect-hook) part 2, OPEN.
-- 2026-10-10 — The demonstration `sender<T>` now stores its work as a
-  `std::move_only_function<T() const>` behind `shared_ptr`, so the work may
-  own a move-only resource. It is still erased behind one type, so the
-  composition invariance this entry relies on, and the contrast with a real
-  sender, are unchanged; `demo_sender_golden.test.cpp` still pins both.
 
 ---
 

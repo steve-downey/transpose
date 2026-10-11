@@ -19,9 +19,8 @@
 // of what makes a P2300 sender a sender. The Applicative surface is checked
 // against genuine senders separately, at examples/p2300_adapter.hpp.
 //
-// AND WHAT IT HIDES. Erasing its work behind one type -- a shared
-// std::move_only_function<T() const> -- makes this type invariant under
-// composition: sender<vector<T>> composed with sender<T> is
+// AND WHAT IT HIDES. Being a std::function<T()> wrapper makes this type
+// invariant under composition: sender<vector<T>> composed with sender<T> is
 // again sender<vector<T>>, so the vector traversal's accumulator loop
 // type-checks. A real sender is not invariant -- every combinator names a new
 // type -- so transposing a runtime-sized structure of real senders is not
@@ -42,18 +41,17 @@ namespace beman::transpose {
 
 /** A minimal deferred (lazy) value: the wrapped computation runs on get().
  *
- * The work is a `std::move_only_function<T() const>` held by `shared_ptr`,
- * so it may capture a move-only resource such as a `std::unique_ptr`, which
- * `std::function` storage would reject. The sender itself stays copyable,
- * which the applicative `invoke` below relies on when it captures its
- * operands; copies share the one piece of work.
+ * The work may be a move-only callable -- one that owns a `std::unique_ptr`,
+ * say. `std::function` needs a copyable target, so a move-only one is boxed
+ * in a `shared_ptr` and the box is what `run` holds; copies of the sender
+ * share that one piece of work. A copyable callable is stored directly.
  * @tparam T the eventual result type
  */
 template <class T>
 struct sender {
     using value_type = T;
 
-    std::shared_ptr<std::move_only_function<T() const>> work;
+    std::function<T()> run;
 
     sender() = default;
 
@@ -61,13 +59,24 @@ struct sender {
     template <class F>
         requires(!std::same_as<std::remove_cvref_t<F>, sender>) &&
                 std::invocable<const std::remove_cvref_t<F> &>
-    explicit sender(F &&run)
-        : work(std::make_shared<std::move_only_function<T() const>>(
-              std::forward<F>(run))) {}
+    explicit sender(F &&work) : run(box(std::forward<F>(work))) {}
 
     /** Runs the deferred computation and returns its result. */
-    auto get() const -> T { return (*work)(); }
+    auto get() const -> T { return run(); }
 
+  private:
+    template <class F>
+    static auto box(F &&work) -> std::function<T()> {
+        using WORK = std::remove_cvref_t<F>;
+        if constexpr (std::copy_constructible<WORK>) {
+            return std::function<T()>(std::forward<F>(work));
+        } else {
+            return [shared = std::make_shared<const WORK>(
+                        std::forward<F>(work))]() -> T { return (*shared)(); };
+        }
+    }
+
+  public:
     /** Build a sender that is already ready with @p value. */
     static auto ready(T value) -> sender {
         return sender{[value = std::move(value)]() -> T { return value; }};
