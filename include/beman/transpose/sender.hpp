@@ -30,7 +30,9 @@
 
 #include <beman/transpose/apply.hpp>
 
+#include <concepts>
 #include <functional>
+#include <memory>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -38,6 +40,11 @@
 namespace beman::transpose {
 
 /** A minimal deferred (lazy) value: the wrapped computation runs on get().
+ *
+ * The work may be a move-only callable -- one that owns a `std::unique_ptr`,
+ * say. `std::function` needs a copyable target, so a move-only one is boxed
+ * in a `shared_ptr` and the box is what `run` holds; copies of the sender
+ * share that one piece of work. A copyable callable is stored directly.
  * @tparam T the eventual result type
  */
 template <class T>
@@ -46,9 +53,30 @@ struct sender {
 
     std::function<T()> run;
 
+    sender() = default;
+
+    /** Wraps any const-invocable nullary callable as deferred work. */
+    template <class F>
+        requires(!std::same_as<std::remove_cvref_t<F>, sender>) &&
+                std::invocable<const std::remove_cvref_t<F> &>
+    explicit sender(F &&work) : run(box(std::forward<F>(work))) {}
+
     /** Runs the deferred computation and returns its result. */
     auto get() const -> T { return run(); }
 
+  private:
+    template <class F>
+    static auto box(F &&work) -> std::function<T()> {
+        using WORK = std::remove_cvref_t<F>;
+        if constexpr (std::copy_constructible<WORK>) {
+            return std::function<T()>(std::forward<F>(work));
+        } else {
+            return [shared = std::make_shared<const WORK>(
+                        std::forward<F>(work))]() -> T { return (*shared)(); };
+        }
+    }
+
+  public:
     /** Build a sender that is already ready with @p value. */
     static auto ready(T value) -> sender {
         return sender{[value = std::move(value)]() -> T { return value; }};
