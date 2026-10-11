@@ -15,15 +15,15 @@
 
 namespace beman::transpose {
 
+/// It is the requirement `transpose` and `transpose_with` state, spelled so
+/// that it can be an associated constraint: both operations look their
+/// applicative object up rather than taking it, so there is no parameter whose
+/// type could carry the requirement, and without it the only way to discover
+/// that a type has no applicative object is to instantiate the operation's
+/// body -- which, for a deduced return type, means a diagnostic rather than a
+/// constraint that simply does not match.
 //! \remarks This concept is satisfied when `applicative` names a
-//! conforming applicative object for `CONTEXT`. It is the requirement
-//! `transpose` and `transpose_with` state, spelled so that it can be an
-//! associated constraint: both operations look their applicative object up
-//! rather than taking it, so there is no parameter whose type could carry the
-//! requirement, and without it the only way to discover that a type has no
-//! applicative object is to instantiate the operation's body -- which, for a
-//! deduced return type, means a diagnostic rather than a constraint that
-//! simply does not match.
+//! conforming applicative object for `CONTEXT`.
 //! \expos
 template <class CONTEXT>
 concept applicative_context =
@@ -198,20 +198,21 @@ using traversal_argument_t = std::conditional_t<
 
 } // namespace detail
 
+/// A `const` or `volatile` rvalue cannot bind a consuming primitive. This
+/// alias is the registered-object specialization of `traversal_argument_t`;
+/// it is what lets the context be inferred before that object has been
+/// selected.
+///
+/// Deducing the category from `T` alone would be inferring a context from a
+/// call the object will not make. The consequence is not a slower traversal
+/// but an unsatisfiable one: a callable accepting only an rvalue element
+/// would satisfy `traverse`'s constraint and then fail inside a body whose
+/// return type is deduced, which is a diagnostic rather than a constraint
+/// that does not match.
 //! \remarks This alias names the category in which a traversal of a
 //! structure of type `T` presents an element to `function`: as an rvalue
 //! when `T` is an unqualified rvalue *and* its traversable object declares
-//! `consuming_traversable_object`, and as a `const` lvalue otherwise. A
-//! `const` or `volatile` rvalue cannot bind a consuming primitive. This alias
-//! is the registered-object specialization of `traversal_argument_t`; it is
-//! what lets the context be inferred before that object has been selected.
-//!
-//! Deducing the category from `T` alone would be inferring a context from a
-//! call the object will not make. The consequence is not a slower traversal
-//! but an unsatisfiable one: a callable accepting only an rvalue element
-//! would satisfy `traverse`'s constraint and then fail inside a body whose
-//! return type is deduced, which is a diagnostic rather than a constraint
-//! that does not match.
+//! `consuming_traversable_object`, and as a `const` lvalue otherwise.
 //! \expos
 template <class T>
 using traverse_element_t =
@@ -235,15 +236,14 @@ template <class F, class T>
 using traverse_context_t =
     std::remove_cvref_t<std::invoke_result_t<F &, traverse_element_t<T>>>;
 
+/// It is deliberately not written in terms of `traversable_object`. That
+/// concept requires `transpose` where the element type is itself a context,
+/// and `transpose` is constrained on this one; naming it here would make the
+/// two concepts mutually recursive.
 //! \remarks This concept is satisfied when `traversable` names a
 //! traversable object for `T` and `applicative` names an
 //! applicative object for that object's element type -- the requirement
 //! `transpose`'s Constraints states.
-//!
-//! It is deliberately not written in terms of `traversable_object`. That
-//! concept requires `transpose` where the element type is itself a context,
-//! and `transpose` is constrained on this one; naming it here would make the
-//! two concepts mutually recursive.
 //! \expos
 template <class T>
 concept transposable_structure = requires {
@@ -306,16 +306,16 @@ concept applicative_object_for =
         } -> std::same_as<CONTEXT>;
     } || detail::collecting_applicative<POLICY, CONTEXT>);
 
+/// It exists so that `traversable_object` can make those two operations
+/// conditional on that condition rather than on a second, weaker spelling of
+/// it. The conjunction is what lets the `element_type` half be asked first:
+/// an `OBJ` that declares none is not a transposing object, and naming
+/// `OBJ::element_type` in an atomic constraint on its own would be a
+/// substitution failure rather than an answer.
 //! \remarks This concept is satisfied when `OBJ` declares an `element_type`
 //! that is itself a context with a conforming applicative object -- the
-//! condition `Traversable::transpose` and `Traversable::transpose_with`
-//! carry on their own declarations. It exists so that `traversable_object`
-//! can make those two operations conditional on that condition rather than
-//! on a second, weaker spelling of it. The conjunction is what lets the
-//! `element_type` half be asked first: an `OBJ` that declares none is not a
-//! transposing object, and naming `OBJ::element_type` in an atomic
-//! constraint on its own would be a substitution failure rather than an
-//! answer.
+//! condition `derive_traversable::transpose` and
+//! `derive_traversable::transpose_with` carry on their own declarations.
 //! \expos
 template <class OBJ>
 concept transposing_object = requires { typename OBJ::element_type; } &&
