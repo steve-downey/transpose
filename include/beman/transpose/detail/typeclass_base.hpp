@@ -66,11 +66,11 @@ using impl_ref_t =
  * Pass `decltype(functor<T>)` or a sibling lookup; the reference and
  * cv-qualification a `const auto &` NTTP picks up are stripped here.
  *
- * The customization-point objects use this to fail with a diagnostic that
- * names the missing specialization. Without it, an unregistered type reaches
- * the operation as `std::false_type{}` and the error is a bare "no member
- * named 'traverse' in 'std::false_type'", pointing at library internals
- * rather than at the specialization the caller has to write.
+ * This asks whether a type has an instance at all. The operation objects do
+ * not use it: each is constrained on the call it makes through the instance,
+ * so `std::is_invocable` answers the narrower question for one call, and an
+ * unregistered type is a call that does not match rather than an error from
+ * inside the object (docs/decisions.md#operation-object-wording).
  */
 template <class LOOKUP_RESULT>
 inline constexpr bool has_instance_v =

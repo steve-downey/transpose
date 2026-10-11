@@ -308,23 +308,18 @@ struct invoke_fn {
      */
     template <class FUNCTION, class FIRST_ARGUMENT, class... REST_ARGUMENTS,
               const auto &TC = applicative<std::remove_cvref_t<FIRST_ARGUMENT>>>
+        requires requires {
+            TC.invoke(std::declval<FUNCTION>(), std::declval<FIRST_ARGUMENT>(),
+                      std::declval<REST_ARGUMENTS>()...);
+        }
     constexpr auto operator()(FUNCTION &&function,
                               FIRST_ARGUMENT &&first_argument,
                               REST_ARGUMENTS &&...rest_arguments) const {
-        static_assert(
-            has_instance_v<decltype(TC)>,
-            "No Applicative instance for this type. Specialize "
-            "beman::transpose::applicative<T> with an "
-            "object providing pure(...) plus invoke(...) or ap(...).");
         return TC.invoke(std::forward<FUNCTION>(function),
                          std::forward<FIRST_ARGUMENT>(first_argument),
                          std::forward<REST_ARGUMENTS>(rest_arguments)...);
     }
 };
-
-/** Lifted contextual application: `invoke(f, ax, ay, ...)`. */
-//! \omit
-inline constexpr invoke_fn invoke{};
 
 /** Operation object for Applicative's `ap`, the classic one-step
  * application; secondary to `invoke`, and available only where the context
@@ -339,21 +334,16 @@ struct ap_fn {
     template <
         class FUNCTION_IN_CONTEXT, class ARGUMENT_IN_CONTEXT,
         const auto &TC = applicative<std::remove_cvref_t<ARGUMENT_IN_CONTEXT>>>
+        requires requires {
+            TC.ap(std::declval<FUNCTION_IN_CONTEXT>(),
+                  std::declval<ARGUMENT_IN_CONTEXT>());
+        }
     constexpr auto operator()(FUNCTION_IN_CONTEXT &&function,
                               ARGUMENT_IN_CONTEXT &&argument) const {
-        static_assert(
-            has_instance_v<decltype(TC)>,
-            "No Applicative instance for this type. Specialize "
-            "beman::transpose::applicative<T> with an "
-            "object providing pure(...) plus invoke(...) or ap(...).");
         return TC.ap(std::forward<FUNCTION_IN_CONTEXT>(function),
                      std::forward<ARGUMENT_IN_CONTEXT>(argument));
     }
 };
-
-/** One-step contextual application: `ap(cf, cx)`. */
-//! \omit
-inline constexpr ap_fn ap{};
 
 /** Operation object for Applicative's `pure`, parameterized on the
  * context because no argument can name it.
@@ -369,20 +359,11 @@ template <class CONTEXT,
 struct pure_fn {
     /** Embeds a plain value into the applicative context. */
     template <class VALUE>
+        requires requires { TC.pure(std::declval<VALUE>()); }
     constexpr auto operator()(VALUE &&value) const {
-        static_assert(
-            has_instance_v<decltype(TC)>,
-            "No Applicative instance for this type. Specialize "
-            "beman::transpose::applicative<T> with an "
-            "object providing pure(...) plus invoke(...) or ap(...).");
         return TC.pure(std::forward<VALUE>(value));
     }
 };
-
-/** Embeds a value into a named applicative context: `pure<C>(value)`. */
-//! \omit
-template <class CONTEXT>
-inline constexpr pure_fn<CONTEXT> pure{};
 
 /** Operation object for the derived `zip_with`. */
 //! \omit
@@ -390,23 +371,19 @@ struct zip_with_fn {
     /** Lifts a binary function over two in-context arguments. */
     template <class FUNCTION, class FIRST_ARGUMENT, class SECOND_ARGUMENT,
               const auto &TC = applicative<std::remove_cvref_t<FIRST_ARGUMENT>>>
+        requires requires {
+            TC.zip_with(std::declval<FUNCTION>(),
+                        std::declval<FIRST_ARGUMENT>(),
+                        std::declval<SECOND_ARGUMENT>());
+        }
     constexpr auto operator()(FUNCTION &&function,
                               FIRST_ARGUMENT &&first_argument,
                               SECOND_ARGUMENT &&second_argument) const {
-        static_assert(
-            has_instance_v<decltype(TC)>,
-            "No Applicative instance for this type. Specialize "
-            "beman::transpose::applicative<T> with an "
-            "object providing pure(...) plus invoke(...) or ap(...).");
         return TC.zip_with(std::forward<FUNCTION>(function),
                            std::forward<FIRST_ARGUMENT>(first_argument),
                            std::forward<SECOND_ARGUMENT>(second_argument));
     }
 };
-
-/** Lifts a binary function over two in-context arguments. */
-//! \omit
-inline constexpr zip_with_fn zip_with{};
 
 /** Operation object for the derived `discard_first`. */
 //! \omit
@@ -414,21 +391,16 @@ struct discard_first_fn {
     /** Sequences two in-context values, keeping the second. */
     template <class FIRST_ARGUMENT, class SECOND_ARGUMENT,
               const auto &TC = applicative<std::remove_cvref_t<FIRST_ARGUMENT>>>
+        requires requires {
+            TC.discard_first(std::declval<FIRST_ARGUMENT>(),
+                             std::declval<SECOND_ARGUMENT>());
+        }
     constexpr auto operator()(FIRST_ARGUMENT &&first_argument,
                               SECOND_ARGUMENT &&second_argument) const {
-        static_assert(
-            has_instance_v<decltype(TC)>,
-            "No Applicative instance for this type. Specialize "
-            "beman::transpose::applicative<T> with an "
-            "object providing pure(...) plus invoke(...) or ap(...).");
         return TC.discard_first(std::forward<FIRST_ARGUMENT>(first_argument),
                                 std::forward<SECOND_ARGUMENT>(second_argument));
     }
 };
-
-/** Sequences two in-context values, keeping the second. */
-//! \omit
-inline constexpr discard_first_fn discard_first{};
 
 /** Operation object for the derived `discard_second`. */
 //! \omit
@@ -436,22 +408,17 @@ struct discard_second_fn {
     /** Sequences two in-context values, keeping the first. */
     template <class FIRST_ARGUMENT, class SECOND_ARGUMENT,
               const auto &TC = applicative<std::remove_cvref_t<FIRST_ARGUMENT>>>
+        requires requires {
+            TC.discard_second(std::declval<FIRST_ARGUMENT>(),
+                              std::declval<SECOND_ARGUMENT>());
+        }
     constexpr auto operator()(FIRST_ARGUMENT &&first_argument,
                               SECOND_ARGUMENT &&second_argument) const {
-        static_assert(
-            has_instance_v<decltype(TC)>,
-            "No Applicative instance for this type. Specialize "
-            "beman::transpose::applicative<T> with an "
-            "object providing pure(...) plus invoke(...) or ap(...).");
         return TC.discard_second(
             std::forward<FIRST_ARGUMENT>(first_argument),
             std::forward<SECOND_ARGUMENT>(second_argument));
     }
 };
-
-/** Sequences two in-context values, keeping the first. */
-//! \omit
-inline constexpr discard_second_fn discard_second{};
 
 //! \remarks This concept is satisfied when `OBJ` provides the full
 //! Applicative object surface over `CONTEXT`: `pure`, the `invoke` basis, and
@@ -846,6 +813,85 @@ auto derive_applicative<Impl>::invoke_with(this auto &&, FUNCTION &&function,
         std::forward<FIRST_ARGUMENT>(first_argument),
         std::forward<REST_ARGUMENTS>(rest_arguments)...);
 }
+
+// \rSec3[transpose.applicative.objects]{Operation objects}
+
+//! \seebelow
+//! \constraints For a call `invoke(function, first_argument,
+//! rest_arguments...)`, let `C` be
+//! `remove_cvref_t<decltype((first_argument))>`.
+//! `applicative<C>.invoke(function, first_argument, rest_arguments...)` is a
+//! valid expression.
+//! \effects Equivalent to `applicative<C>.invoke(function, first_argument,
+//! rest_arguments...)`, with each argument forwarded in its own value
+//! category.
+//! \remarks The name `invoke` denotes an operation object: it is not found by
+//! argument-dependent lookup, and no explicit template argument list may be
+//! given in a call to it. The context is deduced from the first in-context
+//! argument; every operand shares it.
+inline constexpr invoke_fn invoke{};
+
+//! \seebelow
+//! \constraints For a call `ap(function, argument)`, let `C` be
+//! `remove_cvref_t<decltype((argument))>`. `applicative<C>.ap(function,
+//! argument)` is a valid expression.
+//! \effects Equivalent to `applicative<C>.ap(function, argument)`, with each
+//! argument forwarded in its own value category.
+//! \remarks The name `ap` denotes an operation object: it is not found by
+//! argument-dependent lookup, and no explicit template argument list may be
+//! given in a call to it. The context is deduced from the argument in context,
+//! not from the callable in context.
+inline constexpr ap_fn ap{};
+
+//! \seebelow
+//! \constraints For a call `pure<CONTEXT>(value)`, let `C` be
+//! `remove_cvref_t<CONTEXT>`. `applicative<C>.pure(value)` is a valid
+//! expression.
+//! \effects Equivalent to `applicative<C>.pure(value)`, with `value`
+//! forwarded in its own value category.
+//! \remarks The name `pure` denotes a family of operation objects, one per
+//! context. None is found by argument-dependent lookup, and `CONTEXT` is the
+//! only template argument a call gives. The context is named rather than
+//! deduced: `pure` builds a context instead of consuming one, so no argument
+//! carries it.
+template <class CONTEXT>
+inline constexpr pure_fn<CONTEXT> pure{};
+
+//! \seebelow
+//! \constraints For a call `zip_with(function, first_argument,
+//! second_argument)`, let `C` be `remove_cvref_t<decltype((first_argument))>`.
+//! `applicative<C>.zip_with(function, first_argument, second_argument)` is a
+//! valid expression.
+//! \effects Equivalent to `applicative<C>.zip_with(function, first_argument,
+//! second_argument)`, with each argument forwarded in its own value category.
+//! \remarks The name `zip_with` denotes an operation object: it is not found by
+//! argument-dependent lookup, and no explicit template argument list may be
+//! given in a call to it.
+inline constexpr zip_with_fn zip_with{};
+
+//! \seebelow
+//! \constraints For a call `discard_first(first_argument, second_argument)`,
+//! let `C` be `remove_cvref_t<decltype((first_argument))>`.
+//! `applicative<C>.discard_first(first_argument, second_argument)` is a valid
+//! expression.
+//! \effects Equivalent to `applicative<C>.discard_first(first_argument,
+//! second_argument)`, with each argument forwarded in its own value category.
+//! \remarks The name `discard_first` denotes an operation object: it is not
+//! found by argument-dependent lookup, and no explicit template argument list
+//! may be given in a call to it.
+inline constexpr discard_first_fn discard_first{};
+
+//! \seebelow
+//! \constraints For a call `discard_second(first_argument, second_argument)`,
+//! let `C` be `remove_cvref_t<decltype((first_argument))>`.
+//! `applicative<C>.discard_second(first_argument, second_argument)` is a valid
+//! expression.
+//! \effects Equivalent to `applicative<C>.discard_second(first_argument,
+//! second_argument)`, with each argument forwarded in its own value category.
+//! \remarks The name `discard_second` denotes an operation object: it is not
+//! found by argument-dependent lookup, and no explicit template argument list
+//! may be given in a call to it.
+inline constexpr discard_second_fn discard_second{};
 
 // \rSec3[transpose.applicative.optional]{Applicative instance for optional}
 

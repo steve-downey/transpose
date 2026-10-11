@@ -391,8 +391,46 @@ TEST_CASE(
 // -- Negative space --
 
 TEST_CASE("typeclass: a missing instance is detectable before the call") {
-    // has_instance_v is what the objects static_assert on; an unregistered
-    // is diagnosable rather than reaching the operation as std::false_type.
+    // Every operation object is constrained on the call it makes through the
+    // instance, so an unregistered type is a call that does not match --
+    // detectable, not a hard error from inside the object.
+    auto id = [](auto x) { return x; };
+    auto pair = [](auto a, auto b) { return a + b; };
+    using U = Unregistered;
+    STATIC_REQUIRE_FALSE(
+        std::is_invocable_v<decltype(bt::fmap), decltype(id), U>);
+    STATIC_REQUIRE_FALSE(std::is_invocable_v<decltype(bt::replace), U, int>);
+    STATIC_REQUIRE_FALSE(
+        std::is_invocable_v<decltype(bt::invoke), decltype(pair), U, U>);
+    STATIC_REQUIRE_FALSE(std::is_invocable_v<decltype(bt::ap), U, U>);
+    STATIC_REQUIRE_FALSE(std::is_invocable_v<decltype(bt::pure<U>), int>);
+    STATIC_REQUIRE_FALSE(
+        std::is_invocable_v<decltype(bt::zip_with), decltype(pair), U, U>);
+    STATIC_REQUIRE_FALSE(
+        std::is_invocable_v<decltype(bt::discard_first), U, U>);
+    STATIC_REQUIRE_FALSE(
+        std::is_invocable_v<decltype(bt::discard_second), U, U>);
+    STATIC_REQUIRE_FALSE(
+        std::is_invocable_v<decltype(bt::traverse), decltype(id), U>);
+    STATIC_REQUIRE_FALSE(std::is_invocable_v<decltype(bt::transpose), U>);
+    STATIC_REQUIRE_FALSE(
+        std::is_invocable_v<decltype(bt::fold_map), decltype(id), U,
+                            bt::sum_monoid<int>>);
+    STATIC_REQUIRE_FALSE(std::is_invocable_v<decltype(bt::length), U>);
+    STATIC_REQUIRE_FALSE(
+        std::is_invocable_v<decltype(bt::bind), U, decltype(id)>);
+    STATIC_REQUIRE_FALSE(std::is_invocable_v<decltype(bt::join), U>);
+
+    // And the registered case still matches, through the same objects.
+    STATIC_REQUIRE(std::is_invocable_v<decltype(bt::fmap), decltype(id),
+                                       std::vector<int>>);
+    STATIC_REQUIRE(std::is_invocable_v<decltype(bt::invoke), decltype(pair),
+                                       std::optional<int>, std::optional<int>>);
+    STATIC_REQUIRE(
+        std::is_invocable_v<decltype(bt::pure<std::optional<int>>), int>);
+
+    // has_instance_v asks the broader question: does the type have an
+    // instance of the typeclass at all.
     STATIC_REQUIRE_FALSE(
         bt::has_instance_v<decltype(bt::functor<Unregistered>)>);
     STATIC_REQUIRE(bt::has_instance_v<decltype(bt::functor<std::vector<int>>)>);

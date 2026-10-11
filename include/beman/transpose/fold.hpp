@@ -685,16 +685,11 @@ struct fold_map_fn {
      */
     template <class F, class T, class MONOID,
               const auto &TC = foldable<std::remove_cvref_t<T>>>
-        requires(!has_instance_v<decltype(TC)> ||
-                 requires {
-                     TC.fold_map(std::declval<F>(), std::declval<T>(),
-                                 std::declval<MONOID>());
-                 })
+        requires requires {
+            TC.fold_map(std::declval<F>(), std::declval<T>(),
+                        std::declval<MONOID>());
+        }
     constexpr auto operator()(F &&function, T &&value, MONOID monoid) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable<T> with an object "
-                      "providing fold_map(f, container, monoid).");
         return TC.fold_map(std::forward<F>(function), std::forward<T>(value),
                            std::move(monoid));
     }
@@ -702,15 +697,8 @@ struct fold_map_fn {
     /** As above, with the registered Monoid of the result type. */
     template <class F, class T,
               const auto &TC = foldable<std::remove_cvref_t<T>>>
-        requires(!has_instance_v<decltype(TC)> ||
-                 requires {
-                     TC.fold_map(std::declval<F>(), std::declval<T>());
-                 })
+        requires requires { TC.fold_map(std::declval<F>(), std::declval<T>()); }
     constexpr auto operator()(F &&function, T &&value) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable<T> with an object "
-                      "providing fold_map(f, container, monoid).");
         return TC.fold_map(std::forward<F>(function), std::forward<T>(value));
     }
 };
@@ -723,12 +711,12 @@ struct fold_left_fn {
     /** Left-associative fold in the instance's traversal order. */
     template <class T, class STATE, class F,
               const auto &TC = foldable<std::remove_cvref_t<T>>>
+        requires requires {
+            TC.fold_left(std::declval<T>(), std::declval<STATE>(),
+                         std::declval<F>());
+        }
     constexpr auto operator()(T &&value, STATE initial_state,
                               F &&function) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable<T> with an object "
-                      "providing fold_map(f, container, monoid).");
         return TC.fold_left(std::forward<T>(value), std::move(initial_state),
                             std::forward<F>(function));
     }
@@ -742,12 +730,12 @@ struct fold_right_fn {
     /** Right-associative fold in reverse traversal order. */
     template <class T, class STATE, class F,
               const auto &TC = foldable<std::remove_cvref_t<T>>>
+        requires requires {
+            TC.fold_right(std::declval<T>(), std::declval<STATE>(),
+                          std::declval<F>());
+        }
     constexpr auto operator()(T &&value, STATE initial_state,
                               F &&function) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable<T> with an object "
-                      "providing fold_map(f, container, monoid).");
         return TC.fold_right(std::forward<T>(value), std::move(initial_state),
                              std::forward<F>(function));
     }
@@ -760,11 +748,8 @@ inline constexpr fold_right_fn fold_right{};
 struct length_fn {
     /** Number of elements in the container. */
     template <class T, const auto &TC = foldable<std::remove_cvref_t<T>>>
+        requires requires { TC.length(std::declval<T>()); }
     constexpr auto operator()(T &&value) const -> std::size_t {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable<T> with an object "
-                      "providing fold_map(f, container, monoid).");
         return TC.length(std::forward<T>(value));
     }
 };
@@ -777,28 +762,18 @@ struct combine_all_fn {
     /** Combines all elements under `monoid`. */
     template <class T, class MONOID,
               const auto &TC = foldable<std::remove_cvref_t<T>>>
-        requires(!has_instance_v<decltype(TC)> ||
-                 requires {
-                     TC.combine_all(std::declval<T>(), std::declval<MONOID>());
-                 })
+        requires requires {
+            TC.combine_all(std::declval<T>(), std::declval<MONOID>());
+        }
     constexpr auto operator()(T &&value, MONOID monoid) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable<T> with an object "
-                      "providing fold_map(f, container, monoid).");
         return TC.combine_all(std::forward<T>(value), std::move(monoid));
     }
 
     /** Combines all elements under the registered Monoid of the element
      * type; not a candidate where the element type has no registration. */
     template <class T, const auto &TC = foldable<std::remove_cvref_t<T>>>
-        requires(!has_instance_v<decltype(TC)> ||
-                 requires { TC.combine_all(std::declval<T>()); })
+        requires requires { TC.combine_all(std::declval<T>()); }
     constexpr auto operator()(T &&value) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable<T> with an object "
-                      "providing fold_map(f, container, monoid).");
         return TC.combine_all(std::forward<T>(value));
     }
 };
@@ -811,11 +786,10 @@ struct any_of_fn {
     /** True when any element satisfies `predicate`. */
     template <class T, class PREDICATE,
               const auto &TC = foldable<std::remove_cvref_t<T>>>
+        requires requires {
+            TC.any_of(std::declval<T>(), std::declval<PREDICATE>());
+        }
     constexpr auto operator()(T &&value, PREDICATE &&predicate) const -> bool {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable<T> with an object "
-                      "providing fold_map(f, container, monoid).");
         return TC.any_of(std::forward<T>(value),
                          std::forward<PREDICATE>(predicate));
     }
@@ -829,11 +803,10 @@ struct all_of_fn {
     /** True when every element satisfies `predicate`. */
     template <class T, class PREDICATE,
               const auto &TC = foldable<std::remove_cvref_t<T>>>
+        requires requires {
+            TC.all_of(std::declval<T>(), std::declval<PREDICATE>());
+        }
     constexpr auto operator()(T &&value, PREDICATE &&predicate) const -> bool {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable<T> with an object "
-                      "providing fold_map(f, container, monoid).");
         return TC.all_of(std::forward<T>(value),
                          std::forward<PREDICATE>(predicate));
     }
@@ -848,11 +821,8 @@ inline constexpr all_of_fn all_of{};
 struct empty_fn {
     /** True when the container holds no elements. */
     template <class T, const auto &TC = foldable<std::remove_cvref_t<T>>>
+        requires requires { TC.empty(std::declval<T>()); }
     constexpr auto operator()(T &&value) const -> bool {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable<T> with an object "
-                      "providing fold_map(f, container, monoid).");
         return TC.empty(std::forward<T>(value));
     }
 };
@@ -864,11 +834,8 @@ inline constexpr empty_fn empty{};
 struct to_vector_fn {
     /** Collects every element into a `std::vector` in traversal order. */
     template <class T, const auto &TC = foldable<std::remove_cvref_t<T>>>
+        requires requires { TC.to_vector(std::declval<T>()); }
     constexpr auto operator()(T &&value) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable<T> with an object "
-                      "providing fold_map(f, container, monoid).");
         return TC.to_vector(std::forward<T>(value));
     }
 };
@@ -881,11 +848,10 @@ struct find_first_fn {
     /** First element satisfying `predicate`, or an empty optional. */
     template <class T, class PREDICATE,
               const auto &TC = foldable<std::remove_cvref_t<T>>>
+        requires requires {
+            TC.find_first(std::declval<T>(), std::declval<PREDICATE>());
+        }
     constexpr auto operator()(T &&value, PREDICATE &&predicate) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Foldable instance for this type. Specialize "
-                      "beman::transpose::foldable<T> with an object "
-                      "providing fold_map(f, container, monoid).");
         return TC.find_first(std::forward<T>(value),
                              std::forward<PREDICATE>(predicate));
     }

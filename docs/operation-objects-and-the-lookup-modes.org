@@ -218,6 +218,11 @@ The =static_assert= in each CPO fires first and says which variable template to 
 The CRTP bases already carry that message, but they only fire if you instantiate =derive_traversable<std::false_type>=, and lookup failure doesn't do that.
 =has_instance_v= in =detail/typeclass_base.hpp= is the check.
 
+/Later, 2026-10-11:/ the =static_assert= is gone.
+Each object is now constrained on the call it makes through the instance, so an unregistered type is a call that doesn't match, and =std::is_invocable= can say so.
+That gave up the message naming the specialization, in exchange for being detectable, which is what the standard wording needs.
+See [[./decisions.md#operation-object-wording][operation-object-wording]].
+
 * One namespace, and why it's the design and not the tidying
 
 Every operation given an object claims a name, and Foldable alone has ten.

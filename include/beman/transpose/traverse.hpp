@@ -490,9 +490,10 @@ struct traverse_fn {
 };
 
 // `for_each` gets no operation object. The derived operation is `traverse`
-// with the arguments the other way round, and `for_each` at namespace scope
-// would sit next to std::for_each / std::ranges::for_each with a different
-// return contract -- one name, two meanings, is worse than one spelling.
+// with the arguments the other way round, so an object would be a second name
+// for the same call. (Sitting beside std::for_each is not the reason: `invoke`
+// sits beside std::invoke and keeps its object; see
+// docs/decisions.md#operation-object-wording.)
 
 // \rSec3[transpose.alg.traverse]{traverse}
 

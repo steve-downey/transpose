@@ -383,11 +383,8 @@ struct bind_fn {
      */
     template <class MA, class F,
               const auto &TC = monad<std::remove_cvref_t<MA>>>
+        requires requires { TC.bind(std::declval<MA>(), std::declval<F>()); }
     constexpr auto operator()(MA &&ma, F &&f) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Monad instance for this type. Specialize "
-                      "beman::transpose::monad<T> with an object "
-                      "providing pure(...) and bind(ma, f).");
         return TC.bind(std::forward<MA>(ma), std::forward<F>(f));
     }
 };
@@ -399,11 +396,8 @@ inline constexpr bind_fn bind{};
 struct join_fn {
     /** Flattens a nested monadic value; equivalent to `bind(mma, id)`. */
     template <class MMA, const auto &TC = monad<std::remove_cvref_t<MMA>>>
+        requires requires { TC.join(std::declval<MMA>()); }
     constexpr auto operator()(MMA &&mma) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Monad instance for this type. Specialize "
-                      "beman::transpose::monad<T> with an object "
-                      "providing pure(...) and bind(ma, f).");
         return TC.join(std::forward<MMA>(mma));
     }
 };
@@ -423,11 +417,8 @@ template <class CONTEXT, const auto &TC = monad<std::remove_cvref_t<CONTEXT>>>
 struct kleisli_fn {
     /** Forward Kleisli composition: `(f >=> g) a = f a >>= g`. */
     template <class F, class G>
+        requires requires { TC.kleisli(std::declval<F>(), std::declval<G>()); }
     constexpr auto operator()(F &&f, G &&g) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Monad instance for this type. Specialize "
-                      "beman::transpose::monad<T> with an object "
-                      "providing pure(...) and bind(ma, f).");
         return TC.kleisli(std::forward<F>(f), std::forward<G>(g));
     }
 };
