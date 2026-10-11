@@ -92,6 +92,8 @@ TEST_CASE("typeclass: every operation is an object") {
     // and `transpose` used to be.
     STATIC_REQUIRE(std::is_class_v<decltype(bt::fmap)>);
     STATIC_REQUIRE(std::is_class_v<decltype(bt::invoke)>);
+    STATIC_REQUIRE(std::is_class_v<decltype(bt::traverse)>);
+    STATIC_REQUIRE(std::is_class_v<decltype(bt::transpose)>);
     STATIC_REQUIRE(std::is_class_v<decltype(bt::fold_map)>);
     STATIC_REQUIRE(std::is_class_v<decltype(bt::bind)>);
     STATIC_REQUIRE(std::is_empty_v<decltype(bt::fmap)>);

@@ -464,41 +464,69 @@ auto derive_traversable<Impl>::transpose_with(
         std::forward<T>(value));
 }
 
+// -- Operation objects --
+//
+// See functor.hpp for the shape and the motivation. `traverse` was a free
+// function template doing this lookup-and-call; as an object it is not found
+// by argument-dependent lookup and cannot be overloaded, which is the
+// property that makes a lookup-based verb predictable. Its constraints are
+// the ones the function template carried, so a structure or context with no
+// instance is still a constraint that does not match rather than a
+// diagnostic from inside the body.
+
+/// The type of the `traverse` operation object.
+//! \omit
+struct traverse_fn {
+    template <class F, class T,
+              class POLICY = std::remove_cvref_t<
+                  decltype(applicative<traverse_context_t<F, T>>)>>
+        requires applicative_object_for<POLICY, traverse_context_t<F, T>>
+    constexpr auto operator()(F &&function, T &&value,
+                              POLICY policy = POLICY{}) const {
+        const auto &map = traversable<std::remove_cvref_t<T>>;
+        return map.traverse(policy, std::forward<F>(function),
+                            std::forward<T>(value));
+    }
+};
+
+// `for_each` gets no operation object. The derived operation is `traverse`
+// with the arguments the other way round, and `for_each` at namespace scope
+// would sit next to std::for_each / std::ranges::for_each with a different
+// return contract -- one name, two meanings, is worse than one spelling.
+
 // \rSec3[transpose.alg.traverse]{traverse}
 
-//! \constraints `POLICY` satisfies `applicative_object_for` for the context
-//! that applying `function` to an element of `value` yields.
-//! \effects Applies `function` to each element of `value` and composes the
-//! resulting contextual values with `policy`, preserving the shape of
-//! `value`. Elements are visited in the structure's iteration order, and the
-//! contextual values are composed in that same order.
+//! \seebelow
+//! \constraints For a call `traverse(function, value, policy)`, let `F` be
+//! `decltype((function))` and `T` be `decltype((value))`. The type of
+//! `policy` satisfies `applicative_object_for` for the context that applying
+//! `function` to an argument of type `$traverse-element-t$<T>` yields.
+//! `policy` may be omitted; see below.
+//! \effects Applies `function` to each element of `value`, presenting that
+//! element through `$traverse-element-t$<T>`, and composes the resulting
+//! contextual values with `policy`, preserving the shape of `value`. Elements
+//! are visited in the structure's iteration order, and the contextual values
+//! are composed in that same order.
 //! \returns The shape of `value` held in the single context `policy`
 //! composes into.
 //! \complexity Exactly one application of `function` per element of `value`.
-//! \remarks Let CONTEXT be the type that applying `function` to an element
-//! of `value` yields. `POLICY` defaults to the type of the applicative
-//! object `applicative<CONTEXT>` names, which retains the first
-//! failure and discards the rest, and the constraint is
-//! `applicative_object_for<POLICY, CONTEXT>`. Passing the object
-//! `accumulating_applicative<CONTEXT>` names instead composes
-//! every element's evidence. The two differ in what the result carries, not
-//! in what runs: under either, `function` is applied to every element, as
-//! the Complexity clause above says, and it is only the reconstruction of
-//! the value in context that stops. No element's context depends on another
-//! element's value, so this is independent contextual composition rather
-//! than sequential dependence -- which is also why retaining the first
-//! failure is as far as the default policy can go. There is nothing for a
-//! composition to decline to produce: by the time it sees an element's
-//! context, that context has already been computed.
-template <class F, class T,
-          class POLICY = std::remove_cvref_t<
-              decltype(applicative<traverse_context_t<F, T>>)>>
-    requires applicative_object_for<POLICY, traverse_context_t<F, T>>
-auto traverse(F &&function, T &&value, POLICY policy = POLICY{}) {
-    const auto &map = traversable<std::remove_cvref_t<T>>;
-    return map.traverse(policy, std::forward<F>(function),
-                        std::forward<T>(value));
-}
+//! \remarks The name `traverse` denotes an operation object: it is not found
+//! by argument-dependent lookup, and no explicit template argument list may
+//! be given in a call to it. Let CONTEXT be `$traverse-context-t$<F, T>`. When
+//! `policy` is omitted, it is a
+//! value-initialized object of the type of the applicative object
+//! `applicative<CONTEXT>` names, which retains the first failure and
+//! discards the rest. Passing the object `accumulating_applicative<CONTEXT>`
+//! names instead composes every element's evidence. The two differ in what
+//! the result carries, not in what runs: under either, `function` is applied
+//! to every element, as the Complexity clause above says, and it is only the
+//! reconstruction of the value in context that stops. No element's context
+//! depends on another element's value, so this is independent contextual
+//! composition rather than sequential dependence -- which is also why
+//! retaining the first failure is as far as the default policy can go. There
+//! is nothing for a composition to decline to produce: by the time it sees
+//! an element's context, that context has already been computed.
+inline constexpr traverse_fn traverse{};
 
 } // namespace beman::transpose
 

@@ -298,6 +298,7 @@ inline constexpr auto accumulating_applicative = std::false_type{};
  * The context keys the lookup and is deduced from the first in-context
  * argument; every operand is expected to share that context.
  */
+//! \omit
 struct invoke_fn {
     /** Applies the plain callable `function` to N in-context arguments,
      * producing one in-context result.
@@ -322,6 +323,7 @@ struct invoke_fn {
 };
 
 /** Lifted contextual application: `invoke(f, ax, ay, ...)`. */
+//! \omit
 inline constexpr invoke_fn invoke{};
 
 /** Operation object for Applicative's `ap`, the classic one-step
@@ -331,6 +333,7 @@ inline constexpr invoke_fn invoke{};
  * The context keys the lookup and is deduced from the argument-in-context,
  * not from the callable-in-context.
  */
+//! \omit
 struct ap_fn {
     /** Applies a callable held in context to one argument in context. */
     template <
@@ -349,6 +352,7 @@ struct ap_fn {
 };
 
 /** One-step contextual application: `ap(cf, cx)`. */
+//! \omit
 inline constexpr ap_fn ap{};
 
 /** Operation object for Applicative's `pure`, parameterized on the
@@ -359,6 +363,7 @@ inline constexpr ap_fn ap{};
  * pattern does not reach: `pure` builds the context rather than consuming
  * one, so the context is in the return type and never in an argument.
  */
+//! \omit
 template <class CONTEXT,
           const auto &TC = applicative<std::remove_cvref_t<CONTEXT>>>
 struct pure_fn {
@@ -375,10 +380,12 @@ struct pure_fn {
 };
 
 /** Embeds a value into a named applicative context: `pure<C>(value)`. */
+//! \omit
 template <class CONTEXT>
 inline constexpr pure_fn<CONTEXT> pure{};
 
 /** Operation object for the derived `zip_with`. */
+//! \omit
 struct zip_with_fn {
     /** Lifts a binary function over two in-context arguments. */
     template <class FUNCTION, class FIRST_ARGUMENT, class SECOND_ARGUMENT,
@@ -398,9 +405,11 @@ struct zip_with_fn {
 };
 
 /** Lifts a binary function over two in-context arguments. */
+//! \omit
 inline constexpr zip_with_fn zip_with{};
 
 /** Operation object for the derived `discard_first`. */
+//! \omit
 struct discard_first_fn {
     /** Sequences two in-context values, keeping the second. */
     template <class FIRST_ARGUMENT, class SECOND_ARGUMENT,
@@ -418,9 +427,11 @@ struct discard_first_fn {
 };
 
 /** Sequences two in-context values, keeping the second. */
+//! \omit
 inline constexpr discard_first_fn discard_first{};
 
 /** Operation object for the derived `discard_second`. */
+//! \omit
 struct discard_second_fn {
     /** Sequences two in-context values, keeping the first. */
     template <class FIRST_ARGUMENT, class SECOND_ARGUMENT,
@@ -439,6 +450,7 @@ struct discard_second_fn {
 };
 
 /** Sequences two in-context values, keeping the first. */
+//! \omit
 inline constexpr discard_second_fn discard_second{};
 
 //! \remarks This concept is satisfied when `OBJ` provides the full
