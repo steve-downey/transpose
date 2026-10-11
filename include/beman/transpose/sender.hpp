@@ -19,8 +19,9 @@
 // of what makes a P2300 sender a sender. The Applicative surface is checked
 // against genuine senders separately, at examples/p2300_adapter.hpp.
 //
-// AND WHAT IT HIDES. Being a std::function<T()> wrapper makes this type
-// invariant under composition: sender<vector<T>> composed with sender<T> is
+// AND WHAT IT HIDES. Erasing its work behind one type -- a shared
+// std::move_only_function<T() const> -- makes this type invariant under
+// composition: sender<vector<T>> composed with sender<T> is
 // again sender<vector<T>>, so the vector traversal's accumulator loop
 // type-checks. A real sender is not invariant -- every combinator names a new
 // type -- so transposing a runtime-sized structure of real senders is not
@@ -30,7 +31,9 @@
 
 #include <beman/transpose/apply.hpp>
 
+#include <concepts>
 #include <functional>
+#include <memory>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -38,16 +41,32 @@
 namespace beman::transpose {
 
 /** A minimal deferred (lazy) value: the wrapped computation runs on get().
+ *
+ * The work is a `std::move_only_function<T() const>` held by `shared_ptr`,
+ * so it may capture a move-only resource such as a `std::unique_ptr`, which
+ * `std::function` storage would reject. The sender itself stays copyable,
+ * which the applicative `invoke` below relies on when it captures its
+ * operands; copies share the one piece of work.
  * @tparam T the eventual result type
  */
 template <class T>
 struct sender {
     using value_type = T;
 
-    std::function<T()> run;
+    std::shared_ptr<std::move_only_function<T() const>> work;
+
+    sender() = default;
+
+    /** Wraps any const-invocable nullary callable as deferred work. */
+    template <class F>
+        requires(!std::same_as<std::remove_cvref_t<F>, sender>) &&
+                std::invocable<const std::remove_cvref_t<F> &>
+    explicit sender(F &&run)
+        : work(std::make_shared<std::move_only_function<T() const>>(
+              std::forward<F>(run))) {}
 
     /** Runs the deferred computation and returns its result. */
-    auto get() const -> T { return run(); }
+    auto get() const -> T { return (*work)(); }
 
     /** Build a sender that is already ready with @p value. */
     static auto ready(T value) -> sender {

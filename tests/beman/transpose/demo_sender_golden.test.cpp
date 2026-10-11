@@ -69,7 +69,7 @@ static_assert(std::is_same_v<bt::applicative_value_t<bt::sender<int>>, int>);
 // so the contrast the paper draws rests on a checked fact.
 //
 // This is also the reason docs/decisions.md#erasure-boundary can be measured
-// at all: the invariance is bought with std::function, and the boundary
+// at all: the invariance is bought with type erasure, and the boundary
 // decision forbids exactly that purchase in all_of.hpp.
 
 using acc = bt::sender<std::vector<int>>;
