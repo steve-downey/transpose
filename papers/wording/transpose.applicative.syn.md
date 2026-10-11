@@ -36,12 +36,12 @@ inline constexpr $unspecified$ discard_second_eval;
 template <class IMPL, class CONTEXT>
 concept applicative_impl =
     requires(const IMPL &impl) {
-        impl.pure(declval<applicative_value_t<CONTEXT>>());
+        impl.pure(declval<$applicative-value-t$<CONTEXT>>());
     } &&
     (requires(const IMPL &impl, const CONTEXT &context) {
-        impl.invoke($probe-witness$<applicative_value_t<CONTEXT>>{}, context);
+        impl.invoke($probe-witness$<$applicative-value-t$<CONTEXT>>{}, context);
     } || requires(const IMPL &impl, const CONTEXT &context) {
-        impl.ap(impl.pure($probe-witness$<applicative_value_t<CONTEXT>>{}),
+        impl.ap(impl.pure($probe-witness$<$applicative-value-t$<CONTEXT>>{}),
                 context);
     });
 ```
@@ -157,8 +157,7 @@ template<class T> inline constexpr auto applicative = false_type{};
 ::: wording
 
 ```cpp
-template<class T>
-inline constexpr auto accumulating_applicative = false_type{};
+template<class T> inline constexpr auto accumulating_applicative = false_type{};
 ```
 
 [x+6]{.pnum} *Remarks*: This variable template is a second lookup point, over the same carrier and grade algebra as `applicative`, naming the accumulating Applicative object. Where the object named by `applicative` stops at the first failing operand, this object combines the evidence of every failing operand. Neither object is selected automatically for a carrier: the context type alone does not determine which composition discipline a caller wants. This object has no Monad instance, because sequencing requires a value from a computation that accumulation admits may have failed. The type of each object named by a specialization this document declares is a class type that is not final and models `semiregular`, so a program may derive from it to combine several objects in one algorithm object.
@@ -171,26 +170,26 @@ inline constexpr auto accumulating_applicative = false_type{};
 template <class OBJ, class CONTEXT>
 concept applicative_object =
     requires(const OBJ &obj, const CONTEXT &context) {
-        obj.pure(declval<applicative_value_t<CONTEXT>>());
-        obj.invoke($probe-witness$<applicative_value_t<CONTEXT>>{}, context);
-        obj.map($probe-witness$<applicative_value_t<CONTEXT>>{}, context);
-        obj.lift(declval<applicative_value_t<CONTEXT>>());
-        obj.zip_with($probe-witness2$<applicative_value_t<CONTEXT>>{}, context,
+        obj.pure(declval<$applicative-value-t$<CONTEXT>>());
+        obj.invoke($probe-witness$<$applicative-value-t$<CONTEXT>>{}, context);
+        obj.map($probe-witness$<$applicative-value-t$<CONTEXT>>{}, context);
+        obj.lift(declval<$applicative-value-t$<CONTEXT>>());
+        obj.zip_with($probe-witness2$<$applicative-value-t$<CONTEXT>>{}, context,
                      context);
         obj.discard_first(declval<CONTEXT>(), declval<CONTEXT>());
         obj.discard_second(declval<CONTEXT>(), declval<CONTEXT>());
-        obj.invoke_with(obj, $probe-witness$<applicative_value_t<CONTEXT>>{},
+        obj.invoke_with(obj, $probe-witness$<$applicative-value-t$<CONTEXT>>{},
                         context);
     } &&
     (!requires(const OBJ &obj) {
-        obj.pure($probe-witness$<applicative_value_t<CONTEXT>>{});
+        obj.pure($probe-witness$<$applicative-value-t$<CONTEXT>>{});
     } || requires(const OBJ &obj, const CONTEXT &context) {
-        obj.ap(obj.pure($probe-witness$<applicative_value_t<CONTEXT>>{}),
+        obj.ap(obj.pure($probe-witness$<$applicative-value-t$<CONTEXT>>{}),
                context);
     }) &&
     (!graded_context<CONTEXT> ||
      requires(const OBJ &obj, const CONTEXT &context) {
-         obj.template subsume<grade_of_t<CONTEXT>>(context);
+         obj.template subsume<$grade-of-t$<CONTEXT>>(context);
      });
 ```
 

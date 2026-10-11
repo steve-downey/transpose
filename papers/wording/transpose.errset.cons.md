@@ -5,9 +5,7 @@
 ## Constructors [transpose.errset.cons]{- .sref} {-}
 
 ```cpp
-template<class ERROR>
-  requires($error-set-has-v$<remove_cvref_t<ERROR>, ERRORS...>)
-constexpr error_set_of(ERROR&& error);
+template<class ERROR> constexpr error_set_of(ERROR&& error);
 ```
 
 [x]{.pnum} *Constraints*: `ERROR`, with cv-qualification and references removed, is one of the alternatives.
@@ -18,9 +16,6 @@ constexpr error_set_of(ERROR&& error);
 
 ```cpp
 template<class... NARROWER>
-  requires(sizeof...(NARROWER) > 0) &&
-          (!is_same_v<error_set_of<NARROWER...>, error_set_of<ERRORS...>>) &&
-          ($error-set-has-v$<NARROWER, ERRORS...> && ...)
 constexpr error_set_of(const error_set_of<NARROWER...>& narrower);
 ```
 

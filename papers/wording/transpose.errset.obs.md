@@ -13,9 +13,7 @@ template<class ERROR> static constexpr auto contains() noexcept -> bool;
 [x+1]{.pnum} *Remarks*: This is a type-level question -- what the computation *may* raise -- not a question about the value.
 
 ```cpp
-template<class ERROR>
-  requires($error-set-has-v$<ERROR, ERRORS...>)
-constexpr auto holds() const noexcept -> bool;
+template<class ERROR> constexpr auto holds() const noexcept -> bool;
 ```
 
 [x+2]{.pnum} *Constraints*: `ERROR` is one of the alternatives.
@@ -25,9 +23,7 @@ constexpr auto holds() const noexcept -> bool;
 [x+4]{.pnum} *Remarks*: This is a value-level question -- what was actually raised.
 
 ```cpp
-template<class ERROR>
-  requires($error-set-has-v$<ERROR, ERRORS...>)
-constexpr auto witness() const -> const optional<ERROR>&;
+template<class ERROR> constexpr auto witness() const -> const optional<ERROR>&;
 ```
 
 [x+5]{.pnum} *Constraints*: `ERROR` is one of the alternatives.

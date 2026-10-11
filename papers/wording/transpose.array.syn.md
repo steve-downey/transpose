@@ -1,19 +1,19 @@
 ::: add
 
 ```cpp
-template<class T>
-struct $is-std-array$ : false_type {}; // exposition only
+template<class T, size_t N>
+struct $is-std-array-of-extent$ : false_type {}; // exposition only
 ```
 
 ```cpp
-template<class U, size_t M>
-struct $is-std-array$<array<U, M>> : true_type {}; // exposition only
+template<class U, size_t N>
+struct $is-std-array-of-extent$<array<U, N>, N> : true_type {}; // exposition only
 ```
 
 ```cpp
-template<class T>
-inline constexpr bool $is-std-array-v$ =
-    $is-std-array$<remove_cvref_t<T>>::value; // exposition only
+template<class T, size_t N>
+inline constexpr bool $is-std-array-of-extent-v$ =
+    $is-std-array-of-extent$<remove_cvref_t<T>, N>::value; // exposition only
 ```
 
 ```cpp
@@ -23,7 +23,8 @@ struct $array-applicative-impl$ {
   template<class VALUE> auto pure(this auto&&, VALUE&& value);
 
   template<class FUNCTION, class FIRST, class... REST>
-    requires $is-std-array-v$<FIRST> && ($is-std-array-v$<REST> && ...)
+    requires $is-std-array-of-extent-v$<FIRST, N> &&
+             ($is-std-array-of-extent-v$<REST, N> && ...)
   auto invoke(this auto&&, FUNCTION&& function, FIRST&& first, REST&&... rest);
 }; // exposition only
 ```
