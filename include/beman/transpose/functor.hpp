@@ -84,7 +84,9 @@ inline constexpr auto functor = std::false_type{};
 // -- Operation objects --
 //
 // This comment is the reference for the operation objects; the other
-// typeclass headers point back to it.
+// typeclass headers point back to it. The rulings are
+// docs/decisions.md#operation-objects, #lookup-variable-naming and
+// #empty-predicate-name.
 //
 // A fourth lookup mode, on top of implicit lookup, explicit object argument,
 // and NTTP pinning (examples/lookup_modes_example.cpp): the operation as an

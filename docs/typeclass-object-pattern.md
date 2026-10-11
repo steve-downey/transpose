@@ -55,6 +55,7 @@ The typeclass implementation object is, true to its name, an object — and shou
 - Use it where the instance is not the interesting part of the call, and in non-template functions, which have no template parameter list to carry mode 3.
 - It gives up mode 3 in exchange: an object takes no explicit template arguments. Pin with mode 2 instead, which is shorter.
 - These are not customization points. Customization stays at `functor<T>` and its siblings; the operation object is a fixed spelling over a customizable bundle.
+- See [operation-objects](decisions.md#operation-objects).
 
 This is not a cosmetic detail.
 It keeps instance selection explicit, testable, and overridable while preserving static dispatch.
@@ -76,6 +77,7 @@ In the current typeclass headers this is exposed directly via helper APIs such a
 The lookup objects take the plain concept name: `functor<T>`, `applicative<T>`, `foldable<T>`, `traversable<T>`, `monad<T>`.
 What collides with those names takes a longer, more descriptive one — the CRTP bases are `derive_functor<Impl>` and siblings, not `Functor<Impl>`.
 A local holding a looked-up instance therefore cannot be named for its concept; spell it `applicative_map`, matching the existing `traversable_map` and `monad_map` parameters.
+See [lookup-variable-naming](decisions.md#lookup-variable-naming).
 
 ## Core mechanics
 

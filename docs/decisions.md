@@ -3150,6 +3150,10 @@ through it.
   would hide the derived two-argument one. This finishes what
   [impl-access-through-bases](#impl-access-through-bases) started -- the
   base decides, per instantiation, and the Map says nothing.
+- 2026-10-10 — The lookup `monoid_v<T>` is now `monoid<T>`, under
+  [lookup-variable-naming](#lookup-variable-naming). `Monoid<T>` is
+  unchanged; whether it should be is
+  [monoid-registry-spelling](#monoid-registry-spelling).
 
 ---
 
@@ -3186,3 +3190,156 @@ simply the only place where the parameter can differ between call sites.
 - 2026-10-07 — The Decision dropped its "must be cheap to copy" clause,
   following the second revision of [monoid-selection](#monoid-selection)
   point 4. Being cheap to copy is now an expectation, not a requirement.
+
+---
+
+## operation-objects
+
+**Question:** Should a caller be able to reach a typeclass operation without
+naming the instance it goes through, and if so in what form?
+**Status:** DECIDED 2026-08-02; extended to `traverse` and `transpose`
+2026-10-10.
+**Decided by:** Steve Downey, 2026-08-02, on the `typeclass-operation-cpos`
+branch (PR #25); the extension to the two proposed verbs by Steve Downey,
+2026-10-10, while merging that branch onto the post-monoid main.
+**Decision:** Every typeclass operation, primitive and derived alike, gets an
+*operation object*: `fmap(f, v)`, `fold_map(f, v, m)`, `bind(ma, f)`,
+`traverse(f, v)`, `transpose(v)` and the rest. Each deduces the type that keys
+the lookup from one designated argument, looks the instance up, and calls
+through it. This is a fourth lookup mode beside implicit lookup, an explicit
+instance argument, and NTTP pinning.
+
+1. **They are not customization points.** Customization stays bundled at
+   `functor<T>` and its siblings. There is no per-operation hook, no ADL path
+   in, and nothing specializable that makes `fmap` mean other than the
+   instance's own `fmap`. The argument for a bundled mechanism in D3200R0
+   depends on that difference.
+2. **No pinned `_with` objects.** An object takes no explicit template
+   arguments, so NTTP pinning is lost on it. Mode 2, the instance called
+   directly, already pins and is shorter; a pinned operation object is mode 2
+   with more syntax.
+3. **`pure` and `kleisli` name their context**, `pure<C>(v)`, because they
+   produce a context instead of consuming one and nothing deduces it.
+4. **`for_each` gets no object.** At namespace scope it would sit beside
+   `std::for_each` with a different return contract.
+5. **`traverse` and `transpose` keep their constraints** as objects, policy
+   parameter included, and their wording takes the customization-point-object
+   shape, `inline constexpr unspecified traverse;`, with the paragraphs
+   restated for a call expression.
+
+**Why:** Two cases are served badly without them. Everything-local code,
+where naming a lookup object per typeclass costs a line to save nothing; and
+non-template callers, which have no template parameter list to carry mode 3
+and so had to open with lookup declarations or become templates for no reason
+of their own. An object is also not found by ADL and cannot be overloaded,
+which is what makes a lookup-based verb predictable.
+**Log:**
+- 2026-08-02 — Adopted on the branch, with the reasoning in
+  [operation-objects-and-the-lookup-modes.org](operation-objects-and-the-lookup-modes.org)
+  and the paper's section of the same name.
+- 2026-10-10 — Merged onto main. `fold_map` and `combine_all` take the
+  optional trailing instance [monoid-selection](#monoid-selection) gave the
+  members, and are not candidates where no instance is registered. `traverse`
+  and `transpose` became objects. Wording for the other objects is
+  [operation-object-wording](#operation-object-wording).
+
+---
+
+## lookup-variable-naming
+
+**Question:** What are the lookup variables called, and what gives way when
+they collide with another name?
+**Status:** DECIDED 2026-08-02; extended 2026-10-10.
+**Decided by:** Steve Downey, 2026-08-02 (PR #25); the extension to
+`accumulating_applicative` and `monoid` by Steve Downey, 2026-10-10.
+**Decision:** The lookup variables take the plain names: `functor<T>`,
+`applicative<T>`, `foldable<T>`, `traversable<T>`, `monad<T>`, and since
+2026-10-10 `accumulating_applicative<T>` and `monoid<T>`. What collides with
+them takes the longer, descriptive name: the CRTP bases are
+`derive_functor<Impl>` and its siblings. Locals and parameters holding a
+looked-up instance are spelled `applicative_map`, `traversable_map`,
+`monad_map`, because a local named `applicative` shadows `applicative<T>`.
+Every operation and lookup lives in the one library namespace; there is no
+nested `typeclass` or `ops` namespace.
+**Why:** The lookup variables are the user-facing surface, so a suffix that
+dodges a collision is a cost paid in the wrong place. The CRTP bases were told
+apart from the lookups only by an initial capital, which is not a distinction
+to build on, and `derive_` says what they do. One namespace for the whole
+family is for coherence: a name there means one thing across every typeclass,
+which is what lets Applicative provide the Functor names. A nested namespace
+was tried on the branch and removed; it lengthened every call site for a
+collision that was never going to happen inside a namespace already scoped to
+this facility.
+**Log:**
+- 2026-08-02 — Adopted on the branch, after a nested `ops` and then
+  `typeclass` namespace were tried and dropped.
+- 2026-10-10 — Applied to everything main had added under the old names,
+  and extended to `accumulating_applicative` and to `monoid_v`, now
+  `monoid`. The registry struct `Monoid<T>` keeps its name; see
+  [monoid-registry-spelling](#monoid-registry-spelling).
+
+---
+
+## empty-predicate-name
+
+**Question:** Does `empty` name Foldable's "holds no elements" predicate, or
+is it kept for Alternative's identity?
+**Status:** DECIDED 2026-08-02, provisional pending naming review like every
+name in D3200R0.
+**Decided by:** Steve Downey, 2026-08-02 (PR #25).
+**Decision:** Foldable keeps `empty` as the predicate. If Alternative arrives,
+its identity is spelled `zero<C>()`, beside `pure<C>(v)` and for the same
+reason: both build a context and must name it.
+**Why:** The languages with both typeclasses go the other way. Haskell and
+PureScript give `empty` to Alternative and call the predicate `null`;
+PureScript's `Data.Foldable` re-exports `Control.Plus`'s `empty` beside its
+own `null`, which only works because the names differ. Cats gives `empty` to
+`MonoidK` and calls the predicate `isEmpty`. But C++ has already assigned the
+name: `std::empty`, `std::ranges::empty` and every container's `empty()` are
+the predicate, and the language has no nullary-constructor-named-`empty`
+convention to protect. Consistency with Haskell would be bought with
+inconsistency against the language the code is written in.
+**Consequences:** The collision with `std::empty` is real. It is the ordinary
+trouble with a short name in a widely used namespace, not something this
+design introduced, and the paper calls LEWG's attention to it because a
+second claim on the name is cheaper to prevent than to undo.
+**Log:**
+- 2026-08-02 — Decided on the branch, with the three-language survey.
+
+---
+
+## operation-object-wording
+
+**Question:** Which operation objects get normative wording in D3200R0?
+**Status:** OPEN
+**Recorded by:** Steve Downey, 2026-10-10.
+**Context:** `traverse` and `transpose` are specified as operation objects
+(see [operation-objects](#operation-objects)). The Applicative objects in
+`apply.hpp` — `invoke`, `ap`, `pure`, `zip_with`, `discard_first`,
+`discard_second` — are marked `\omit` so the wording generates; their
+semantics are specified today only as members of the applicative object.
+`invoke` is in the paper's list of proposed operations, so it is the first
+candidate. The Functor, Foldable and Monad objects are outside the proposal's
+headers and are not affected.
+**Log:**
+- 2026-10-10 — Recorded when merging PR #25.
+
+---
+
+## monoid-registry-spelling
+
+**Question:** Should the monoid registry struct and its lookup variable be
+told apart by more than case?
+**Status:** OPEN
+**Recorded by:** Steve Downey, 2026-10-10.
+**Context:** Under [lookup-variable-naming](#lookup-variable-naming) the
+lookup is `monoid<T>`, and a program registers an instance by specializing
+the struct `Monoid<T>`. The other typeclasses register by specializing the
+lookup variable itself, so they have no second name. Telling `Monoid` from
+`monoid` by its initial capital is the distinction that decision stopped
+relying on for the CRTP bases. Options include specializing the variable
+directly, as the other typeclasses do, or giving the struct a descriptive
+name. beman.fingertree re-vendors this layer, so the answer reaches it too
+(see [monoid-selection](#monoid-selection), order of work).
+**Log:**
+- 2026-10-10 — Recorded with the `monoid_v` rename.
