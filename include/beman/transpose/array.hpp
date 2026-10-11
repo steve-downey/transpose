@@ -95,7 +95,7 @@ auto transpose_tuple_impl(const std::tuple<std::array<Ts, N>...> &soa,
 
 // \rSec3[transpose.array.applicative]{Applicative instance for array}
 
-//! \returns An `array<std::remove_cvref_t<VALUE>, N>` each of whose `N`
+//! \returns An `array<remove_cvref_t<VALUE>, N>` each of whose `N`
 //! elements is a copy of `value`.
 template <class T, std::size_t N>
 template <class VALUE>

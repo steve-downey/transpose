@@ -30,30 +30,39 @@ concept applicative_context =
     applicative_object<std::remove_cvref_t<decltype(applicative<CONTEXT>)>,
                        CONTEXT>;
 
-//! \remarks This concept is satisfied when `OBJ` declares
-//! `consumes_rvalue_structure` to be `true`: a traversable object that, given
-//! a structure as an rvalue, presents each element to `function` as an
-//! rvalue. An object that does not declare it presents `const` lvalues
-//! whatever category it was handed, which is what an object written without
-//! the question in mind does.
-//!
-//! Consumption is declared rather than assumed because it is not a property
-//! every structure can have. An owning structure -- `std::vector` -- really
-//! does hand its elements over when it is handed over, and saves a copy per
-//! element by doing so. A structure that shares its parts does not: a
-//! persistent sequence or tree shares its interior with every earlier
-//! version of itself, so an rvalue conveys the handle and not exclusive
-//! ownership of the values inside, and the only way such a structure could
-//! present an rvalue element is by copying it into a temporary first -- a
-//! copy it then pays a move on top of, where presenting a `const` lvalue
-//! would have copied straight into the result. Requiring consumption of
-//! every traversable object would charge the structures that cannot benefit
-//! for the benefit the ones that can receive.
-//!
-//! The declaration is not merely advisory: `traversable_impl` and
-//! `traversable_object` probe an object that declares it with a witness
-//! accepting an element only as an rvalue, so an object that claims to
-//! consume and does not is reported.
+/// This concept is satisfied when `OBJ` declares
+/// `consumes_rvalue_structure` to be `true`: a traversable object that, given
+/// a structure as an rvalue, presents each element to `function` as an
+/// rvalue. An object that does not declare it presents `const` lvalues
+/// whatever category it was handed, which is what an object written without
+/// the question in mind does.
+///
+/// Consumption is declared rather than assumed because it is not a property
+/// every structure can have. An owning structure -- `std::vector` -- really
+/// does hand its elements over when it is handed over, and saves a copy per
+/// element by doing so. A structure that shares its parts does not: a
+/// persistent sequence or tree shares its interior with every earlier
+/// version of itself, so an rvalue conveys the handle and not exclusive
+/// ownership of the values inside, and the only way such a structure could
+/// present an rvalue element is by copying it into a temporary first -- a
+/// copy it then pays a move on top of, where presenting a `const` lvalue
+/// would have copied straight into the result. Requiring consumption of
+/// every traversable object would charge the structures that cannot benefit
+/// for the benefit the ones that can receive.
+///
+/// The declaration is not merely advisory: `traversable_impl` and
+/// `traversable_object` probe an object that declares it with a witness
+/// accepting an element only as an rvalue, so an object that claims to
+/// consume and does not is reported.
+//! \remarks The concept `$consuming-traversable-object$<OBJ>` is satisfied
+//! when `OBJ` declares `consumes_rvalue_structure` to be `true`. Such an
+//! object, when given a non-`const`, non-`volatile` rvalue structure, presents
+//! each element to the traversal function as an rvalue. An object that does
+//! not make the declaration presents elements as `const` lvalues. Consumption
+//! is an instance capability rather than a property of every structure. An
+//! owning structure can hand its elements over when it is handed over. A
+//! persistent structure that shares its representation cannot in general do so
+//! without first copying each element into a temporary.
 //! \expos
 template <class OBJ>
 concept consuming_traversable_object =
@@ -80,6 +89,9 @@ concept consuming_traversable_object =
 /// put that paper's concept beneath this one after review. foldMapDefault-
 /// style derivations (folding via traverse) remain possible as evidence,
 /// never a requirement.
+//! \remarks `derive_traversable<Impl>::consumes_rvalue_structure` re-exports
+//! the capability declared by `Impl`. If `Impl` makes no declaration, its value
+//! is `false`.
 template <class Impl>
 struct derive_traversable : protected Impl {
     static_assert(!std::is_same_v<Impl, std::false_type>,
@@ -97,10 +109,10 @@ struct derive_traversable : protected Impl {
     using Impl::traverse;
     using element_type = typename Impl::element_type;
 
-    // Re-exported the way element_type is, and for the same reason: Impl is
-    // a protected base, so a declaration made on Impl is not visible on the
-    // object through it. An Impl that says nothing does not consume, which
-    // is what an Impl written without the question in mind does.
+    /// Re-exported the way element_type is, and for the same reason: Impl is
+    /// a protected base, so a declaration made on Impl is not visible on the
+    /// object through it. An Impl that says nothing does not consume, which
+    /// is what an Impl written without the question in mind does.
     static constexpr bool consumes_rvalue_structure =
         consuming_traversable_object<Impl>;
 
@@ -163,11 +175,17 @@ using structure_element_t = typename traversable_object_t<T>::element_type;
 
 namespace detail {
 
-//! \remarks This alias names the category in which the traversable object
-//! `OBJ` presents an element when handed a structure of category `T`. Only an
-//! unqualified rvalue structure can be consumed; a `const` or `volatile`
-//! rvalue cannot bind a consuming primitive and therefore presents `const`
-//! lvalues, just as an lvalue or a non-consuming object does.
+/// This alias names the category in which the traversable object
+/// `OBJ` presents an element when handed a structure of category `T`. Only an
+/// unqualified rvalue structure can be consumed; a `const` or `volatile`
+/// rvalue cannot bind a consuming primitive and therefore presents `const`
+/// lvalues, just as an lvalue or a non-consuming object does.
+//! \remarks `$traversal-argument-t$<OBJ, T>` is the type through which the
+//! Traversable object `OBJ` presents an element when handed a structure of
+//! type and value category `T`. It is an rvalue reference only for a
+//! non-`const`, non-`volatile` rvalue structure and an object satisfying
+//! `$consuming-traversable-object$`; otherwise it is a `const` lvalue
+//! reference.
 //! \expos
 template <class OBJ, class T>
 using traversal_argument_t = std::conditional_t<
@@ -255,24 +273,31 @@ concept collecting_applicative = requires(const APPLICATIVE &applicative) {
 
 } // namespace detail
 
+/// This concept is satisfied when `POLICY` is an `applicative_object`
+/// over `CONTEXT` that can compose a structure of `CONTEXT` into one
+/// `CONTEXT` of the structure -- by either of the two routes a traversal has.
+/// The first is that `pure` returns exactly `CONTEXT` from `CONTEXT`'s element
+/// type, which is what the pairwise composition needs: it assigns each partial
+/// result back into a variable of one type, starting from `pure`, so composing
+/// element results into anything other than `CONTEXT` itself would not
+/// preserve `traverse`'s "shape of `value` held in context" contract. The
+/// second is that `POLICY` offers `collect`, which composes the whole
+/// structure in one operation and so is not bound by what `pure` returns. A
+/// traversal takes whichever route `POLICY` offers, preferring `collect`, so
+/// this concept asks for whichever route it will take rather than for the one
+/// it would take by default: an object that supplies `collect` is not
+/// required to also satisfy a requirement of the composition it will not
+/// perform. Constraining the policy parameter on the full deep concept, not
+/// merely on `pure`, is what makes an argument that is not a real applicative
+/// object -- a further container, say -- ill-formed rather than silently
+/// accepted.
 //! \remarks This concept is satisfied when `POLICY` is an `applicative_object`
-//! over `CONTEXT` that can compose a structure of `CONTEXT` into one
-//! `CONTEXT` of the structure -- by either of the two routes a traversal has.
-//! The first is that `pure` returns exactly `CONTEXT` from `CONTEXT`'s element
-//! type, which is what the pairwise composition needs: it assigns each partial
-//! result back into a variable of one type, starting from `pure`, so composing
-//! element results into anything other than `CONTEXT` itself would not
-//! preserve `traverse`'s "shape of `value` held in context" contract. The
-//! second is that `POLICY` offers `collect`, which composes the whole
-//! structure in one operation and so is not bound by what `pure` returns. A
-//! traversal takes whichever route `POLICY` offers, preferring `collect`, so
-//! this concept asks for whichever route it will take rather than for the one
-//! it would take by default: an object that supplies `collect` is not
-//! required to also satisfy a requirement of the composition it will not
-//! perform. Constraining the policy parameter on the full deep concept, not
-//! merely on `pure`, is what makes an argument that is not a real applicative
-//! object -- a further container, say -- ill-formed rather than silently
-//! accepted.
+//! over `CONTEXT` that can compose a structure of `CONTEXT` into one `CONTEXT`
+//! of the structure. The pairwise route requires `pure` to return exactly
+//! `CONTEXT` from `CONTEXT`'s element type. The native route is available when
+//! `POLICY` supplies `collect` for a `vector<CONTEXT>` and does not require
+//! the pairwise route also to be available. A traversal prefers the native
+//! route when both exist.
 template <class POLICY, class CONTEXT>
 concept applicative_object_for =
     applicative_object<POLICY, CONTEXT> && (requires(const POLICY &policy) {
@@ -296,24 +321,31 @@ template <class OBJ>
 concept transposing_object = requires { typename OBJ::element_type; } &&
                              applicative_context<typename OBJ::element_type>;
 
+/// This concept is satisfied when `IMPL` supplies the minimal
+/// complete basis the `Traversable` CRTP base needs: a declared
+/// `element_type` and `traverse`, probed with a representative witness
+/// callable that lifts an element into `std::optional` (always a
+/// registered applicative context, for any element type). This is the
+/// `MINIMAL` pragma to `traversable_object`'s class declaration --
+/// `for_each`, `transpose`, `traverse_with` and `transpose_with` are all
+/// derived and belong to `traversable_object` alone. Traversable admits
+/// exactly one basis, so there is no disjunction here the way there is for
+/// `applicative_impl` and `foldable_impl`.
+///
+/// An `IMPL` that declares `consuming_traversable_object` is probed a second
+/// time, on an rvalue structure and with a witness that accepts an element
+/// only as an rvalue. That is what makes the declaration a statement rather
+/// than a claim: `traverse_element_t` infers the applicative context from
+/// it, so an `IMPL` that says it consumes and then hands `const` lvalues on
+/// would have a context inferred for a call it never makes. An `IMPL` that
+/// does not declare it is not asked.
 //! \remarks This concept is satisfied when `IMPL` supplies the minimal
-//! complete basis the `Traversable` CRTP base needs: a declared
-//! `element_type` and `traverse`, probed with a representative witness
-//! callable that lifts an element into `std::optional` (always a
-//! registered applicative context, for any element type). This is the
-//! `MINIMAL` pragma to `traversable_object`'s class declaration --
-//! `for_each`, `transpose`, `traverse_with` and `transpose_with` are all
-//! derived and belong to `traversable_object` alone. Traversable admits
-//! exactly one basis, so there is no disjunction here the way there is for
-//! `applicative_impl` and `foldable_impl`.
-//!
-//! An `IMPL` that declares `consuming_traversable_object` is probed a second
-//! time, on an rvalue structure and with a witness that accepts an element
-//! only as an rvalue. That is what makes the declaration a statement rather
-//! than a claim: `traverse_element_t` infers the applicative context from
-//! it, so an `IMPL` that says it consumes and then hands `const` lvalues on
-//! would have a context inferred for a call it never makes. An `IMPL` that
-//! does not declare it is not asked.
+//! complete basis the `Traversable` CRTP base needs: a declared `element_type`
+//! and `traverse`, probed with a representative witness callable that lifts an
+//! element into `optional`. An `IMPL` satisfying
+//! `$consuming-traversable-object$` is additionally probed on an rvalue
+//! structure with a witness accepting an element only as an rvalue. An `IMPL`
+//! that does not declare consumption is not required to support that probe.
 template <class IMPL, class STRUCTURE>
 concept traversable_impl =
     requires(const IMPL &impl, const STRUCTURE &structure) {
@@ -332,29 +364,35 @@ concept traversable_impl =
             std::declval<STRUCTURE>());
     });
 
-//! \remarks This concept is satisfied when `OBJ` provides the full
-//! Traversable object surface over `STRUCTURE`: `traverse`, `for_each` and
-//! `traverse_with`, each probed with a representative witness callable that
-//! lifts an element into `std::optional` (always a registered applicative
-//! context, for any element type). `transpose` and `transpose_with` are
-//! required only where `OBJ::element_type` itself names a registered
-//! applicative context: both are hard-wired to
-//! `applicative<element_type>`, which names no applicative object
-//! for a structure like `std::vector<int>` whose elements are not
-//! themselves an applicative context -- transposing such a structure is not
-//! a meaningful operation, not a missing one, so this concept treats
-//! `transpose`/`transpose_with` as conditional the same way
-//! `applicative_object` treats `ap` and `subsume`. An `OBJ` that declares
-//! `consuming_traversable_object` is probed a second time on an rvalue
-//! structure, for the reason `traversable_impl` records; one that does not
-//! declare it is not asked, and presents `const` lvalues. The condition is
-//! `transposing_object`, which is the one those two operations' own
-//! declarations carry, not a second spelling of it: a condition that merely
-//! asked whether `pure` were usable would be the weaker of the two, and
-//! would demand an operation that is constrained out for every element type
-//! lying between them. This concept does not
-//! require a Foldable object: Traversable needs only an Applicative and the
-//! walk, the DELIBERATE CONSTRAINT `Traversable` itself carries.
+/// This concept is satisfied when `OBJ` provides the full
+/// Traversable object surface over `STRUCTURE`: `traverse`, `for_each` and
+/// `traverse_with`, each probed with a representative witness callable that
+/// lifts an element into `std::optional` (always a registered applicative
+/// context, for any element type). `transpose` and `transpose_with` are
+/// required only where `OBJ::element_type` itself names a registered
+/// applicative context: both are hard-wired to
+/// `applicative<element_type>`, which names no applicative object
+/// for a structure like `std::vector<int>` whose elements are not
+/// themselves an applicative context -- transposing such a structure is not
+/// a meaningful operation, not a missing one, so this concept treats
+/// `transpose`/`transpose_with` as conditional the same way
+/// `applicative_object` treats `ap` and `subsume`. An `OBJ` that declares
+/// `consuming_traversable_object` is probed a second time on an rvalue
+/// structure, for the reason `traversable_impl` records; one that does not
+/// declare it is not asked, and presents `const` lvalues. The condition is
+/// `transposing_object`, which is the one those two operations' own
+/// declarations carry, not a second spelling of it: a condition that merely
+/// asked whether `pure` were usable would be the weaker of the two, and
+/// would demand an operation that is constrained out for every element type
+/// lying between them. This concept does not
+/// require a Foldable object: Traversable needs only an Applicative and the
+/// walk, the DELIBERATE CONSTRAINT `Traversable` itself carries.
+//! \remarks This concept is satisfied when `OBJ` provides the full Traversable
+//! object surface over `STRUCTURE`. An object declaring consumption is
+//! additionally required to accept an rvalue structure with a witness that
+//! accepts only an rvalue element. `transpose` and `transpose_with` are
+//! required only when `OBJ` satisfies `$transposing-object$`. This concept
+//! does not require a Foldable object.
 template <class OBJ, class STRUCTURE>
 concept traversable_object =
     requires(const OBJ &obj, const STRUCTURE &structure) {
@@ -388,12 +426,16 @@ concept traversable_object =
 // \rSec3[transpose.traversable.ops]{Traversal operations}
 
 //! \effects Applies `function` to each element of `value` and transposes the
-//! resulting contextual values, preserving the shape of `value`. The
-//! applicative object is the one `applicative` names for the
-//! context `function` returns.
+//! resulting contextual values, preserving the shape of `value`. The element
+//! is presented through `$traversal-argument-t$<decltype(self), T>`. The
+//! applicative object is the one `applicative` names for the context
+//! `function` returns for that argument type.
 //! \returns The shape of `value` held in that single context.
 //! \complexity Exactly one application of `function` per element of `value`.
-//! \remarks Elements are visited in the structure's iteration order.
+//! \remarks Elements are visited in the structure's iteration order. If `self`
+//! declares consumption and `value` is a non-`const`, non-`volatile` rvalue,
+//! `function` receives rvalue elements; otherwise it receives `const` lvalue
+//! elements.
 template <class Impl>
 template <class T, class F>
 auto derive_traversable<Impl>::for_each(this auto &&self, T &&value,
@@ -429,9 +471,11 @@ auto derive_traversable<Impl>::transpose(this auto &&self, T &&value) {
 
 // \rSec3[transpose.traversable.delegate]{Delegated traversal}
 
-//! \effects Traverses `value` using the traversable object
-//! `traversable_map` rather than `*this`. The applicative object is the one
-//! `applicative` names for the context `function` returns.
+//! \effects Traverses `value` using the traversable object `traversable_map`
+//! rather than `*this`. The element is presented through
+//! `$traversal-argument-t$<TRAVERSABLE_MAP, T>`. The applicative object is the
+//! one `applicative` names for the context `function` returns for that
+//! argument type.
 //! \returns The result of that traversal.
 template <class Impl>
 template <class TRAVERSABLE_MAP, class T, class F>

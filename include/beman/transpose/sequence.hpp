@@ -85,16 +85,20 @@ inline constexpr auto foldable<std::vector<VALUE_TYPE>> =
 /// applicative, collecting the in-context element results into a vector while
 /// preserving the original element order and count.
 //! \expos
+//! \remarks A `vector` handed over as a non-`const`, non-`volatile` rvalue
+//! owns its elements and this instance presents each element to the traversal
+//! function as an rvalue. The declaration is what permits traversal to infer
+//! the consuming function's context before selecting this object.
 template <class VALUE_TYPE>
 struct vector_traversable_impl {
     using element_type = VALUE_TYPE;
 
-    //! \remarks A `vector` handed over as an rvalue owns its elements
-    //! outright, so this instance really does hand them on: the second
-    //! `traverse` overload below presents each element to `function` as an
-    //! rvalue, one move per element where the first overload costs a copy.
-    //! Declaring it is what lets `traverse` infer its context from the
-    //! consuming call before this object has been selected.
+    /// A `vector` handed over as an rvalue owns its elements outright, so
+    /// this instance really does hand them on: the second `traverse` overload
+    /// below presents each element to `function` as an rvalue, one move per
+    /// element where the first overload costs a copy. Declaring it is what
+    /// lets `traverse` infer its context from the consuming call before this
+    /// object has been selected.
     static constexpr bool consumes_rvalue_structure = true;
 
     // \ref{transpose.range.traverse}, traversable instance for vector
@@ -151,6 +155,22 @@ inline constexpr vector_append_t<ELEMENT> vector_append{};
 
 // \rSec3[transpose.range.traverse]{Traversable instance for vector}
 
+/// Traversal preserves shape: the result holds one element per
+/// element of `values`, in the same order. Elements are visited in the
+/// vector's iteration order, and their contexts are composed in that same
+/// order. Preferring `collect` is the Traversable-side instance of the rule
+/// every derived operation in this library follows: an object that supplies
+/// a native operation is asked for it, and one that does not is derived
+/// against unchanged. It is what admits an `applicative` whose composition
+/// is not type-stable -- a pairwise fold must assign each partial result
+/// back into a variable of one type, which a context whose combination names
+/// a new type at every step cannot do -- and the requirement is stated as
+/// the expression rather than as a property of the context so that this
+/// operation stays generic over what supplies it. On the pairwise path the
+/// accumulated result is handed to each composition as an rvalue: composing
+/// it as an lvalue would oblige `applicative` to copy the whole prefix built
+/// so far, once per element, making a successful traversal quadratic rather
+/// than linear in the elements it collects.
 //! \effects Let `E` be the type `function` returns for an element of
 //! `values`. Applies `function` to each element of `values` in order. If
 //! `applicative.collect(v)` is a valid expression for an rvalue `vector<E>`
@@ -163,26 +183,20 @@ inline constexpr vector_append_t<ELEMENT> vector_append{};
 //! \complexity Exactly `values.size()` applications of `function`. Where
 //! `applicative` has no `collect`, `values.size()` composition operations on
 //! `applicative`, and where it composes an rvalue operand without
-//! duplicating the value it holds -- as every applicative object this
-//! library registers does -- the total number of element operations is
+//! duplicating the value it holds -- as every pairwise applicative object
+//! this library registers does -- the total number of element operations is
 //! linear in `values.size()`. Where `applicative` has `collect`, exactly one
 //! composition operation, whose own complexity is that operation's to state.
 //! \remarks Traversal preserves shape: the result holds one element per
 //! element of `values`, in the same order. Elements are visited in the
 //! vector's iteration order, and their contexts are composed in that same
-//! order. Preferring `collect` is the Traversable-side instance of the rule
-//! every derived operation in this library follows: an object that supplies
-//! a native operation is asked for it, and one that does not is derived
-//! against unchanged. It is what admits an `applicative` whose composition
-//! is not type-stable -- a pairwise fold must assign each partial result
-//! back into a variable of one type, which a context whose combination names
-//! a new type at every step cannot do -- and the requirement is stated as
-//! the expression rather than as a property of the context so that this
-//! operation stays generic over what supplies it. On the pairwise path the
-//! accumulated result is handed to each composition as an rvalue: composing
-//! it as an lvalue would oblige `applicative` to copy the whole prefix built
-//! so far, once per element, making a successful traversal quadratic rather
-//! than linear in the elements it collects.
+//! order. A native `collect` is preferred because a runtime-sized pairwise
+//! fold requires every partial composition to have one invariant type, while
+//! some contexts name a new type at each composition. On the pairwise path,
+//! the accumulated result is handed to each composition as an rvalue:
+//! composing it as an lvalue would oblige `applicative` to copy the whole
+//! prefix built so far, once per element, making a successful traversal
+//! quadratic rather than linear in the elements it collects.
 template <class VALUE_TYPE>
 template <class APPLICATIVE, class FUNCTION>
 auto vector_traversable_impl<VALUE_TYPE>::traverse(
