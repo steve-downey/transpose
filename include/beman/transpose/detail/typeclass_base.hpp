@@ -9,6 +9,16 @@
 #include <type_traits>
 #include <utility>
 
+// Every typeclass base uses deducing this (explicit object parameters,
+// P0847). Fail once, here, on a compiler without it -- GCC 13 is the one
+// measured (docs/decisions.md#execution-toolchain-floor) -- instead of with a
+// parser error at every `this auto &&self` member.
+#if !defined(__cpp_explicit_this_parameter) ||                                 \
+    __cpp_explicit_this_parameter < 202110L
+#error                                                                         \
+    "beman.transpose requires C++23 deducing this (P0847): GCC 14 or later, or another compiler that implements it."
+#endif
+
 namespace beman::transpose {
 
 // Design invariants for the typeclass object pattern:
