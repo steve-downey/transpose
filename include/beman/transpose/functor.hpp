@@ -185,11 +185,8 @@ struct fmap_fn {
      */
     template <class F, class T,
               const auto &TC = functor<std::remove_cvref_t<T>>>
+        requires requires { TC.fmap(std::declval<F>(), std::declval<T>()); }
     constexpr auto operator()(F &&function, T &&value) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Functor instance for this type. Specialize "
-                      "beman::transpose::functor<T> with an object "
-                      "providing fmap(f, container).");
         return TC.fmap(std::forward<F>(function), std::forward<T>(value));
     }
 };
@@ -202,11 +199,8 @@ struct replace_fn {
     /** Replaces every element of `value` with `replacement`. */
     template <class T, class U,
               const auto &TC = functor<std::remove_cvref_t<T>>>
+        requires requires { TC.replace(std::declval<T>(), std::declval<U>()); }
     constexpr auto operator()(T &&value, U &&replacement) const {
-        static_assert(has_instance_v<decltype(TC)>,
-                      "No Functor instance for this type. Specialize "
-                      "beman::transpose::functor<T> with an object "
-                      "providing fmap(f, container).");
         return TC.replace(std::forward<T>(value), std::forward<U>(replacement));
     }
 };
