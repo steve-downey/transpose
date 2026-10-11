@@ -3220,8 +3220,11 @@ instance argument, and NTTP pinning.
    with more syntax.
 3. **`pure` and `kleisli` name their context**, `pure<C>(v)`, because they
    produce a context instead of consuming one and nothing deduces it.
-4. **`for_each` gets no object.** At namespace scope it would sit beside
-   `std::for_each` with a different return contract.
+4. **`for_each` gets no object.** It is `traverse` with its arguments in the
+   other order, so an object would be a second name for the same call. (The
+   2026-08-02 text also gave its collision with `std::for_each`; that reason
+   was withdrawn on 2026-10-11, since `invoke` beside `std::invoke` keeps its
+   object. See [operation-object-wording](#operation-object-wording).)
 5. **`traverse` and `transpose` keep their constraints** as objects, policy
    parameter included, and their wording takes the customization-point-object
    shape, `inline constexpr unspecified traverse;`, with the paragraphs
@@ -3311,18 +3314,43 @@ second claim on the name is cheaper to prevent than to undo.
 ## operation-object-wording
 
 **Question:** Which operation objects get normative wording in D3200R0?
-**Status:** OPEN
-**Recorded by:** Steve Downey, 2026-10-10.
-**Context:** `traverse` and `transpose` are specified as operation objects
-(see [operation-objects](#operation-objects)). The Applicative objects in
-`apply.hpp` — `invoke`, `ap`, `pure`, `zip_with`, `discard_first`,
-`discard_second` — are marked `\omit` so the wording generates; their
-semantics are specified today only as members of the applicative object.
-`invoke` is in the paper's list of proposed operations, so it is the first
-candidate. The Functor, Foldable and Monad objects are outside the proposal's
-headers and are not affected.
+**Status:** DECIDED 2026-10-11
+**Decided by:** Steve Downey, 2026-10-11.
+**Decision:** Every operation object in a proposed header is specified. That
+is `traverse` and `transpose`, and the six Applicative objects: `invoke`, `ap`,
+`pure`, `zip_with`, `discard_first` and `discard_second`, in
+[transpose.applicative.objects]. Each takes the customization-point-object
+shape, `inline constexpr unspecified invoke;`, with `pure` as a variable
+template over its context. The Applicative objects are specified as
+equivalent to the member call on `applicative<C>`, since the members already
+carry the semantics.
+
+1. **Constraints, not Mandates.** Every operation object, in every header and
+   not only the proposed ones, is constrained on the call it makes through
+   the instance. An unregistered type is a call that does not match, so
+   `std::is_invocable` reports it. The `static_assert` naming the missing
+   specialization is gone; detectability is worth more than the message, and
+   it is what `traverse`, `transpose` and `fold_map` already did.
+2. **`invoke` keeps its name** beside `std::invoke`. It is the paper's lead
+   verb, and McBride and Paterson's canonical form is that call. The paper
+   states the collision for LEWG next to `empty`'s.
+3. **`for_each` gets no object because it is redundant**, being `traverse`
+   with its arguments swapped. Its collision with `std::for_each` is not the
+   reason, since `invoke`'s collision did not cost it its object; see
+   [operation-objects](#operation-objects) point 4.
+
+**Why:** The paper already said every proposed operation is an object and
+that every operation gets one, while the wording specified two. Each
+Applicative object costs one Constraints and one Effects paragraph against a
+member that is already specified, so narrowing the paper would have saved
+little. The Functor, Foldable and Monad objects are constrained too, but sit
+outside the proposed headers and get no wording.
 **Log:**
-- 2026-10-10 — Recorded when merging PR #25.
+- 2026-10-10 — Recorded OPEN when merging PR #25, with the Applicative
+  objects marked `\omit` so the wording generated.
+- 2026-10-11 — Decided by Steve Downey: all six specified, constrained rather
+  than mandated, `invoke` kept, and the `for_each` rationale reduced to
+  redundancy.
 
 ---
 
