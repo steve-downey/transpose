@@ -7,7 +7,7 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_CXX_STANDARD": "23",
+        "CMAKE_CXX_STANDARD": "26",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "./infra/cmake/use-fetch-content.cmake"
       }
@@ -79,8 +79,10 @@
         "_debug-base"
       ],
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "infra/cmake/appleclang-toolchain.cmake"
-      }
+        "CMAKE_TOOLCHAIN_FILE": "infra/cmake/appleclang-toolchain.cmake",
+        "CMAKE_CXX_STANDARD": "23"
+      },
+      "description": "Held at C++23: Xcode's libc++ rejects std::expected equality at C++26 (recursive constraint satisfaction); upstream Clang with libc++ does not."
     },
     {
       "name": "appleclang-release",
@@ -90,8 +92,10 @@
         "_release-base"
       ],
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "infra/cmake/appleclang-toolchain.cmake"
-      }
+        "CMAKE_TOOLCHAIN_FILE": "infra/cmake/appleclang-toolchain.cmake",
+        "CMAKE_CXX_STANDARD": "23"
+      },
+      "description": "Held at C++23: Xcode's libc++ rejects std::expected equality at C++26 (recursive constraint satisfaction); upstream Clang with libc++ does not."
     },
     {
       "name": "msvc-debug",
