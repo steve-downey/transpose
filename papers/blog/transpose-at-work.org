@@ -88,7 +88,7 @@ It's the same data-layout flip as the ~optional~ case; only the meaning of the c
 
 Nothing about ~transpose~ was overloaded per domain.
 The structure (~vector~) knows how to be walked and rebuilt; each element context (~optional~, ~sender~, ~simd_lanes~) knows how to combine independent computations; ~transpose~ is the fixed rule connecting the two.
-The per-context knowledge lives in two lookup objects, ~traversable_typeclass~ for the structure and ~applicative_typeclass~ for the context, as [[file:adapting-a-type-to-a-typeclass.org][the adaptation post]] described.
+The per-context knowledge lives in two lookup objects, ~traversable~ for the structure and ~applicative~ for the context, as [[file:adapting-a-type-to-a-typeclass.org][the adaptation post]] described.
 
 Which leaves the actual mechanism unexplained.
 The umbrella header states it in one comment: ~transpose~ is ~traverse~ with the identity function.

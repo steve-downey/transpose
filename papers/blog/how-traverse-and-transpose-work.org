@@ -184,7 +184,7 @@ The lanewise context that /does/ go through ~transpose~ is ~simd_lanes~ --- an o
 
 That is the entire theory the series needs.
 Two typeclasses --- one for the shape you walk, one for the effect you combine --- a single operation, ~traverse~, built from the pair, and ~transpose~ as its identity case.
-In the code these are the objects ~traversable_typeclass<Structure>~ and ~applicative_typeclass<Context>~; the next three parts are, in order, how a type /becomes/ one of them, how you /write algorithms/ against them, and who has built this before.
+In the code these are the objects ~traversable<Structure>~ and ~applicative<Context>~; the next three parts are, in order, how a type /becomes/ one of them, how you /write algorithms/ against them, and who has built this before.
 
 * Further reading, not prerequisites
 

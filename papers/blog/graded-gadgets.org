@@ -86,7 +86,7 @@ Code that never mixes error types never sees any of this.
 
 When several operands fail, what should the error be?
 The default object keeps the answer ~expected~ has always given: the leftmost failure wins and the rest are never examined.
-A second object, reached through ~accumulating_applicative_typeclass~, visits every operand and keeps one witness per distinct error type.
+A second object, reached through ~accumulating_applicative~, visits every operand and keeps one witness per distinct error type.
 
 #+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::ae466cba-1a93-4a1d-b148-497958a86145]] :lines 2- :src cpp :end "ae466cba-1a93-4a1d-b148-497958a86145 end"
 

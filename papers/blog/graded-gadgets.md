@@ -1,6 +1,6 @@
-**DRAFT &#x2014; pending author revision**
+**DRAFT &mdash; pending author revision**
 
-<div class="abstract" id="org87d6c0e">
+<div class="abstract" id="org768c2d1">
 <p>
 Combining an <code>expected&lt;int, errc&gt;</code> with an <code>expected&lt;int, io_errc&gt;</code> used to be ill-formed; the applicative demanded that every operand agree on the error type.
 Now it compiles, and the result type is computed for you: <code>expected&lt;int, error_set&lt;errc, io_errc&gt;&gt;</code>.
@@ -11,7 +11,7 @@ The code is from <a href="https://github.com/bemanproject/transpose"><code>beman
 
 </div>
 
-**Next:** [Transpose at Work](transpose-at-work.md) &#x2014; **Up:** [Contents](index.md)
+**Next:** [Transpose at Work](transpose-at-work.md) &mdash; **Up:** [Contents](index.md)
 
 
 # Two libraries, two error types
@@ -24,7 +24,7 @@ The applicative `invoke` from [earlier in this series](how-traverse-and-transpos
     using exp_sys = std::expected<int, std::errc>;
     using exp_io = std::expected<int, std::io_errc>;
 
-    const auto &app = bt::applicative_typeclass<exp_sys>;
+    const auto &app = bt::applicative<exp_sys>;
     auto add = [](int a, int b) { return a + b; };
 
     // Two operands, two DIFFERENT error types. Before grading this call was
@@ -91,7 +91,7 @@ A plain `int` has no error types to contribute. Its grade is the empty set, and 
 
 ```cpp
     using exp_sys = std::expected<int, std::errc>;
-    const auto &app = bt::applicative_typeclass<exp_sys>;
+    const auto &app = bt::applicative<exp_sys>;
     auto add = [](int a, int b) { return a + b; };
 
     // A bare int is empty-graded: joining with the empty set is a no-op, so
@@ -109,7 +109,7 @@ This is what keeps grading additive rather than viral. An unmixed pipeline of `e
 
 # Two composition disciplines
 
-When several operands fail, what should the error be? The default object keeps the answer `expected` has always given: the leftmost failure wins and the rest are never examined. A second object, reached through `accumulating_applicative_typeclass`, visits every operand and keeps one witness per distinct error type.
+When several operands fail, what should the error be? The default object keeps the answer `expected` has always given: the leftmost failure wins and the rest are never examined. A second object, reached through `accumulating_applicative`, visits every operand and keeps one witness per distinct error type.
 
 ```cpp
 using exp_mixed = std::expected<int, bt::error_set<parse_error, range_error>>;
@@ -125,7 +125,7 @@ auto bad_range(int v) -> exp_mixed {
 ```cpp
     // The default object short-circuits: the leftmost failure wins and the
     // rest are never examined.
-    const auto &short_circuit = bt::applicative_typeclass<exp_mixed>;
+    const auto &short_circuit = bt::applicative<exp_mixed>;
     auto first_only = short_circuit.invoke(add, bad_parse(12), bad_range(99));
     std::cout << "short-circuit: holds<parse_error> = " << std::boolalpha
               << first_only.error().holds<parse_error>()
@@ -134,8 +134,7 @@ auto bad_range(int v) -> exp_mixed {
 
     // The accumulating object visits every operand and keeps one witness per
     // distinct error type: the error_set VALUE is the evidence.
-    const auto &accumulating =
-        bt::accumulating_applicative_typeclass<exp_mixed>;
+    const auto &accumulating = bt::accumulating_applicative<exp_mixed>;
     auto both = accumulating.invoke(add, bad_parse(12), bad_range(99));
     std::cout << "accumulating:  witness_count = "
               << both.error().witness_count() << '\n';
@@ -214,9 +213,8 @@ The gadgets compose with the rest of the library. `traverse` maps a fallible fun
     // The trailing policy argument swaps in the accumulating object; the
     // call site is otherwise identical, and now every distinct failure in
     // the traversal is collected.
-    auto collected =
-        bt::traverse(classify, std::vector<int>{1, -7, 500, 3},
-                     bt::accumulating_applicative_typeclass<exp_mixed>);
+    auto collected = bt::traverse(classify, std::vector<int>{1, -7, 500, 3},
+                                  bt::accumulating_applicative<exp_mixed>);
     std::cout << "accumulated over the traversal: witness_count = "
               << collected.error().witness_count() << '\n';
     std::cout << "  parse_error at position "
