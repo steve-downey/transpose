@@ -72,7 +72,7 @@ It's been moderately useful there, which is a weak enough claim that it seemed w
 #+begin_src cpp
 struct fmap_fn {
     template <class F, class T,
-              const auto &TC = typeclass::functor<remove_cvref_t<T>>>
+              const auto &TC = functor<std::remove_cvref_t<T>>>
     constexpr auto operator()(F &&function, T &&value) const {
         static_assert(has_instance_v<decltype(TC)>,
                       "No Functor instance for this type. ...");
