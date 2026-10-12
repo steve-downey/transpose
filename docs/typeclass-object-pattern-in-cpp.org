@@ -188,12 +188,10 @@ This is local policy override --- you can swap in a different implementation wit
 From [[file:../examples/lookup_modes_example.cpp][=examples/lookup_modes_example.cpp=]]:
 
 #+begin_src cpp
-auto explicit_object_lookup_example() -> std::optional<int> {
-    OptionalFunctorObject functor;
-    std::optional<int> value{41};
-
-    return functor.fmap([](int x) { return x + 1; }, value);
-}
+auto fmap_with = [](const auto &tc, const auto &val) {
+    return tc.fmap([](int x) { return x + 1; }, val);
+};
+auto result2 = fmap_with(bt::functor<std::optional<int>>, value);
 #+end_src
 
 ** NTTP Pinning
@@ -202,13 +200,12 @@ Bind the looked-up object as a non-type template parameter default.
 Lookup happens at instantiation time.
 Callers can override it, but the default is stable.
 
-From [[file:../tests/beman/transpose/fold.test.cpp][=tests/beman/transpose/fold.test.cpp=]]:
+From [[file:../examples/lookup_modes_example.cpp][=examples/lookup_modes_example.cpp=]]:
 
 #+begin_src cpp
-template <class STRUCTURE,
-          const auto& FOLDABLE = beman::transpose::foldable<STRUCTURE>>
-auto sum_with_nttp_lookup(const STRUCTURE& structure) {
-    return FOLDABLE.fold_map([](int x) { return x; }, structure);
+template <class CONTEXT, const auto &FUNCTOR = bt::functor<CONTEXT>>
+auto fmap_plus_one(const CONTEXT &value) {
+    return FUNCTOR.fmap([](int x) { return x + 1; }, value);
 }
 #+end_src
 
@@ -286,7 +283,7 @@ C++20 ~concept~ s constrain templates.
 They do not dispatch to implementations.
 
 The typeclass object dispatches.
-~beman::transpose::foldable<T>.fold_map(f, value)~ finds and calls the right implementation for ~T~ at compile time.
+~beman::transpose::foldable<T>.fold_map(f, value, monoid)~ finds and calls the right implementation for ~T~ at compile time.
 
 C++0x Concepts had ~concept_map~ s that would have filled exactly this role.
 They were lost in the transition to Concepts Lite.
@@ -318,7 +315,7 @@ Either ~foldMap~ or ~foldr~ suffices; the other is derived.
 Different types naturally express different primitives.
 
 This codebase supports the same idea.
-The Map struct's ~using~ declaration selects which operation is primitive.
+The CRTP base asks the Impl which primitive it supplies and derives the other from it; the Map says nothing.
 
 The default Foldable for ~Sequence~ uses ~fold_map~ as primitive:
 
@@ -327,15 +324,17 @@ From [[file:../tests/beman/transpose/test_support.hpp][=tests/beman/transpose/te
 #+begin_src cpp
 template <class VALUE_TYPE>
 struct TestSequenceFoldableImpl {
-    template <class FUNCTION>
-    auto fold_map(this auto&&, FUNCTION&& function,
-                  const Sequence<VALUE_TYPE>& sequence) {
-        using Result =
-            remove_cvref_t<std::invoke_result_t<FUNCTION, const VALUE_TYPE&>>;
+    using element_type = VALUE_TYPE;
+
+    template <class FUNCTION, class MONOID>
+    auto fold_map(this auto &&, FUNCTION &&function,
+                  const test::Sequence<VALUE_TYPE> &sequence, MONOID monoid) {
+        using Result = std::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const VALUE_TYPE &>>;
         return std::ranges::fold_left(
-            sequence.values, monoid_identity<Result>(),
-            [&](Result acc, const VALUE_TYPE& value) {
-                return monoid_combine(std::move(acc),
+            sequence.values, Result(monoid.identity()),
+            [&](Result acc, const VALUE_TYPE &value) {
+                return monoid.combine(std::move(acc),
                                       std::invoke(function, value));
             });
     }
@@ -343,52 +342,50 @@ struct TestSequenceFoldableImpl {
 
 template <class VALUE_TYPE>
 struct TestSequenceFoldableMap
-    : derive_foldable<TestSequenceFoldableImpl<VALUE_TYPE>> {
-    using TestSequenceFoldableImpl<VALUE_TYPE>::fold_map;
-};
+    : derive_foldable<TestSequenceFoldableImpl<VALUE_TYPE>> {};
 #+end_src
 
+The monoid is an argument: ~fold_map~ never names one, so the same instance sums under ~sum_monoid<int>{}~ and takes the largest under ~max_monoid<int>{}~.
+
 An alternate Impl can use ~fold_right~ as primitive instead.
-The CRTP base ~derive_foldable<Impl>~ detects this via the ~using~ declaration and derives ~fold_map~ from ~fold_right~ automatically.
+The CRTP base ~derive_foldable<Impl>~ sees which basis the Impl supplies and derives ~fold_map~ from ~fold_right~ automatically.
 
 From [[file:../tests/beman/transpose/fold.test.cpp][=tests/beman/transpose/fold.test.cpp=]]:
 
 #+begin_src cpp
-template <class VALUE_TYPE>
-struct RightFoldSequenceImpl {
-    using element_type = VALUE_TYPE;
+struct FoldRightOnlyImpl {
+    using element_type = int;
 
-    template <class STATE, class F>
-    auto fold_right(this auto&&,
-                    const Sequence<VALUE_TYPE>& seq,
-                    STATE initial, F&& step) {
-        auto acc = std::move(initial);
-        for (auto it = seq.values.rbegin(); it != seq.values.rend(); ++it) {
-            acc = std::invoke(step, *it, std::move(acc));
+    template <class STATE, class FUNCTION>
+    auto fold_right(const std::vector<int> &values, STATE initial_state,
+                    FUNCTION &&function) const -> STATE {
+        STATE state = std::move(initial_state);
+        for (auto it = values.rbegin(); it != values.rend(); ++it) {
+            state = std::invoke(function, *it, std::move(state));
         }
-        return acc;
+        return state;
     }
 };
 
-template <class VALUE_TYPE>
-struct RightFoldSequenceMap : derive_foldable<RightFoldSequenceImpl<VALUE_TYPE>> {
-    using RightFoldSequenceImpl<VALUE_TYPE>::fold_right;
-};
+struct FoldRightOnlyMap : bt::derive_foldable<FoldRightOnlyImpl> {};
 #+end_src
 
-Both produce identical results.
-The tests verify this:
+~fold_map~ and the rest of the family come from that one ~fold_right~.
+The test checks it:
 
 #+begin_src cpp
-const auto& fold_map_foldable = beman::transpose::foldable<Sequence>;
-const auto& fold_right_foldable = right_fold_sequence_map<int>;
+FoldRightOnlyMap m{};
+std::vector<int> xs{1, 2, 3, 4};
 
-CHECK(fold_map_foldable.length(seq) == fold_right_foldable.length(seq));
-CHECK(fold_map_foldable.to_vector(seq) == fold_right_foldable.to_vector(seq));
+REQUIRE(m.fold_map([](int) { return std::size_t{1}; }, xs,
+                   bt::sum_monoid<std::size_t>{}) == 4);
+
+REQUIRE(m.length(xs) == 4);
+REQUIRE(m.to_vector(xs) == xs);
 #+end_src
 
-The ~using~ declaration is the mechanism.
-It is not decorative boilerplate.
+The Map has no ~using~ declaration at all.
+The base decides, per instantiation, from whichever basis the Impl actually provides.
 
 * Algorithm Objects: Inheriting from the Typeclass
 

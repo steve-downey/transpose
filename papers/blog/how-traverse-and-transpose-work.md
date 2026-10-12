@@ -1,4 +1,4 @@
-<div class="abstract" id="orgea792ea">
+<div class="abstract" id="org9d4bb27">
 <p>
 Part one flipped <code>structure&lt;context&lt;T&gt;&gt;</code> into <code>context&lt;structure&lt;T&gt;&gt;</code> with one verb, <code>transpose</code>, across three contexts that share nothing &mdash; and left the machinery unopened.
 This part opens it, and there is less inside than the names suggest.
@@ -135,7 +135,7 @@ This is the same situation as Functor and Foldable: every Foldable worth the nam
    transpose  : structure<C<T>> -> C<structure<T>>             -- = traverse identity
 ```
 
-That is the entire theory the series needs. Two typeclasses &mdash; one for the shape you walk, one for the effect you combine &mdash; a single operation, `traverse`, built from the pair, and `transpose` as its identity case. In the code these are the objects `traversable_typeclass<Structure>` and `applicative_typeclass<Context>`; the next three parts are, in order, how a type *becomes* one of them, how you *write algorithms* against them, and who has built this before.
+That is the entire theory the series needs. Two typeclasses &mdash; one for the shape you walk, one for the effect you combine &mdash; a single operation, `traverse`, built from the pair, and `transpose` as its identity case. In the code these are the objects `traversable<Structure>` and `applicative<Context>`; the next three parts are, in order, how a type *becomes* one of them, how you *write algorithms* against them, and who has built this before.
 
 
 # Further reading, not prerequisites

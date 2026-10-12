@@ -1,4 +1,4 @@
-<div class="abstract" id="orgf54d059">
+<div class="abstract" id="org310820a">
 <p>
 Part two showed how cheap it is to make a type an instance of a typeclass.
 This is the other side of the trade: you are writing the algorithm, and you want it to run over <i>every</i> instance &mdash; the optional, the tree, the SIMD lanes &mdash; with the operation names reading as if they belong to your code, dispatched statically, with no ADL and no central registry.
@@ -14,7 +14,7 @@ This is where the bundled typeclass object beats traits, CPOs, and concepts alon
 
 In part three you owned a type and wanted it to join the club. Here you own an *algorithm* &mdash; a fold that checks a precondition, a traversal that rebuilds a structure, `transpose` itself &mdash; and you want it to work across every type that has joined, without knowing in advance which types those are.
 
-The typeclass object is a value: `foldable_typeclass<T>` is not a tag or a concept, it is an object you can hold and call. That single fact gives the algorithm author three ways to reach an operation, and they matter in different places.
+The typeclass object is a value: `foldable<T>` is not a tag or a concept, it is an object you can hold and call. That single fact gives the algorithm author three ways to reach an operation, and they matter in different places. There's a fourth that doesn't name the object at all.
 
 
 # Three ways to reach an operation
@@ -25,7 +25,7 @@ The typeclass object is a value: `foldable_typeclass<T>` is not a tag or a conce
 The common case. Look the object up by type and call operations on it.
 
 ```cpp
-const auto& functor = beman::transpose::functor_typeclass<std::optional<int>>;
+const auto& functor = beman::transpose::functor<std::optional<int>>;
 auto mapped = functor.fmap([](int x) { return x + 1; }, value);
 ```
 
@@ -42,7 +42,7 @@ From [``examples/lookup_modes_example.cpp``](https://github.com/steve-downey/tra
 auto fmap_with = [](const auto &tc, const auto &val) {
     return tc.fmap([](int x) { return x + 1; }, val);
 };
-auto result2 = fmap_with(bt::functor_typeclass<std::optional<int>>, value);
+auto result2 = fmap_with(bt::functor<std::optional<int>>, value);
 ```
 
 `fmap_with` is handed the instance that lookup would have found anyway, which is the dull case and exactly the one worth showing: the mechanism is argument passing, nothing more. That is also what makes the interesting case available &mdash; substitute a different instance at this one call site, a local policy override with no change to the type involved. A trait or a CPO cannot hand you that, because there is no object to pass.
@@ -55,13 +55,32 @@ Bind the looked-up object as a non-type template parameter with a default. Looku
 From the same file:
 
 ```cpp
-template <class CONTEXT, const auto &FUNCTOR = bt::functor_typeclass<CONTEXT>>
+template <class CONTEXT, const auto &FUNCTOR = bt::functor<CONTEXT>>
 auto fmap_plus_one(const CONTEXT &value) {
     return FUNCTOR.fmap([](int x) { return x + 1; }, value);
 }
 ```
 
 This is the one that matters in serious generic code. The instance is bound at instantiation, not resolved per call. It does not depend on ADL, on overload resolution, or on which namespace the call happens to sit in. If someone specializes the variable template afterward, instantiations you already made are unaffected &mdash; the algorithm's behavior is pinned to what it saw when it was stamped out.
+
+
+## The operation object
+
+The three modes above all name the instance before they name the operation. That's the right order when the instance is the interesting part. Often it isn't.
+
+Every typeclass operation is also available as an object that does the lookup itself:
+
+```cpp
+auto mapped = beman::transpose::fmap([](int x) { return x + 1; }, value);
+```
+
+`fmap` deduces `std::optional<int>` from its second argument, resolves `functor<std::optional<int>>`, and calls through it. The call site says what it wants done and says nothing about who does it.
+
+Two situations want that. Code where everything is local, and a container on the stack gets folded and traversed by one function with no other interest in the instances. And non-template callers: a plain function over concrete types has no template parameter list to hang NTTP pinning on, so before this it either opened with a block of lookup declarations or became a template for no reason of its own.
+
+The cost is pinning itself. An object takes no explicit template arguments, so there's nowhere to put the pin, and `fmap<..., my_functor>(f, v)` doesn't parse. Pinning falls back to the explicit object argument, which was shorter anyway.
+
+One thing these are not is customization points, whatever the shape suggests. Customization still happens once, at `functor<T>`. There is no hook on `fmap`, no ADL path into it, and nothing to specialize that would make it mean anything other than what the instance says.
 
 
 # Make the operations read like they are yours
@@ -73,17 +92,18 @@ So inherit from the instance. The typeclass objects are empty structs, so inheri
 From [``examples/algorithm_object_example.cpp``](https://github.com/steve-downey/transpose/blob/blog/writing-algorithms-with-typeclass-objects/examples/algorithm_object_example.cpp):
 
 ```cpp
-template <class T,
-          const auto &TC = beman::transpose::traversable_typeclass<remove_cvref_t<T>>>
-struct validate_impl : remove_cvref_t<decltype(TC)> {
+template <class T, const auto &TC =
+                       beman::transpose::traversable<std::remove_cvref_t<T>>>
+struct validate_impl : std::remove_cvref_t<decltype(TC)> {
     template <class Pred>
     auto call(Pred &&pred, const T &value) const {
         using element_type =
-            typename remove_cvref_t<decltype(TC)>::element_type;
-        return this->for_each(value,
-            [&](const element_type &elem)
-                -> std::optional<element_type> {
-                if (pred(elem)) return {elem};
+            typename std::remove_cvref_t<decltype(TC)>::element_type;
+        return this->for_each(
+            value,
+            [&](const element_type &elem) -> std::optional<element_type> {
+                if (pred(elem))
+                    return {elem};
                 return std::nullopt;
             });
     }
@@ -99,14 +119,14 @@ When an algorithm needs operations from two typeclasses, inherit from both. Both
 
 ```cpp
 template <class T,
-          const auto &FC = beman::transpose::foldable_typeclass<remove_cvref_t<T>>,
-          const auto &TC = beman::transpose::traversable_typeclass<remove_cvref_t<T>>>
-struct transform_if_large_impl
-    : remove_cvref_t<decltype(FC)>,
-      remove_cvref_t<decltype(TC)> {
-    using foldable_base    = remove_cvref_t<decltype(FC)>;
-    using traversable_base = remove_cvref_t<decltype(TC)>;
-    using element_type     = typename traversable_base::element_type;
+          const auto &FC = beman::transpose::foldable<std::remove_cvref_t<T>>,
+          const auto &TC =
+              beman::transpose::traversable<std::remove_cvref_t<T>>>
+struct transform_if_large_impl : std::remove_cvref_t<decltype(FC)>,
+                                 std::remove_cvref_t<decltype(TC)> {
+    using foldable_base = std::remove_cvref_t<decltype(FC)>;
+    using traversable_base = std::remove_cvref_t<decltype(TC)>;
+    using element_type = typename traversable_base::element_type;
 
     template <class F>
     auto call(std::size_t min_size, F &&f, const T &value) const {
@@ -115,8 +135,8 @@ struct transform_if_large_impl
             return std::optional<T>{};
 
         return this->traversable_base::for_each(
-            value, [&](const element_type &elem)
-                       -> std::optional<element_type> {
+            value,
+            [&](const element_type &elem) -> std::optional<element_type> {
                 return {f(elem)};
             });
     }
@@ -134,9 +154,8 @@ The implementation struct is plumbing. What the caller sees is one `inline const
 struct validate_fn {
     template <class Pred, class T>
     auto operator()(Pred &&pred, T &&value) const {
-        return detail::validate_impl<remove_cvref_t<T>>{}.call(
-            std::forward<Pred>(pred),
-            std::forward<T>(value));
+        return detail::validate_impl<std::remove_cvref_t<T>>{}.call(
+            std::forward<Pred>(pred), std::forward<T>(value));
     }
 };
 inline constexpr validate_fn validate{};
@@ -168,12 +187,12 @@ Everything above is reachable, in pieces, with existing C++ facilities. The clai
 
 ## `std::numeric_limits` &mdash; close, but static and single-typed
 
-The nearest standard analogy. Both are per-type specialized structs of named operations. But `numeric_limits` provides constants and `static` functions, has no derived surface, and is a *class* template &mdash; so every specialization must instantiate the same class template. The typeclass object provides instance functions on a looked-up value, derives a large surface from a small core, and is a *variable* template, so `foldable_typeclass<vector<int>>` and `foldable_typeclass<BinaryTree<int>>` can be completely different types that merely both provide `fold_map`.
+The nearest standard analogy. Both are per-type specialized structs of named operations. But `numeric_limits` provides constants and `static` functions, has no derived surface, and is a *class* template &mdash; so every specialization must instantiate the same class template. The typeclass object provides instance functions on a looked-up value, derives a large surface from a small core, and is a *variable* template, so `foldable<vector<int>>` and `foldable<BinaryTree<int>>` can be completely different types that merely both provide `fold_map`.
 
 
 ## Type traits &mdash; predicates, not operations
 
-`is_integral<T>` answers a question about a type. It does not hand you an operation. `foldable_typeclass<T>` does both at once: it asserts "T is Foldable" by existing, *and* it gives you `fold_map`, `length`, `to_vector`.
+`is_integral<T>` answers a question about a type. It does not hand you an operation. `foldable<T>` does both at once: it asserts "T is Foldable" by existing, *and* it gives you `fold_map`, `length`, `to_vector`.
 
 
 ## CPOs &mdash; ADL, and one operation at a time
@@ -183,7 +202,7 @@ A customization point object like `std::ranges::begin` is a single operation tha
 
 ## Concepts &mdash; constraints, not dispatch
 
-C++20 `concept` s constrain a template; they do not dispatch to an implementation. `foldable_typeclass<T>.fold_map(f, value)` finds and calls the right code for `T`. Worth saying plainly: C++0x Concepts had `concept_map` s meant for exactly this role, and they were lost in the move to Concepts Lite. The variable-template approach is a library-level recovery of that idea. (Bjarne Stroustrup, 2009)
+C++20 `concept` s constrain a template; they do not dispatch to an implementation. `foldable<T>.fold_map(f, value, monoid)` finds and calls the right code for `T`. Worth saying plainly: C++0x Concepts had `concept_map` s meant for exactly this role, and they were lost in the move to Concepts Lite. The variable-template approach is a library-level recovery of that idea. (Bjarne Stroustrup, 2009)
 
 
 ## Rust traits &mdash; the closest relative
@@ -195,7 +214,7 @@ A Rust trait bundles operations with default implementations, types `impl` it ex
 
 This is not a demonstration written once against one type. In this proposal's own repository the same fold and traversal algorithms run, unchanged, over a `BinaryTree<T>` ([``examples/binary_tree.hpp``](https://github.com/steve-downey/transpose/blob/blog/writing-algorithms-with-typeclass-objects/examples/binary_tree.hpp)) *and* over the contextual types from part one &mdash; `optional`, the sender-shaped stand-in, and lanewise ~zip\_list~/SIMD &mdash; which share nothing with a tree and nothing with each other, yet enter through the identical mechanism.
 
-The same `foldable_typeclass` / `traversable_typeclass` machinery reaches further in the coordinated paper set, over structures this paper deliberately leaves to its companions:
+The same `foldable` / `traversable` machinery reaches further in the coordinated paper set, over structures this paper deliberately leaves to its companions:
 
 -   a persistent, concatenable *measured sequence* of finger-tree lineage (Ralf Hinze and Ross Paterson, 2006) &mdash; the subject of the companion persistent-sequence paper (Paper C)
 -   a recursive fixpoint tree `Fix<F>` &mdash; the subject of the companion recursive-tree-algorithms paper (Paper D)

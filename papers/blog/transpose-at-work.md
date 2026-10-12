@@ -1,6 +1,6 @@
-**DRAFT &#x2014; pending author revision**
+**DRAFT &mdash; pending author revision**
 
-<div class="abstract" id="orge842495">
+<div class="abstract" id="orgffeb3a7">
 <p>
 <a href="transposing-structure-and-context.html">The opening post of this series</a> argued that <code>vector&lt;optional&lt;T&gt;&gt;</code> to <code>optional&lt;vector&lt;T&gt;&gt;</code> is one operation, <code>transpose</code>, and that the same verb covers deferred and lanewise computation.
 This post runs it.
@@ -9,7 +9,7 @@ The code is transcluded from a compiled example in the <a href="https://github.c
 
 </div>
 
-**Prev:** [Graded Gadgets](graded-gadgets.md) &#x2014; **Next:** [Transpose Over Real Senders](transpose-over-real-senders.md) &#x2014; **Up:** [Contents](index.md)
+**Prev:** [Graded Gadgets](graded-gadgets.md) &mdash; **Next:** [Transpose Over Real Senders](transpose-over-real-senders.md) &mdash; **Up:** [Contents](index.md)
 
 
 # The loop, gone
@@ -39,6 +39,8 @@ No reserve, no early exit, no accumulate. The declaration `std::optional<std::ve
 
 # Deferral survives the composition
 
+> **Note, added later.** The `sender` in this section is the library's demonstration type, not a `std::execution` sender. It is a `std::function<T()>` thunk, and being type-erased already is exactly what made it easy to transpose &mdash; so it shows that laziness survives the composition, and shows nothing about what the composition costs. [Transpose Over Real Senders](transpose-over-real-senders.md) runs the same front door over genuine P2300 senders, where the fold this post relied on turns out not to be spellable at all.
+
 A `sender` here is the library's minimal stand-in for a P2300 sender: a lazy value that runs when you call `get()`. The interesting property is what `transpose` must *not* do: composing a vector of senders into one sender of a vector had better not run anything.
 
 To make the laziness visible, each sender announces itself when it actually executes.
@@ -62,9 +64,9 @@ To make the laziness visible, each sender announces itself when it actually exec
 ```
 
     composed vector<sender<int>> into sender<vector<int>>; nothing has run yet
-      running the sender for 3
-      running the sender for 2
       running the sender for 1
+      running the sender for 2
+      running the sender for 3
     after get():
       [1, 4, 9]
 
@@ -108,7 +110,7 @@ Lane 0 holds the first element of each position's computation, lane 1 the second
 
 # Three contexts, one specification
 
-Nothing about `transpose` was overloaded per domain. The structure (`vector`) knows how to be walked and rebuilt; each element context (`optional`, `sender`, `simd_lanes`) knows how to combine independent computations; `transpose` is the fixed rule connecting the two. The per-context knowledge lives in two lookup objects, `traversable_typeclass` for the structure and `applicative_typeclass` for the context, as [the adaptation post](adapting-a-type-to-a-typeclass.md) described.
+Nothing about `transpose` was overloaded per domain. The structure (`vector`) knows how to be walked and rebuilt; each element context (`optional`, `sender`, `simd_lanes`) knows how to combine independent computations; `transpose` is the fixed rule connecting the two. The per-context knowledge lives in two lookup objects, `traversable` for the structure and `applicative` for the context, as [the adaptation post](adapting-a-type-to-a-typeclass.md) described.
 
 Which leaves the actual mechanism unexplained. The umbrella header states it in one comment: `transpose` is `traverse` with the identity function. That single sentence, from McBride and Paterson's distributive law (Conor McBride and Ross Paterson, 2008), is the entire implementation, and unpacking it is the next post.
 

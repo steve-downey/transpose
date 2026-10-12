@@ -118,9 +118,10 @@ The implementation struct provides the primitive:
 
 #+begin_src cpp
 struct BinaryTreeFoldableImpl {
-    template <class F>
-    auto fold_map(this auto&& self, F&& f, const example::BinaryTree<int>& t) {
-        // ... one recursive traversal
+    template <class F, class MONOID>
+    auto fold_map(this auto&& self, F&& f, const example::BinaryTree<int>& t,
+                  MONOID monoid) {
+        // ... one recursive traversal, combining with monoid.combine
     }
 };
 #+end_src
@@ -130,8 +131,6 @@ The CRTP base derives everything else from that one function:
 #+begin_src cpp
 template <class Impl>
 struct derive_foldable : protected Impl {
-    using Impl::fold_map;
-
     template <class T>
     auto length(this auto&& self, T&& value) -> std::size_t { ... }
 
@@ -148,13 +147,12 @@ Get ~length~, ~to_vector~, ~fold_left~, ~fold_right~, ~any_of~, ~all_of~, ~empty
 ** Layer 3: The Map (Connecting Impl to Base)
 
 #+begin_src cpp
-struct BinaryTreeFoldableMap : derive_foldable<BinaryTreeFoldableImpl> {
-    using BinaryTreeFoldableImpl::fold_map;
-};
+struct BinaryTreeFoldableMap : derive_foldable<BinaryTreeFoldableImpl> {};
 #+end_src
 
-The ~using~ declaration selects which operation is primitive.
-A different type might provide ~fold_right~ instead of ~fold_map~ as its core --- the CRTP base detects this and derives the rest from whichever primitive is declared.
+The Map names nothing.
+A different type might provide ~fold_right~ instead of ~fold_map~ as its core --- the CRTP base detects which one the Impl supplies and derives the rest from it.
+The monoid is the caller's choice, passed as an argument: ~fold_map(f, tree, sum_monoid<int>{})~ sums and ~fold_map(f, tree, max_monoid<int>{})~ takes the largest.
 
 * Why Variable Template, Not Class Template?
 
@@ -247,18 +245,14 @@ Haskell's ~{-# MINIMAL foldMap | foldr #-}~ lets an instance choose which operat
 Either suffices; the other is derived.
 
 This pattern supports the same idea.
-The ~using~ declaration in the Map struct selects the core:
+The Impl supplies whichever core it has, and the CRTP base works out which one it is:
 
 #+begin_src cpp
-// fold_map as primitive
-struct FoldMapSequenceMap : derive_foldable<FoldMapSequenceImpl> {
-    using FoldMapSequenceImpl::fold_map;
-};
+// fold_map(f, structure, monoid) as primitive
+struct FoldMapSequenceMap : derive_foldable<FoldMapSequenceImpl> {};
 
-// fold_right as primitive
-struct FoldRightSequenceMap : derive_foldable<FoldRightSequenceImpl> {
-    using FoldRightSequenceImpl::fold_right;
-};
+// fold_right(structure, state, f) plus element_type as primitive
+struct FoldRightSequenceMap : derive_foldable<FoldRightSequenceImpl> {};
 #+end_src
 
 Both produce identical derived surfaces.

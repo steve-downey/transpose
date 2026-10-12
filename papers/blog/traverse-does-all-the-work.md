@@ -1,6 +1,6 @@
-**DRAFT &#x2014; pending author revision**
+**DRAFT &mdash; pending author revision**
 
-<div class="abstract" id="org97815f0">
+<div class="abstract" id="org3985d42">
 <p>
 <a href="transpose-at-work.html">The previous post</a> ran <code>transpose</code> over three contexts and ended on a claim: <code>transpose</code> is <code>traverse</code> with the identity function.
 This post makes the claim concrete with running code.
@@ -10,7 +10,7 @@ That pair of ideas is McBride and Paterson's applicative functor and Gibbons and
 
 </div>
 
-**Prev:** [Transpose Over Real Senders](transpose-over-real-senders.md) &#x2014; **Up:** [Contents](index.md)
+**Prev:** [Transpose Over Real Senders](transpose-over-real-senders.md) &mdash; **Up:** [Contents](index.md)
 
 
 # One function, applied under effects
@@ -49,7 +49,7 @@ One walk. Each element is mapped through `halve`, and the per-element `optional`
 
 # The context is the return type
 
-Nothing in that call named `optional`. `traverse` deduces the context by asking what the function returns for one element, then looks up `applicative_typeclass` for that type. Change the function's return type and a different context's rules apply; the traversal does not change.
+Nothing in that call named `optional`. `traverse` deduces the context by asking what the function returns for one element, then looks up `applicative` for that type. Change the function's return type and a different context's rules apply; the traversal does not change.
 
 ```cpp
     // The applicative context is whatever the function returns. Same
@@ -75,8 +75,8 @@ The deduction in the library is what you'd write by hand:
 
 ```cpp
 using Context =
-    remove_cvref_t<std::invoke_result_t<F, const element_type &>>;
-const auto &applicative = applicative_typeclass<Context>;
+    std::remove_cvref_t<std::invoke_result_t<F &, const element_type &>>;
+const auto &applicative_map = applicative<Context>;
 ```
 
 
@@ -108,9 +108,9 @@ And that's not an analogy; it's the implementation. Every Traversable instance i
 template <class T>
 auto transpose(this auto &&self, T &&value) {
     using Context = element_type;
-    const auto &applicative = applicative_typeclass<Context>;
+    const auto &applicative_map = applicative<Context>;
     return self.traverse(
-        applicative, [](auto &&x) { return std::forward<decltype(x)>(x); },
+        applicative_map, [](auto &&x) { return std::forward<decltype(x)>(x); },
         std::forward<T>(value));
 }
 ```
@@ -126,7 +126,7 @@ Everything above leans on one object per context. What does a context actually h
     // The applicative object is the whole interface traverse needs from a
     // context: pure lifts a plain value in, invoke applies a plain function
     // across contextual arguments.
-    const auto &app = bt::applicative_typeclass<std::optional<int>>;
+    const auto &app = bt::applicative<std::optional<int>>;
 
     auto lifted = app.pure(7);
     std::cout << "pure(7): " << *lifted << '\n';

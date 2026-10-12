@@ -51,7 +51,7 @@ Mapping first and transposing second would allocate an intermediate ~vector<opti
 * The context is the return type
 
 Nothing in that call named ~optional~.
-~traverse~ deduces the context by asking what the function returns for one element, then looks up ~applicative_typeclass~ for that type.
+~traverse~ deduces the context by asking what the function returns for one element, then looks up ~applicative~ for that type.
 Change the function's return type and a different context's rules apply; the traversal does not change.
 
 #+transclude: [[orgit-file:~/src/transpose/main::blog/traverse-does-all-the-work::examples/traverse_post_example.cpp::4e59fcf2-1ec2-4568-858f-836533f9fe89]] :lines 2- :src cpp :end "4e59fcf2-1ec2-4568-858f-836533f9fe89 end"
@@ -64,8 +64,8 @@ The deduction in the library is what you'd write by hand:
 
 #+begin_src cpp
 using Context =
-    remove_cvref_t<std::invoke_result_t<F, const element_type &>>;
-const auto &applicative = applicative_typeclass<Context>;
+    std::remove_cvref_t<std::invoke_result_t<F &, const element_type &>>;
+const auto &applicative_map = applicative<Context>;
 #+end_src
 
 * transpose is traverse with identity
@@ -86,9 +86,9 @@ Every Traversable instance in the library supplies ~traverse~ and inherits ~tran
 template <class T>
 auto transpose(this auto &&self, T &&value) {
     using Context = element_type;
-    const auto &applicative = applicative_typeclass<Context>;
+    const auto &applicative_map = applicative<Context>;
     return self.traverse(
-        applicative, [](auto &&x) { return std::forward<decltype(x)>(x); },
+        applicative_map, [](auto &&x) { return std::forward<decltype(x)>(x); },
         std::forward<T>(value));
 }
 #+end_src

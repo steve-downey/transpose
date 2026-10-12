@@ -113,14 +113,12 @@ From [[file:../examples/binary_tree.hpp][=examples/binary_tree.hpp=]]:
 
 #+begin_src cpp
 struct BinaryTreeFoldableImpl {
-    template <class F>
+    template <class F, class MONOID>
     auto fold_map(this auto&& self, F&& f,
-                  const example::BinaryTree<T>& t) { /* ... */ }
+                  const example::BinaryTree<T>& t, MONOID monoid) { /* ... */ }
 };
 
-struct BinaryTreeFoldableMap : derive_foldable<BinaryTreeFoldableImpl> {
-    using BinaryTreeFoldableImpl::fold_map;
-};
+struct BinaryTreeFoldableMap : derive_foldable<BinaryTreeFoldableImpl> {};
 
 template <class T>
 inline constexpr auto beman::transpose::foldable<example::BinaryTree<T>> =

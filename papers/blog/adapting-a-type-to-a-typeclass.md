@@ -1,4 +1,4 @@
-<div class="abstract" id="orga631cf4">
+<div class="abstract" id="org1e11e15">
 <p>
 Part one ended on a puzzle: <code>optional</code>, a <code>std::execution</code> sender, and a lanewise SIMD value share no base class, no common header, no member named <code>transpose</code> &mdash; yet each answers to the same call.
 This is how, from the side that matters most to you if you own a type: what does it cost to make <i>your</i> type join in?
@@ -29,7 +29,7 @@ From [``include/beman/transpose/fold.hpp``](https://github.com/steve-downey/tran
 
 ```cpp
 template <class T>
-inline constexpr auto foldable_typeclass = std::false_type{};
+inline constexpr auto foldable = std::false_type{};
 ```
 
 The default is `std::false_type`: no instance. A type is Foldable exactly when someone has specialized this variable template for it. Nothing is Foldable until it opts in, and opting in is a specialization.
@@ -43,8 +43,8 @@ From [``examples/binary_tree.hpp``](https://github.com/steve-downey/transpose/bl
 
 ```cpp
 template <class T>
-inline constexpr auto foldable_typeclass<BinaryTree<T>> =
-    BinaryTreeFoldableMap<T>{};
+inline constexpr auto foldable<example::BinaryTree<T>> =
+    example::BinaryTreeFoldableMap<T>{};
 ```
 
 Three lines, and look at what is *not* here.
@@ -55,7 +55,7 @@ That "from the outside" is the part that matters when the type is not yours. `st
 
 ```cpp
 template <class VALUE_TYPE>
-inline constexpr auto functor_typeclass<std::optional<VALUE_TYPE>> =
+inline constexpr auto functor<std::optional<VALUE_TYPE>> =
     OptionalFunctorMap<VALUE_TYPE>{};
 ```
 
@@ -83,13 +83,13 @@ From [``include/beman/transpose/functor.hpp``](https://github.com/steve-downey/t
 template <class VALUE_TYPE>
 struct OptionalFunctorImpl {
     template <class F>
-    auto fmap(this auto&&, F&& function,
-              const std::optional<VALUE_TYPE>& value) {
-        using Result = std::invoke_result_t<F, const VALUE_TYPE&>;
+    auto fmap(this auto &&, F &&function,
+              const std::optional<VALUE_TYPE> &value) {
+        using Result = std::invoke_result_t<F, const VALUE_TYPE &>;
         if (!value) {
-            return std::optional<remove_cvref_t<Result>>{};
+            return std::optional<std::remove_cvref_t<Result>>{};
         }
-        return std::optional<remove_cvref_t<Result>>{
+        return std::optional<std::remove_cvref_t<Result>>{
             std::invoke(std::forward<F>(function), *value)};
     }
 };
@@ -97,29 +97,27 @@ struct OptionalFunctorImpl {
 
 (The `this auto&&` is C++23 deducing `this`; it carries value category and constness through without a hand-written overload set.)
 
-****Layer 2 &mdash; the derived surface, for free.**** The CRTP base `Functor<Impl>` inherits your `Impl` and adds `replace`, defined in terms of your `fmap`:
+****Layer 2 &mdash; the derived surface, for free.**** The CRTP base `derive_functor<Impl>` inherits your `Impl` and adds `replace`, defined in terms of your `fmap`. In outline:
 
 ```cpp
 template <class Impl>
-struct Functor : protected Impl {
-    using Impl::fmap;
-
+struct derive_functor : protected Impl {
     template <class T, class U>
-    auto replace(this auto&& self, T&& value, U&& replacement) {
+    auto replace(this auto &&self, T &&value, U &&replacement) {
         return self.fmap([replacement = std::forward<U>(replacement)](
-                             const auto&) { return replacement; },
+                             const auto &) { return replacement; },
                          std::forward<T>(value));
     }
 };
 ```
 
-You wrote one function; the user got two.
+The real base also exposes your `fmap`, and it asks your `Impl` for a `replace` of its own first, deriving one only when there isn't one. You wrote one function; the user got two.
 
 ****Layer 3 &mdash; the Map, which wires it together and names the primitive:****
 
 ```cpp
 template <class VALUE_TYPE>
-struct OptionalFunctorMap : Functor<OptionalFunctorImpl<VALUE_TYPE>> {
+struct OptionalFunctorMap : derive_functor<OptionalFunctorImpl<VALUE_TYPE>> {
     using OptionalFunctorImpl<VALUE_TYPE>::fmap;
 };
 ```
@@ -136,6 +134,37 @@ Here is the whole implementer surface, across the four typeclasses this design u
 | Traversable | `traverse`                   | `transpose`, `for_each`, `traverse_with`, `transpose_with`                                                                           |
 
 Write one or two functions. Get a full API. That is the trade, and it is why adapting a type is cheap enough to actually do.
+
+`fold_map` maps every element into a monoid and combines the results, and an `int` has several monoids: addition, multiplication, maximum, minimum. Haskell's `foldMap` finds its monoid by type, so it picks among those by making you wrap the value &mdash; `Sum`, `Product`, `Max`. Here the monoid is an *instance*, passed as an argument, the same way the typeclass instance is a value rather than a type. The tree's primitive takes it and never names one:
+
+From [``examples/binary_tree.hpp``](https://github.com/steve-downey/transpose/blob/blog/adapting-a-type-to-a-typeclass/examples/binary_tree.hpp):
+
+```cpp
+template <class F, class MONOID>
+auto fold_map(this auto &&self, F &&function, const BinaryTree<T> &tree,
+              MONOID monoid)
+    -> std::remove_cvref_t<decltype(std::invoke(function, tree.value()))> {
+    auto value_result = std::invoke(function, tree.value());
+    using Result = std::remove_cvref_t<decltype(value_result)>;
+
+    // A tree is never empty, so the identity is never needed: every
+    // combine has a real operand on both sides.
+    Result acc =
+        tree.has_left()
+            ? monoid.combine(self.fold_map(function, tree.left(), monoid),
+                             std::move(value_result))
+            : std::move(value_result);
+
+    if (tree.has_right()) {
+        acc = monoid.combine(std::move(acc),
+                             self.fold_map(function, tree.right(), monoid));
+    }
+
+    return acc;
+}
+```
+
+The caller chooses: `fold_map(f, tree, sum_monoid<int>{})` sums, `fold_map(f, tree, max_monoid<int>{})` takes the largest, and nothing about `int` changed. Where a type has one obvious monoid &mdash; concatenation for `std::string` and `std::vector` &mdash; it is registered, and `fold_map(f, tree)` uses it. Where there is no obvious one, as for `int`, the two-argument call does not compile; the library will not choose for you.
 
 
 # The technique is optional; the contract is not
@@ -158,7 +187,7 @@ class Foldable t where
   {-# MINIMAL foldMap | foldr #-}
 ```
 
-Either primitive suffices; the base derives the other. A type contributes whichever one is natural for it. This design does the same, and the Map's `using` declaration is the switch: it names which operation you are supplying as primitive, and the CRTP base fills in the rest &mdash; including deriving your missing "primitive" from the one you did provide.
+Either primitive suffices; the base derives the other. A type contributes whichever one is natural for it. This design does the same: the CRTP base asks your `Impl` which of the two it supplies and derives the other from it.
 
 For Foldable that is a nicety &mdash; `fold_map` and `fold_right` each recover the other. Applicative is where the choice of primitive stops being cosmetic, and the case that forced the design is `std::simd`.
 
