@@ -127,9 +127,8 @@ What generates what</h1>
 </table>
 <p><code>--split</code> never deletes files an earlier run left behind, so the ordered manifest is written beside the fragments; it is the record the paper's include order is reconciled against. One render writes one manifest, <code>transpose.manifest</code>, for the whole paper in paper order &ndash; the per-header manifests date from when each header was rendered on its own, and are replaced the first time a render succeeds.</p>
 <p>**<code>make wording</code> succeeds, and <code>make wording-check</code> passes.** The checked-in fragments are what the headers generate. When a fragment's text needs to change, change the header's <code>//!</code> markup and regenerate; a hand edit to a fragment is drift by definition, and the September 2026 round of them took a pass of its own to carry back. Keep the normative text in <code>//!</code> and the rationale beside it in <code>///</code>, which is stripped.</p>
-<p>Three specgen gaps leave authored wording unrendered, silently:</p>
+<p>Generating needs specgen with steve-downey/specgen#124, which renders the description of an exposition-only entity. Two specgen gaps remain, and neither is reported:</p>
 <ul>
-<li>A description on a namespace-scope <code>\expos</code> entity is dropped. <code>consuming_traversable_object</code> and <code>traversal_argument_t</code> in <code>traverse.hpp</code> carry their wording in <code>//!</code> already, so it renders once specgen does.</li>
 <li>A description on a data member in a class body that routes it nowhere is dropped, without the routing error a member function gets. Put such wording in the class's own docblock instead, as <code>vector_traversable_impl</code> does.</li>
 <li>A derived Constraints paragraph keeps a <code>std::</code> qualifier the itemdecl drops (<code>traverse_with</code> in <code>transpose.traversable.delegate.md</code>).</li>
 </ul>
